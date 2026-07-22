@@ -1,0 +1,22 @@
+// Bootstrap 5 variable overrides go here, before the import.
+@import "bootstrap/scss/bootstrap";
+@import "bootstrap-icons/font/bootstrap-icons.css";
+@import "datatables.net-bs5";
+
+// Admin shell custom styles
+.admin-sidebar {
+    min-height: 100vh;
+}
+
+.admin-sidebar .nav-link {
+    color: var(--bs-secondary-color);
+}
+
+.admin-sidebar .nav-link.active {
+    color: var(--bs-emphasis-color);
+    font-weight: 600;
+}
+
+.admin-content {
+    min-height: 100vh;
+}
