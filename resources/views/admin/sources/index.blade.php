@@ -39,6 +39,9 @@
                             </td>
                             <td class="text-end">
                                 @can('sources.update')
+                                    <a href="{{ route('admin.sources.mappings.edit', $source) }}" class="btn btn-sm btn-outline-secondary" title="{{ __('Mapping des colonnes') }}">
+                                        <i class="bi bi-diagram-2"></i>
+                                    </a>
                                     <a href="{{ route('admin.sources.edit', $source) }}" class="btn btn-sm btn-outline-secondary">
                                         <i class="bi bi-pencil"></i>
                                     </a>

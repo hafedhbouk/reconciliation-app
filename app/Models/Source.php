@@ -58,4 +58,9 @@ class Source extends Model
     {
         return $this->belongsToMany(MatchingRule::class, 'matching_rule_sources');
     }
+
+    public function columnMappings(): HasMany
+    {
+        return $this->hasMany(SourceColumnMapping::class);
+    }
 }

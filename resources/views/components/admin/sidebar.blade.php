@@ -11,6 +11,17 @@
             </a>
         </li>
 
+        @can('imports.viewAny')
+            <li class="nav-item mt-3">
+                <span class="text-uppercase text-secondary small fw-semibold px-2">{{ __('Imports') }}</span>
+            </li>
+            <li class="nav-item">
+                <a href="{{ route('admin.imports.index') }}" class="nav-link {{ request()->routeIs('admin.imports.*') ? 'active' : '' }}">
+                    <i class="bi bi-upload me-2"></i>{{ __('Imports') }}
+                </a>
+            </li>
+        @endcan
+
         @canany(['banks.viewAny', 'sources.viewAny', 'currencies.viewAny', 'holidays.viewAny', 'settings.viewAny'])
             <li class="nav-item mt-3">
                 <span class="text-uppercase text-secondary small fw-semibold px-2">{{ __('Paramétrage') }}</span>

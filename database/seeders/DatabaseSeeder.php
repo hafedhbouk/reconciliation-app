@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             CurrencySeeder::class,
             BankSeeder::class,
             SourceSeeder::class,
+            SourceColumnMappingSeeder::class,
             SettingSeeder::class,
         ]);
     }

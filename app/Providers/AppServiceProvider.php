@@ -7,6 +7,7 @@ use App\Listeners\LogSuccessfulLogin;
 use App\Listeners\LogSuccessfulLogout;
 use App\Repositories\EloquentSettingsRepository;
 use App\Repositories\SettingsRepositoryInterface;
+use App\Services\Import\TransformRegistry;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(SettingsRepositoryInterface::class, EloquentSettingsRepository::class);
+        $this->app->singleton(TransformRegistry::class);
     }
 
     /**

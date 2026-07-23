@@ -16,6 +16,7 @@ class RolePermissionSeeder extends Seeder
         'settings',
         'users',
         'roles',
+        'imports',
     ];
 
     private const ABILITIES = ['viewAny', 'view', 'create', 'update', 'delete', 'restore'];
@@ -45,9 +46,13 @@ class RolePermissionSeeder extends Seeder
             'currencies.viewAny', 'currencies.view',
             'holidays.viewAny', 'holidays.view',
             'settings.viewAny', 'settings.view',
+            'imports.viewAny', 'imports.view',
         ]);
 
-        // Placeholder for Phase 2/3 import/matching permissions.
-        Role::findOrCreate('operator');
+        $operator = Role::findOrCreate('operator');
+        $operator->syncPermissions([
+            'imports.viewAny', 'imports.view', 'imports.create',
+            'sources.viewAny', 'sources.view', 'sources.update',
+        ]);
     }
 }
