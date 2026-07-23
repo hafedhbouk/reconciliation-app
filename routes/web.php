@@ -3,8 +3,13 @@
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\BankController;
 use App\Http\Controllers\Admin\CurrencyController;
+use App\Http\Controllers\Admin\ExceptionAttachmentController;
+use App\Http\Controllers\Admin\ExceptionController;
 use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\ImportController;
+use App\Http\Controllers\Admin\MatchingResultController;
+use App\Http\Controllers\Admin\MatchingRuleController;
+use App\Http\Controllers\Admin\ReconciliationController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SourceController;
@@ -47,6 +52,26 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('imports/data', [ImportController::class, 'data'])->name('imports.data');
     Route::resource('imports', ImportController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('imports/{import}/process', [ImportController::class, 'process'])->name('imports.process');
+
+    Route::get('matching-rules/data', [MatchingRuleController::class, 'data'])->name('matching-rules.data');
+    Route::post('matching-rules/run-all', [MatchingRuleController::class, 'runAll'])->name('matching-rules.run-all');
+    Route::post('matching-rules/detect-duplicates', [MatchingRuleController::class, 'detectDuplicates'])->name('matching-rules.detect-duplicates');
+    Route::post('matching-rules/sweep-unmatched', [MatchingRuleController::class, 'sweepUnmatched'])->name('matching-rules.sweep-unmatched');
+    Route::post('matching-rules/{matching_rule}/run', [MatchingRuleController::class, 'run'])->name('matching-rules.run');
+    Route::resource('matching-rules', MatchingRuleController::class)->except('show');
+
+    Route::get('matching-results/data', [MatchingResultController::class, 'data'])->name('matching-results.data');
+    Route::resource('matching-results', MatchingResultController::class)->only(['index', 'show']);
+
+    Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
+    Route::get('reconciliation/search', [ReconciliationController::class, 'search'])->name('reconciliation.search');
+    Route::post('reconciliation', [ReconciliationController::class, 'store'])->name('reconciliation.store');
+
+    Route::get('exceptions/data', [ExceptionController::class, 'data'])->name('exceptions.data');
+    Route::resource('exceptions', ExceptionController::class)->only(['index', 'show', 'update']);
+    Route::post('exceptions/{exception}/attachments', [ExceptionAttachmentController::class, 'store'])->name('exceptions.attachments.store');
+    Route::get('exceptions/{exception}/attachments/{attachment}/download', [ExceptionAttachmentController::class, 'download'])->name('exceptions.attachments.download');
+    Route::delete('exceptions/{exception}/attachments/{attachment}', [ExceptionAttachmentController::class, 'destroy'])->name('exceptions.attachments.destroy');
 });
 
 require __DIR__.'/auth.php';

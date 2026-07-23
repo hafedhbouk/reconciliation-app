@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             SourceSeeder::class,
             SourceColumnMappingSeeder::class,
             SettingSeeder::class,
+            MatchingRuleSeeder::class,
         ]);
     }
 }

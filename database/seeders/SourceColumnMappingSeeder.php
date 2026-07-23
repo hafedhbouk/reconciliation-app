@@ -17,7 +17,11 @@ use Illuminate\Database\Seeder;
  * (98.7% and 100% of distinct values respectively) and with WEB's
  * "Identifiant de la réponse d'autorisation". Those are mapped as the core
  * `reference` field; each source's own internal reference becomes an
- * auxiliary `secondary_reference` instead.
+ * auxiliary `secondary_reference` instead. A second correction, found only
+ * once Phase 3's matching engine ran against real re-imported data: SMT's
+ * `date` field must come from `date_paiement`, not the more obviously-named
+ * `DATE_FORMAT(`date_au`, '%d%m%Y')` column -- see seedSmt() for the
+ * cross-source evidence.
  *
  * STEG has no sample file (client-confirmed). Its rows below are placeholders
  * built only from the client's written rules — source_column names are
@@ -119,9 +123,17 @@ class SourceColumnMappingSeeder extends Seeder
             ['key' => 'fixed_width_millimes'],
         ], required: true, order: 2);
 
-        // Literal header text — a leftover SQL expression string in the real export.
-        $this->upsert($source, 'date', "DATE_FORMAT(`date_au`, '%d%m%Y')", [
-            ['key' => 'date_parse', 'config' => ['format' => 'dmY', 'output' => 'date']],
+        // Correction (found via Phase 3 live cross-source matching, not assumption):
+        // `DATE_FORMAT(`date_au`, '%d%m%Y')` looks like the obvious "date" field by
+        // name, but its values are unrelated to the actual transaction date -- e.g.
+        // reference 977032 carries date_au = 16/12/2025 while every other source
+        // (and SMT's own date_paiement) agrees on 01/01/2026. date_paiement is the
+        // field that actually matches BNA/ALPHA/WEB's transaction date, verified
+        // across dozens of overlapping references. DATE_FORMAT(...) has no known
+        // reconciliation role and is intentionally left unmapped, same treatment as
+        // `session` (Phase 2 note: "no known role -- leave unmapped").
+        $this->upsert($source, 'date', 'date_paiement', [
+            ['key' => 'date_parse', 'config' => ['format' => 'Y-m-d H:i:s', 'output' => 'date']],
         ], required: true, order: 3);
 
         $this->upsert($source, 'datetime', 'date_paiement', [

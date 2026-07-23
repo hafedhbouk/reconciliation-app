@@ -18,4 +18,14 @@ enum MatchingResultStatus: string
             self::Rejected => 'Rejeté',
         };
     }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Matched => 'bg-success',
+            self::Partial => 'bg-warning text-dark',
+            self::Conflict => 'bg-danger',
+            self::Rejected => 'bg-secondary',
+        };
+    }
 }

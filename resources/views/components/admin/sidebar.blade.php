@@ -22,6 +22,40 @@
             </li>
         @endcan
 
+        @canany(['matching-rules.viewAny', 'matching-results.viewAny', 'exceptions.viewAny'])
+            <li class="nav-item mt-3">
+                <span class="text-uppercase text-secondary small fw-semibold px-2">{{ __('Rapprochement') }}</span>
+            </li>
+            @can('matching-rules.viewAny')
+                <li class="nav-item">
+                    <a href="{{ route('admin.matching-rules.index') }}" class="nav-link {{ request()->routeIs('admin.matching-rules.*') ? 'active' : '' }}">
+                        <i class="bi bi-signpost-split me-2"></i>{{ __('Règles de rapprochement') }}
+                    </a>
+                </li>
+            @endcan
+            @can('matching-results.viewAny')
+                <li class="nav-item">
+                    <a href="{{ route('admin.matching-results.index') }}" class="nav-link {{ request()->routeIs('admin.matching-results.*') ? 'active' : '' }}">
+                        <i class="bi bi-link-45deg me-2"></i>{{ __('Résultats de rapprochement') }}
+                    </a>
+                </li>
+            @endcan
+            @can('matching-results.create')
+                <li class="nav-item">
+                    <a href="{{ route('admin.reconciliation.index') }}" class="nav-link {{ request()->routeIs('admin.reconciliation.*') ? 'active' : '' }}">
+                        <i class="bi bi-hand-index-thumb me-2"></i>{{ __('Rapprochement manuel') }}
+                    </a>
+                </li>
+            @endcan
+            @can('exceptions.viewAny')
+                <li class="nav-item">
+                    <a href="{{ route('admin.exceptions.index') }}" class="nav-link {{ request()->routeIs('admin.exceptions.*') ? 'active' : '' }}">
+                        <i class="bi bi-exclamation-triangle me-2"></i>{{ __('Exceptions') }}
+                    </a>
+                </li>
+            @endcan
+        @endcanany
+
         @canany(['banks.viewAny', 'sources.viewAny', 'currencies.viewAny', 'holidays.viewAny', 'settings.viewAny'])
             <li class="nav-item mt-3">
                 <span class="text-uppercase text-secondary small fw-semibold px-2">{{ __('Paramétrage') }}</span>

@@ -17,6 +17,9 @@ class RolePermissionSeeder extends Seeder
         'users',
         'roles',
         'imports',
+        'matching-rules',
+        'matching-results',
+        'exceptions',
     ];
 
     private const ABILITIES = ['viewAny', 'view', 'create', 'update', 'delete', 'restore'];
@@ -47,12 +50,18 @@ class RolePermissionSeeder extends Seeder
             'holidays.viewAny', 'holidays.view',
             'settings.viewAny', 'settings.view',
             'imports.viewAny', 'imports.view',
+            'matching-rules.viewAny', 'matching-rules.view',
+            'matching-results.viewAny', 'matching-results.view',
+            'exceptions.viewAny', 'exceptions.view',
         ]);
 
         $operator = Role::findOrCreate('operator');
         $operator->syncPermissions([
             'imports.viewAny', 'imports.view', 'imports.create',
             'sources.viewAny', 'sources.view', 'sources.update',
+            'matching-rules.viewAny', 'matching-rules.view',
+            'matching-results.viewAny', 'matching-results.view', 'matching-results.create',
+            'exceptions.viewAny', 'exceptions.view', 'exceptions.update',
         ]);
     }
 }
