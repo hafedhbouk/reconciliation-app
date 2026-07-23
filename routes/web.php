@@ -59,14 +59,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('imports/{import}/process', [ImportController::class, 'process'])->name('imports.process');
 
     Route::get('matching-rules/data', [MatchingRuleController::class, 'data'])->name('matching-rules.data');
-    Route::post('matching-rules/run-all', [MatchingRuleController::class, 'runAll'])->name('matching-rules.run-all');
-    Route::post('matching-rules/detect-duplicates', [MatchingRuleController::class, 'detectDuplicates'])->name('matching-rules.detect-duplicates');
-    Route::post('matching-rules/sweep-unmatched', [MatchingRuleController::class, 'sweepUnmatched'])->name('matching-rules.sweep-unmatched');
-    Route::post('matching-rules/{matching_rule}/run', [MatchingRuleController::class, 'run'])->name('matching-rules.run');
+    Route::post('matching-rules/run-all', [MatchingRuleController::class, 'runAll'])->middleware('throttle:expensive-actions')->name('matching-rules.run-all');
+    Route::post('matching-rules/detect-duplicates', [MatchingRuleController::class, 'detectDuplicates'])->middleware('throttle:expensive-actions')->name('matching-rules.detect-duplicates');
+    Route::post('matching-rules/sweep-unmatched', [MatchingRuleController::class, 'sweepUnmatched'])->middleware('throttle:expensive-actions')->name('matching-rules.sweep-unmatched');
+    Route::post('matching-rules/{matching_rule}/run', [MatchingRuleController::class, 'run'])->middleware('throttle:expensive-actions')->name('matching-rules.run');
     Route::resource('matching-rules', MatchingRuleController::class)->except('show');
 
     Route::get('matching-results/data', [MatchingResultController::class, 'data'])->name('matching-results.data');
-    Route::get('matching-results/export/{format}', [MatchingResultController::class, 'export'])->name('matching-results.export');
+    Route::get('matching-results/export/{format}', [MatchingResultController::class, 'export'])->middleware('throttle:expensive-actions')->name('matching-results.export');
     Route::resource('matching-results', MatchingResultController::class)->only(['index', 'show']);
 
     Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
@@ -74,7 +74,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('reconciliation', [ReconciliationController::class, 'store'])->name('reconciliation.store');
 
     Route::get('exceptions/data', [ExceptionController::class, 'data'])->name('exceptions.data');
-    Route::get('exceptions/export/{format}', [ExceptionController::class, 'export'])->name('exceptions.export');
+    Route::get('exceptions/export/{format}', [ExceptionController::class, 'export'])->middleware('throttle:expensive-actions')->name('exceptions.export');
     Route::resource('exceptions', ExceptionController::class)->only(['index', 'show', 'update']);
     Route::post('exceptions/{exception}/attachments', [ExceptionAttachmentController::class, 'store'])->name('exceptions.attachments.store');
     Route::get('exceptions/{exception}/attachments/{attachment}/download', [ExceptionAttachmentController::class, 'download'])->name('exceptions.attachments.download');
@@ -82,7 +82,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     Route::get('search', [SearchController::class, 'index'])->name('search.index');
     Route::get('search/data', [SearchController::class, 'data'])->name('search.data');
-    Route::get('search/export/{format}', [SearchController::class, 'export'])->name('search.export');
+    Route::get('search/export/{format}', [SearchController::class, 'export'])->middleware('throttle:expensive-actions')->name('search.export');
 });
 
 require __DIR__.'/auth.php';

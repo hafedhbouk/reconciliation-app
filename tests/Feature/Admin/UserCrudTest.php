@@ -24,7 +24,7 @@ test('admin can create a user with a role', function () {
     $response = $this->post(route('admin.users.store'), [
         'name' => 'New User',
         'email' => 'new.user@example.com',
-        'password' => 'password123',
+        'password' => 'Str0ng!Passw0rd',
         'is_active' => 1,
         'roles' => ['auditor'],
     ]);
@@ -33,6 +33,20 @@ test('admin can create a user with a role', function () {
     $user = User::query()->where('email', 'new.user@example.com')->first();
     expect($user)->not->toBeNull();
     expect($user->hasRole('auditor'))->toBeTrue();
+});
+
+test('creating a user with a password missing complexity requirements is rejected', function () {
+    actingAsAdmin();
+
+    $response = $this->post(route('admin.users.store'), [
+        'name' => 'Weak Password User',
+        'email' => 'weak@example.com',
+        'password' => 'password123',
+        'is_active' => 1,
+    ]);
+
+    $response->assertSessionHasErrors('password');
+    $this->assertDatabaseMissing('users', ['email' => 'weak@example.com']);
 });
 
 test('admin can update a user without changing password', function () {

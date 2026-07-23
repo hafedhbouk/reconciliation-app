@@ -1,59 +1,160 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Reconciliation App
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An enterprise bank-reconciliation and payments platform built on Laravel 12 /
+PHP 8.3 / MySQL 8. It imports transaction exports from multiple sources
+(ALPHA, BNA, WEB, SMT, STEG), normalizes them through a configurable,
+name-based column-mapping engine, cross-references them with a
+DB-configurable matching engine, and surfaces the result through a
+dashboard, multi-criteria search, exports, and an exceptions-triage
+workflow — all behind full RBAC and an audit trail.
 
-## About Laravel
+## Tech stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Laravel 12, PHP 8.3, MySQL 8
+- Blade + Bootstrap 5 (Breeze auth scaffold, re-skinned)
+- Spatie Laravel Permission (RBAC)
+- Yajra DataTables (server-side tables)
+- Maatwebsite/Excel + PhpSpreadsheet + dompdf (CSV/XLSX/PDF import & export)
+- Chart.js (dashboard)
+- Pest (tests)
+- Database-backed queue and cache (no Redis dependency)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.3 with `bcmath`, `curl`, `fileinfo`, `gd`, `intl`, `mbstring`,
+  `pdo_mysql`, `zip`, `openssl`, `sodium`
+- MySQL 8+
+- Node 20+ / npm 10+ (asset build)
+- Composer 2
 
-## Learning Laravel
+## Setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+# edit .env: DB_* connection details for your MySQL instance
+php artisan migrate --seed
+npm install
+npm run build   # or `npm run dev` for local asset watching
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Seeding creates:
+- A super-admin user: `admin@reconciliation.local` / `password` (change
+  immediately in any shared environment).
+- Roles `admin`, `auditor`, `operator` (see [Roles & permissions](#roles--permissions)).
+- Reference data: banks, currencies, sources (ALPHA/BNA/WEB/SMT active,
+  STEG inactive/unverified — see [Architecture](#architecture-5-phase-build)),
+  source column mappings, matching rules, default settings.
 
-## Laravel Sponsors
+### Running the queue worker
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Imports and matching runs are queued jobs. Start a worker:
 
-### Premium Partners
+```bash
+php artisan queue:work
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+**Production note**: `RuleMatcher` groups an entire source's unmatched
+pool in PHP memory (by design — see Phase 3 below), which was measured
+during Phase 4's manual verification to exceed the default 128MB
+`queue:work` memory limit on a real, previously-untouched ~80k-row pool.
+Run production workers with a higher ceiling:
 
-## Contributing
+```bash
+php artisan queue:work --memory=1024
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Testing
 
-## Code of Conduct
+```bash
+php artisan test
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+223 Pest tests cover every phase — CRUD/policy gating per resource, the
+transform/mapping engine, the matching engine's full tolerance-branch logic,
+exports, notifications, security headers, rate limiting, and password
+policy.
 
-## Security Vulnerabilities
+## Architecture (5-phase build)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+This app was built in five phases, each fully tested and manually verified
+against real bank/payment export files before moving to the next:
 
-## License
+1. **Foundation** — auth, Spatie RBAC, the full domain schema (generic
+   enough that later phases never needed a breaking migration), admin CRUD
+   for master data, full audit trail (`audit_logs`, diffing old/new values
+   on every model change plus login/logout/failed-login events), Bootstrap 5
+   admin shell with dark mode.
+2. **Import engine** — upload a source file, map its columns to canonical
+   fields once per `Source` (persisted, no per-source PHP parser classes —
+   a generic transform-primitive registry interprets DB-stored mapping
+   rules), then a chunked queued job (`ProcessImportJob`) normalizes every
+   row into `Transaction`/`NormalizedTransaction` records with per-row error
+   isolation.
+3. **Matching engine** — a DB-configurable, prioritized rule engine
+   (`RuleMatcher`) pairs up normalized transactions across two sources by
+   reference and applies a 3-way amount/date tolerance branch (match /
+   conflict / no-signal — reference-only matching isn't trustworthy at real
+   volume, since a 6-digit reference space collides). Also: duplicate
+   detection, an unmatched-transaction sweep, a manual-reconciliation
+   workbench, and exception triage with attachments.
+4. **Dashboard, search, exports, notifications** — Chart.js KPI dashboard,
+   a multi-criteria search across every transaction status, CSV/XLSX/PDF
+   export (one generic export class serves all three formats and every
+   exportable resource), and database-channel notifications for
+   long-running background work (imports, matching runs).
+5. **Hardening** — OWASP security headers, rate limiting on auth and
+   expensive admin actions, a strengthened password policy, missing
+   indexes added from measured real-query patterns, and this
+   documentation.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+See [`docs/ERD.md`](docs/ERD.md) for the full entity-relationship diagram,
+[`docs/SEQUENCES.md`](docs/SEQUENCES.md) for the three core workflows, and
+[`docs/ENDPOINTS.md`](docs/ENDPOINTS.md) for every AJAX/export endpoint.
+
+## Roles & permissions
+
+Permissions follow `<resource>.<ability>` (`viewAny`, `view`, `create`,
+`update`, `delete`, `restore`), auto-discovered against `App\Policies\*`.
+`super-admin` bypasses all checks (`Gate::before`).
+
+| Role | Access |
+|---|---|
+| `admin` | Every permission. |
+| `auditor` | Read-only across every resource, plus the audit log journal — an oversight role. |
+| `operator` | Day-to-day reconciliation work: create imports, edit source mappings, run manual matches, triage exceptions, use search. Cannot edit/run matching rules (broad blast-radius across the whole unmatched pool) or manage users/roles. |
+
+## Deployment checklist
+
+Beyond the standard Laravel production steps:
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+# or simply: php artisan optimize
+```
+
+- `APP_ENV=production`, `APP_DEBUG=false`.
+- `SESSION_SECURE_COOKIE=true` once served over HTTPS (left `null` in
+  `.env.example` so local HTTP development isn't broken by it).
+- Run the queue worker with `--memory=1024` or higher (see above).
+- A real mail driver if email notifications are ever added (`MAIL_MAILER`
+  is `log` in this template — no SMTP was configured for this build).
+
+### Known, deliberate scope boundaries
+
+- **No 2FA.** A substantial feature (TOTP secrets, recovery codes, a
+  setup/verify UI) disproportionate to this hardening pass; not built.
+- **CSP allows `'unsafe-inline'`** for scripts/styles rather than a
+  nonce-based policy, since every admin view has inline `@push('scripts')`
+  blocks. A documented trade-off (see `App\Http\Middleware\SecurityHeaders`),
+  not an oversight.
+- **STEG** has no real sample file; its column mapping is built from written
+  rules only and flagged inactive/unverified until a real file arrives —
+  the mapping-association screen (Sources → mappings) is exactly the
+  mechanism to correct it then, with zero code changes.
+- **Pairwise matching rules only** — a transaction visible in 3+ sources at
+  once may be split across separate `MatchingResult`s rather than one
+  N-way consolidation (`matching_rule_sources` is reserved for this, unused).
