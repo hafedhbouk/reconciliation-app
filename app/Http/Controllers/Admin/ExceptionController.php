@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\ExceptionStatus;
+use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateExceptionRequest;
 use App\Models\ExceptionRecord;
@@ -10,6 +11,9 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Excel as ExcelFormat;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Yajra\DataTables\Facades\DataTables;
 
 class ExceptionController extends Controller
@@ -74,6 +78,41 @@ class ExceptionController extends Controller
         $exception->update($data);
 
         return redirect()->route('admin.exceptions.show', $exception)->with('status', __('Exception mise à jour avec succès.'));
+    }
+
+    public function export(string $format): BinaryFileResponse
+    {
+        $this->authorize('viewAny', ExceptionRecord::class);
+        abort_unless(in_array($format, ['csv', 'xlsx', 'pdf'], true), 404);
+
+        $query = ExceptionRecord::query()->with(['normalizedTransaction.transaction.source', 'assignedTo'])->orderByDesc('id');
+
+        // See SearchController::export() -- XLSX/PDF both build a full
+        // in-memory object model and exhausted PHP's memory limit on a real
+        // ~150k-row export; only CSV streams and stays uncapped.
+        if (in_array($format, ['xlsx', 'pdf'], true)) {
+            $query->limit(1000);
+        }
+
+        $export = new GenericTableExport(
+            $query,
+            [__('Type'), __('Statut'), __('Source / Référence'), __('Assigné à'), __('Créé le')],
+            fn (ExceptionRecord $exception) => [
+                $exception->type->label(),
+                $exception->status->label(),
+                $this->sourceReferenceSnapshot($exception),
+                $exception->assignedTo?->name ?? '—',
+                $exception->created_at?->format('d/m/Y H:i'),
+            ],
+        );
+
+        $writerType = match ($format) {
+            'csv' => ExcelFormat::CSV,
+            'xlsx' => ExcelFormat::XLSX,
+            'pdf' => ExcelFormat::DOMPDF,
+        };
+
+        return Excel::download($export, "exceptions.{$format}", $writerType);
     }
 
     private function sourceReferenceSnapshot(ExceptionRecord $exception): string

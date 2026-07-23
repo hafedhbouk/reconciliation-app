@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Models\User;
+use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\DuplicateDetector;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,13 +21,23 @@ class DetectDuplicatesJob implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public ?int $sourceId = null)
+    public function __construct(public ?int $sourceId = null, public ?int $notifyUserId = null)
     {
     }
 
     public function handle(DuplicateDetector $detector): void
     {
-        $detector->scan($this->sourceId);
+        $summary = $detector->scan($this->sourceId);
+
+        if ($this->notifyUserId !== null) {
+            User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
+                __('Détection des doublons terminée'),
+                [
+                    __(':count groupes détectés', ['count' => $summary->groupsFound]),
+                    __(':count exceptions créées', ['count' => $summary->exceptionsCreated]),
+                ],
+            ));
+        }
     }
 
     public function failed(Throwable $e): void

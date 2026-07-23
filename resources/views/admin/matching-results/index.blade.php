@@ -1,6 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="fs-4 fw-semibold mb-0">{{ __('Résultats de rapprochement') }}</h2>
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="fs-4 fw-semibold mb-0">{{ __('Résultats de rapprochement') }}</h2>
+            <div class="d-flex gap-2">
+                <a href="{{ route('admin.matching-results.export', 'csv') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-csv me-1"></i>CSV</a>
+                <a href="{{ route('admin.matching-results.export', 'xlsx') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
+                <a href="{{ route('admin.matching-results.export', 'pdf') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+            </div>
+        </div>
     </x-slot>
 
     <div class="card">

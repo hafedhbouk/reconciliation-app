@@ -1,22 +1,23 @@
 <?php
 
 use App\Jobs\DetectDuplicatesJob;
+use App\Jobs\NotifyMatchingBatchCompleteJob;
 use App\Jobs\RunMatchingRuleJob;
 use App\Jobs\SweepUnmatchedJob;
 use App\Models\MatchingRule;
 use Illuminate\Support\Facades\Bus;
 
-test('run dispatches RunMatchingRuleJob for the given rule', function () {
-    actingAsAdmin();
+test('run dispatches RunMatchingRuleJob for the given rule with the triggering user for notification delivery', function () {
+    $admin = actingAsAdmin();
     Bus::fake();
     $rule = MatchingRule::factory()->create();
 
     $this->post(route('admin.matching-rules.run', $rule))->assertRedirect(route('admin.matching-rules.index'));
 
-    Bus::assertDispatched(RunMatchingRuleJob::class, fn ($job) => $job->matchingRuleId === $rule->id);
+    Bus::assertDispatched(RunMatchingRuleJob::class, fn ($job) => $job->matchingRuleId === $rule->id && $job->notifyUserId === $admin->id);
 });
 
-test('run-all dispatches a chain of active rules ordered by priority plus trailing sweep jobs', function () {
+test('run-all dispatches a chain of active rules ordered by priority plus trailing sweep and notify jobs', function () {
     actingAsAdmin();
     Bus::fake();
 
@@ -31,6 +32,7 @@ test('run-all dispatches a chain of active rules ordered by priority plus traili
         RunMatchingRuleJob::class,
         DetectDuplicatesJob::class,
         SweepUnmatchedJob::class,
+        NotifyMatchingBatchCompleteJob::class,
     ]);
 });
 

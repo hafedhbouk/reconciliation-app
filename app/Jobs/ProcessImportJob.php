@@ -9,6 +9,7 @@ use App\Exceptions\Import\RowTransformException;
 use App\Models\Import;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
+use App\Notifications\ImportProcessedNotification;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use App\Services\Import\TransactionNormalizer;
@@ -69,6 +70,8 @@ class ProcessImportJob implements ShouldQueue
                 'finished_at' => now(),
             ]);
 
+            $import->importedByUser?->notify(new ImportProcessedNotification($import));
+
             return;
         }
 
@@ -108,6 +111,8 @@ class ProcessImportJob implements ShouldQueue
             },
             'finished_at' => now(),
         ]);
+
+        $import->importedByUser?->notify(new ImportProcessedNotification($import));
     }
 
     /**

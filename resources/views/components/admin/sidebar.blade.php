@@ -11,6 +11,14 @@
             </a>
         </li>
 
+        @can('search.viewAny')
+            <li class="nav-item">
+                <a href="{{ route('admin.search.index') }}" class="nav-link {{ request()->routeIs('admin.search.*') ? 'active' : '' }}">
+                    <i class="bi bi-search me-2"></i>{{ __('Recherche') }}
+                </a>
+            </li>
+        @endcan
+
         @can('imports.viewAny')
             <li class="nav-item mt-3">
                 <span class="text-uppercase text-secondary small fw-semibold px-2">{{ __('Imports') }}</span>

@@ -11,10 +11,13 @@ use App\Http\Controllers\Admin\MatchingResultController;
 use App\Http\Controllers\Admin\MatchingRuleController;
 use App\Http\Controllers\Admin\ReconciliationController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SearchController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SourceController;
 use App\Http\Controllers\Admin\SourceMappingController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -22,14 +25,16 @@ Route::get('/', function () {
     return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
@@ -61,6 +66,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('matching-rules', MatchingRuleController::class)->except('show');
 
     Route::get('matching-results/data', [MatchingResultController::class, 'data'])->name('matching-results.data');
+    Route::get('matching-results/export/{format}', [MatchingResultController::class, 'export'])->name('matching-results.export');
     Route::resource('matching-results', MatchingResultController::class)->only(['index', 'show']);
 
     Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
@@ -68,10 +74,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('reconciliation', [ReconciliationController::class, 'store'])->name('reconciliation.store');
 
     Route::get('exceptions/data', [ExceptionController::class, 'data'])->name('exceptions.data');
+    Route::get('exceptions/export/{format}', [ExceptionController::class, 'export'])->name('exceptions.export');
     Route::resource('exceptions', ExceptionController::class)->only(['index', 'show', 'update']);
     Route::post('exceptions/{exception}/attachments', [ExceptionAttachmentController::class, 'store'])->name('exceptions.attachments.store');
     Route::get('exceptions/{exception}/attachments/{attachment}/download', [ExceptionAttachmentController::class, 'download'])->name('exceptions.attachments.download');
     Route::delete('exceptions/{exception}/attachments/{attachment}', [ExceptionAttachmentController::class, 'destroy'])->name('exceptions.attachments.destroy');
+
+    Route::get('search', [SearchController::class, 'index'])->name('search.index');
+    Route::get('search/data', [SearchController::class, 'data'])->name('search.data');
+    Route::get('search/export/{format}', [SearchController::class, 'export'])->name('search.export');
 });
 
 require __DIR__.'/auth.php';

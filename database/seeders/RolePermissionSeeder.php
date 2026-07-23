@@ -35,6 +35,10 @@ class RolePermissionSeeder extends Seeder
         Permission::findOrCreate('audit-logs.viewAny');
         Permission::findOrCreate('audit-logs.view');
 
+        // Read-only lookup tool, single ability, no create/update/delete/restore
+        // -- same standalone-permission pattern as audit-logs above.
+        Permission::findOrCreate('search.viewAny');
+
         Role::findOrCreate('super-admin');
 
         $admin = Role::findOrCreate('admin');
@@ -53,6 +57,7 @@ class RolePermissionSeeder extends Seeder
             'matching-rules.viewAny', 'matching-rules.view',
             'matching-results.viewAny', 'matching-results.view',
             'exceptions.viewAny', 'exceptions.view',
+            'search.viewAny',
         ]);
 
         $operator = Role::findOrCreate('operator');
@@ -62,6 +67,7 @@ class RolePermissionSeeder extends Seeder
             'matching-rules.viewAny', 'matching-rules.view',
             'matching-results.viewAny', 'matching-results.view', 'matching-results.create',
             'exceptions.viewAny', 'exceptions.view', 'exceptions.update',
+            'search.viewAny',
         ]);
     }
 }

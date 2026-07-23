@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMatchingRuleRequest;
 use App\Http\Requests\Admin\UpdateMatchingRuleRequest;
 use App\Jobs\DetectDuplicatesJob;
+use App\Jobs\NotifyMatchingBatchCompleteJob;
 use App\Jobs\RunMatchingRuleJob;
 use App\Jobs\SweepUnmatchedJob;
 use App\Models\MatchingRule;
@@ -87,7 +88,7 @@ class MatchingRuleController extends Controller
     {
         $this->authorize('update', $matchingRule);
 
-        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid());
+        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id());
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
     }
@@ -107,6 +108,10 @@ class MatchingRuleController extends Controller
 
         $jobs = [...$ruleJobs, new DetectDuplicatesJob(), new SweepUnmatchedJob()];
 
+        if (auth()->id() !== null) {
+            $jobs[] = new NotifyMatchingBatchCompleteJob($batchReference, auth()->id());
+        }
+
         Bus::chain($jobs)->dispatch();
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Toutes les règles actives ont été lancées, par ordre de priorité.'));
@@ -116,7 +121,7 @@ class MatchingRuleController extends Controller
     {
         $this->authorize('update', MatchingRule::class);
 
-        DetectDuplicatesJob::dispatch();
+        DetectDuplicatesJob::dispatch(null, auth()->id());
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Détection des doublons lancée.'));
     }
@@ -125,7 +130,7 @@ class MatchingRuleController extends Controller
     {
         $this->authorize('update', MatchingRule::class);
 
-        SweepUnmatchedJob::dispatch();
+        SweepUnmatchedJob::dispatch(null, auth()->id());
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Balayage des transactions non rapprochées lancé.'));
     }
