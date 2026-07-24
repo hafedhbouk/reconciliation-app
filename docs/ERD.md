@@ -125,7 +125,7 @@ erDiagram
     }
     NORMALIZED_TRANSACTIONS {
         bigint id PK
-        bigint transaction_id FK UK "1:1 with transactions"
+        bigint transaction_id FK,UK "1:1 with transactions"
         string normalized_reference
         bigint normalized_amount_millimes
         date normalized_date
