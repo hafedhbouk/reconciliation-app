@@ -100,6 +100,19 @@ Pour le développement avec rechargement à chaud, utilisez plutôt :
 npm run dev
 ```
 
+> `npm run build` peut afficher des avertissements Sass
+> (`Deprecation Warning [import]`, `[if-function]`...) venant de
+> Bootstrap 5 — c'est normal et sans impact, tant qu'il n'y a pas de ligne
+> d'erreur et que la commande se termine par `✓ built in Xs`.
+>
+> ⚠️ **`public/build/` n'est pas versionné dans le dépôt** (voir
+> `.gitignore`). Si l'étape `npm run build` (ou `npm run dev`) est
+> oubliée après un `git clone`, l'application se charge sans CSS/JS
+> (page blanche ou sans mise en forme) : `@vite(...)` référence des
+> fichiers qui n'existent pas encore. Si ça arrive après un build
+> réussi, faites un rechargement forcé du navigateur (Ctrl+F5) — la
+> page peut avoir été chargée avant que les fichiers n'existent.
+
 ## 7. Démarrer l'application
 
 ### Option A — tout lancer en une commande
@@ -155,7 +168,7 @@ de mots de passe.
 |---|---|
 | `SQLSTATE[HY000] [2002] Connection refused` | Vérifiez que MySQL est démarré et que `DB_HOST`/`DB_PORT` dans `.env` sont corrects. |
 | `Class "PDO" not found` ou erreur `pdo_mysql` | Activez l'extension PHP `pdo_mysql` dans `php.ini`. |
-| Assets non chargés / erreurs Vite au démarrage | Exécutez `npm install` puis `npm run build` (ou `npm run dev`). |
+| Page sans mise en forme / assets non chargés / erreurs Vite | `public/build/` n'est pas versionné : exécutez `npm install` puis `npm run build` (ou `npm run dev`), puis Ctrl+F5 dans le navigateur. |
 | Les imports/rapprochements restent bloqués en "en cours" | Le worker `php artisan queue:work` n'est pas lancé ou a planté (vérifiez la mémoire allouée). |
 | `No application encryption key has been specified` | Exécutez `php artisan key:generate`. |
 
