@@ -61,7 +61,13 @@ class MatchingResultController extends Controller
         $this->authorize('viewAny', MatchingResult::class);
         abort_unless(in_array($format, ['csv', 'xlsx', 'pdf'], true), 404);
 
-        $query = MatchingResult::query()->with(['matchingRule', 'matchedByUser'])->orderByDesc('id');
+        $query = MatchingResult::query()
+            ->with([
+                'matchingRule',
+                'matchedByUser',
+                'matchingDetails.normalizedTransaction.transaction.source',
+            ])
+            ->orderByDesc('id');
 
         // See SearchController::export() -- XLSX/PDF both build a full
         // in-memory object model and exhausted PHP's memory limit on a real
@@ -71,16 +77,44 @@ class MatchingResultController extends Controller
             $query->limit(1000);
         }
 
+        // Side A/B transaction detail columns are included on every row (not
+        // only conflicts) since the same export is the one linked from this
+        // index for every status -- conflicts are the case that most needs
+        // this detail to investigate the mismatch, but matched/partial rows
+        // benefit from it too and filtering by status is already available
+        // upstream in the results list.
+        $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
+            ->where('side', $side)
+            ->map(fn ($detail) => $detail->normalizedTransaction)
+            ->filter();
+
         $export = new GenericTableExport(
             $query,
-            [__('Règle'), __('Statut'), __('Confiance'), __('Traité par'), __('Date')],
-            fn (MatchingResult $result) => [
-                $result->matchingRule?->name ?? __('Rapprochement manuel'),
-                $result->status->label(),
-                $result->confidence_score,
-                $result->matchedByUser?->name ?? __('Automatique'),
-                $result->matched_at?->format('d/m/Y H:i'),
+            [
+                __('Règle'), __('Statut'), __('Confiance'), __('Traité par'), __('Date'),
+                __('Source A'), __('Référence A'), __('Montant A'), __('Date A'),
+                __('Source B'), __('Référence B'), __('Montant B'), __('Date B'),
             ],
+            function (MatchingResult $result) use ($sideColumns) {
+                $sideA = $sideColumns($result, 'a');
+                $sideB = $sideColumns($result, 'b');
+
+                return [
+                    $result->matchingRule?->name ?? __('Rapprochement manuel'),
+                    $result->status->label(),
+                    $result->confidence_score,
+                    $result->matchedByUser?->name ?? __('Automatique'),
+                    $result->matched_at?->format('d/m/Y H:i'),
+                    $sideA->map(fn ($nt) => $nt->transaction?->source?->code)->unique()->implode('; '),
+                    $sideA->map(fn ($nt) => $nt->normalized_reference)->implode('; '),
+                    $sideA->map(fn ($nt) => $nt->normalized_amount_millimes)->implode('; '),
+                    $sideA->map(fn ($nt) => $nt->normalized_date?->format('d/m/Y'))->implode('; '),
+                    $sideB->map(fn ($nt) => $nt->transaction?->source?->code)->unique()->implode('; '),
+                    $sideB->map(fn ($nt) => $nt->normalized_reference)->implode('; '),
+                    $sideB->map(fn ($nt) => $nt->normalized_amount_millimes)->implode('; '),
+                    $sideB->map(fn ($nt) => $nt->normalized_date?->format('d/m/Y'))->implode('; '),
+                ];
+            },
         );
 
         $writerType = match ($format) {

@@ -10,6 +10,8 @@ enum TransformType: string
     case DecimalStringToMillimes = 'decimal_string_to_millimes';
     case DateParse = 'date_parse';
     case SubstringAfterNthDelimiter = 'substring_after_nth_delimiter';
+    case ZeroPad = 'zero_pad';
+    case SubstringFromRight = 'substring_from_right';
 
     public function label(): string
     {
@@ -20,6 +22,8 @@ enum TransformType: string
             self::DecimalStringToMillimes => 'Montant décimal vers millimes',
             self::DateParse => 'Analyser une date/heure',
             self::SubstringAfterNthDelimiter => 'Sous-chaîne après le n-ième séparateur',
+            self::ZeroPad => 'Compléter avec des zéros à gauche',
+            self::SubstringFromRight => 'N derniers caractères (à partir de la droite)',
         };
     }
 }

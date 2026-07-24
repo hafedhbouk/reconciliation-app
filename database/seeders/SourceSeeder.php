@@ -46,7 +46,7 @@ class SourceSeeder extends Seeder
                 'file_type' => 'csv',
                 'default_currency_id' => $tnd?->id,
                 'is_active' => true,
-                'description' => 'Export de la plateforme de paiement en ligne (Order type, Acquéreur, Montant, Devise, Numéro de carte, Numéro de référence).',
+                'description' => 'Portail de paiement en ligne STEG (session,référence, Montant, date_paiement, recu_paie).',
                 'config' => ['csv_delimiter' => ';'],
             ]
         );
@@ -58,7 +58,7 @@ class SourceSeeder extends Seeder
                 'file_type' => 'csv',
                 'default_currency_id' => $tnd?->id,
                 'is_active' => true,
-                'description' => 'Export SMT (session, reference, montant, date_paiement, recu_paie, valid_oper).',
+                'description' => 'Export SMT (session, reference, Montant, New Deposit date, recu_paie, valid_oper).',
                 'config' => ['csv_delimiter' => ','],
             ]
         );

@@ -21,7 +21,7 @@
         <div class="d-flex flex-column justify-content-center align-items-center vh-100 bg-body-secondary">
             <div class="mb-3">
                 <a href="/" class="text-decoration-none">
-                    <x-application-logo class="text-body" style="width: 3rem; height: 3rem; fill: currentColor;" />
+                    <x-application-logo style="height: 4rem; width: auto;" />
                 </a>
             </div>
 

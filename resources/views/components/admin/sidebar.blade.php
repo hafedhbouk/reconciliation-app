@@ -1,7 +1,7 @@
 <nav class="admin-sidebar bg-body-tertiary border-end d-flex flex-column p-3" style="width: 260px; min-width: 260px;">
-    <a href="{{ route('dashboard') }}" class="d-flex align-items-center mb-4 text-decoration-none text-body">
-        <x-application-logo style="width: 2rem; height: 2rem; fill: currentColor;" class="me-2" />
-        <span class="fs-5 fw-semibold">{{ config('app.name') }}</span>
+    <a href="{{ route('dashboard') }}" class="d-flex flex-column align-items-start mb-4 text-decoration-none text-body">
+        <x-application-logo style="height: 2.5rem; width: auto; max-width: 100%;" class="mb-2" />
+        <span class="fw-semibold" style="font-size: .8rem; line-height: 1.2;">{{ config('app.name') }}</span>
     </a>
 
     <ul class="nav nav-pills flex-column mb-auto gap-1">

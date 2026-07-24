@@ -15,8 +15,11 @@ class StoreImportRequest extends BaseFormRequest
             'source_id' => ['required', Rule::exists('sources', 'id')->where('is_active', true)],
             // Defense-in-depth alongside the custom per-source extension
             // check below -- 'mimes' validates by real content-based mime
-            // detection, not just the client-reported extension.
-            'file' => ['required', 'file', 'mimes:csv,xls,xlsx'],
+            // detection, not just the client-reported extension. 'txt' is
+            // included because plain-delimited CSV exports (e.g. SMT's)
+            // routinely content-sniff as text/plain rather than text/csv,
+            // which 'mimes:csv' alone rejects even for a genuine .csv file.
+            'file' => ['required', 'file', 'mimes:csv,txt,xls,xlsx'],
             'confirmed_duplicate' => ['nullable', 'boolean'],
         ];
     }
