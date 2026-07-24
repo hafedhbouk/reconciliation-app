@@ -27,6 +27,9 @@ class ReconciliationController extends Controller
         ]);
     }
 
+    /** Hard cap on how many rows a single "select all" can pull in at once. */
+    private const SELECT_ALL_LIMIT = 500;
+
     public function search(Request $request): JsonResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -38,20 +41,22 @@ class ReconciliationController extends Controller
             'amount_max' => ['nullable', 'integer'],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date'],
+            'all' => ['nullable', 'boolean'],
         ]);
 
-        $rows = NormalizedTransaction::query()
-            ->where('matching_status', MatchingStatus::Unmatched->value)
-            ->whereHas('transaction', fn ($query) => $query
-                ->when($validated['source_id'] ?? null, fn ($q, $sourceId) => $q->where('source_id', $sourceId)))
-            ->when($validated['reference'] ?? null, fn ($query, $reference) => $query->where('normalized_reference', 'like', "%{$reference}%"))
-            ->when($validated['amount_min'] ?? null, fn ($query, $min) => $query->where('normalized_amount_millimes', '>=', $min))
-            ->when($validated['amount_max'] ?? null, fn ($query, $max) => $query->where('normalized_amount_millimes', '<=', $max))
-            ->when($validated['date_from'] ?? null, fn ($query, $date) => $query->where('normalized_date', '>=', $date))
-            ->when($validated['date_to'] ?? null, fn ($query, $date) => $query->where('normalized_date', '<=', $date))
-            ->with('transaction.source')
-            ->orderByDesc('id')
-            ->paginate(15);
+        $query = $this->filteredUnmatchedQuery($validated);
+
+        if ($validated['all'] ?? false) {
+            // +1 over the limit just to detect (not fetch) truncation.
+            $ids = (clone $query)->orderByDesc('id')->limit(self::SELECT_ALL_LIMIT + 1)->pluck('id');
+
+            return response()->json([
+                'ids' => $ids->take(self::SELECT_ALL_LIMIT)->values(),
+                'truncated' => $ids->count() > self::SELECT_ALL_LIMIT,
+            ]);
+        }
+
+        $rows = $query->with('transaction.source')->orderByDesc('id')->paginate(15);
 
         $rows->getCollection()->transform(fn (NormalizedTransaction $nt) => [
             'id' => $nt->id,
@@ -63,6 +68,20 @@ class ReconciliationController extends Controller
         ]);
 
         return response()->json($rows);
+    }
+
+    /** @param array<string,mixed> $filters */
+    private function filteredUnmatchedQuery(array $filters)
+    {
+        return NormalizedTransaction::query()
+            ->where('matching_status', MatchingStatus::Unmatched->value)
+            ->whereHas('transaction', fn ($query) => $query
+                ->when($filters['source_id'] ?? null, fn ($q, $sourceId) => $q->where('source_id', $sourceId)))
+            ->when($filters['reference'] ?? null, fn ($query, $reference) => $query->where('normalized_reference', 'like', "%{$reference}%"))
+            ->when($filters['amount_min'] ?? null, fn ($query, $min) => $query->where('normalized_amount_millimes', '>=', $min))
+            ->when($filters['amount_max'] ?? null, fn ($query, $max) => $query->where('normalized_amount_millimes', '<=', $max))
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('normalized_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('normalized_date', '<=', $date));
     }
 
     public function store(StoreManualMatchRequest $request): RedirectResponse

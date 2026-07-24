@@ -30,6 +30,15 @@
                                         <i class="bi bi-search me-1"></i>{{ __('Rechercher') }}
                                     </button>
                                 </div>
+                                <div class="col-12 d-flex gap-2 align-items-center">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-select-all="{{ $side }}">
+                                        <i class="bi bi-check2-square me-1"></i>{{ __('Tout sélectionner') }}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-deselect-all="{{ $side }}">
+                                        {{ __('Tout désélectionner') }}
+                                    </button>
+                                    <span class="small text-secondary" data-select-all-status="{{ $side }}"></span>
+                                </div>
                                 <div class="col-md-3">
                                     <input type="number" class="form-control form-control-sm" data-panel="{{ $side }}" data-field="amount_min" placeholder="{{ __('Montant min') }}">
                                 </div>
@@ -48,7 +57,7 @@
                                 <table class="table table-sm table-hover mb-0">
                                     <thead>
                                         <tr>
-                                            <th></th>
+                                            <th><input type="checkbox" class="form-check-input" data-select-page="{{ $side }}" aria-label="{{ __('Sélectionner toute la page') }}"></th>
                                             <th>{{ __('Source') }}</th>
                                             <th>{{ __('Référence') }}</th>
                                             <th>{{ __('Montant') }}</th>
@@ -79,6 +88,9 @@
             document.addEventListener('DOMContentLoaded', function () {
                 const searchUrl = '{{ route('admin.reconciliation.search') }}';
                 const selected = { a: new Set(), b: new Set() };
+                const currentPage = { a: 1, b: 1 };
+                const selectAllDoneText = @json(__(':count sélectionné(s).'));
+                const selectAllTruncatedText = @json(__(':count sélectionné(s) (limite atteinte, affinez la recherche pour tout inclure).'));
 
                 function fieldsFor(side) {
                     const params = new URLSearchParams();
@@ -88,9 +100,19 @@
                     return params;
                 }
 
+                function syncPageCheckbox(side) {
+                    const boxes = Array.from(document.querySelectorAll(`[data-select="${side}"]`));
+                    const pageCheckbox = document.querySelector(`[data-select-page="${side}"]`);
+                    if (!pageCheckbox) return;
+                    const checkedCount = boxes.filter((b) => b.checked).length;
+                    pageCheckbox.checked = boxes.length > 0 && checkedCount === boxes.length;
+                    pageCheckbox.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+                }
+
                 function renderResults(side, page = 1) {
                     const params = fieldsFor(side);
                     params.set('page', page);
+                    currentPage[side] = page;
 
                     fetch(`${searchUrl}?${params.toString()}`, { headers: { Accept: 'application/json' } })
                         .then((r) => r.json())
@@ -127,11 +149,60 @@
                                     nav.appendChild(btn);
                                 }
                             }
+
+                            syncPageCheckbox(side);
                         });
                 }
 
                 document.querySelectorAll('[data-search]').forEach((btn) => {
                     btn.addEventListener('click', () => renderResults(btn.dataset.search, 1));
+                });
+
+                document.querySelectorAll('[data-select-page]').forEach((box) => {
+                    box.addEventListener('change', () => {
+                        const side = box.dataset.selectPage;
+                        document.querySelectorAll(`[data-select="${side}"]`).forEach((rowBox) => {
+                            rowBox.checked = box.checked;
+                            const id = parseInt(rowBox.value, 10);
+                            if (box.checked) {
+                                selected[side].add(id);
+                            } else {
+                                selected[side].delete(id);
+                            }
+                        });
+                        updateSelectionUi();
+                    });
+                });
+
+                document.querySelectorAll('[data-select-all]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const side = btn.dataset.selectAll;
+                        const status = document.querySelector(`[data-select-all-status="${side}"]`);
+                        const params = fieldsFor(side);
+                        params.set('all', '1');
+
+                        btn.disabled = true;
+                        fetch(`${searchUrl}?${params.toString()}`, { headers: { Accept: 'application/json' } })
+                            .then((r) => r.json())
+                            .then((json) => {
+                                json.ids.forEach((id) => selected[side].add(id));
+                                status.textContent = (json.truncated ? selectAllTruncatedText : selectAllDoneText)
+                                    .replace(':count', json.ids.length);
+                                renderResults(side, currentPage[side]);
+                                updateSelectionUi();
+                            })
+                            .finally(() => { btn.disabled = false; });
+                    });
+                });
+
+                document.querySelectorAll('[data-deselect-all]').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const side = btn.dataset.deselectAll;
+                        selected[side].clear();
+                        document.querySelector(`[data-select-all-status="${side}"]`).textContent = '';
+                        renderResults(side, currentPage[side]);
+                        updateSelectionUi();
+                    });
                 });
 
                 document.body.addEventListener('change', (e) => {
@@ -143,6 +214,7 @@
                     } else {
                         selected[side].delete(id);
                     }
+                    syncPageCheckbox(side);
                     updateSelectionUi();
                 });
 
