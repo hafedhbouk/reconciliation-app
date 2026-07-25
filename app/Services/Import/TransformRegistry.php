@@ -9,7 +9,6 @@ use App\Services\Import\Transforms\DecimalStringToMillimesTransform;
 use App\Services\Import\Transforms\FixedWidthMillimesTransform;
 use App\Services\Import\Transforms\StripPrefixCharsTransform;
 use App\Services\Import\Transforms\SubstringAfterNthDelimiterTransform;
-use App\Services\Import\Transforms\SubstringFromRightTransform;
 use App\Services\Import\Transforms\TrimTransform;
 use App\Services\Import\Transforms\ZeroPadTransform;
 use InvalidArgumentException;
@@ -29,7 +28,6 @@ class TransformRegistry
             TransformType::DateParse->value => DateParseTransform::class,
             TransformType::SubstringAfterNthDelimiter->value => SubstringAfterNthDelimiterTransform::class,
             TransformType::ZeroPad->value => ZeroPadTransform::class,
-            TransformType::SubstringFromRight->value => SubstringFromRightTransform::class,
         ];
     }
 

@@ -8,30 +8,31 @@ use Illuminate\Database\Seeder;
 
 /**
  * Seeds the column mappings for ALPHA/BNA/WEB/SMT from column names and
- * cross-source value overlaps verified directly against the real sample
- * files (storage/app/samples/, not committed). One correction worth noting:
- * for ALPHA, SMT and WEB, the field each source's own documentation would
- * call "the reference" is NOT the field that actually correlates
- * cross-source — NUM_AUTO (ALPHA) and recu_paie (SMT, WEB), once their
- * conditional leading b/B is stripped, are 6-digit codes verified to overlap
- * with BNA's N° autorisation. Those are mapped as the core `reference`
- * field; each source's own internal reference becomes an auxiliary
- * `secondary_reference` instead. A second correction, found only once Phase
- * 3's matching engine ran against real re-imported data: SMT/WEB's `date`
- * field must come from `date_paiement` (SMT: now "New Deposit date" — see
- * client correction below), not the more obviously-named
- * `DATE_FORMAT(`date_au`, '%d%m%Y')` column -- see seedSmt() for the
- * cross-source evidence.
+ * cross-source value overlaps verified directly against real sample files
+ * and test imports. One correction worth noting: for ALPHA and WEB, the
+ * field each source's own documentation would call "the reference" is NOT
+ * the field that actually correlates cross-source — NUM_AUTO (ALPHA) and
+ * recu_paie (WEB), once their conditional leading b/B is stripped, are
+ * 6-digit codes verified to overlap with BNA's N° autorisation. Those are
+ * mapped as the core `reference` field; each source's own internal
+ * reference becomes an auxiliary `secondary_reference` instead. SMT plays
+ * the same role via "Identifiant de la réponse d'autorisation".
  *
- * Client correction (2026-07): WEB is STEG's online payment portal, not the
- * generic gateway file originally assumed — its real columns turned out to
- * match the same shape as SMT's (fused "session,référence" column,
- * date_paiement, recu_paie), so seedWeb() was rebuilt on that same pattern.
- * SMT's own date column was also renamed to "New Deposit date" in its
- * current export. Both corrections supersede whatever the previous sample
- * files showed; source_column names should still be re-verified against a
- * real file via the mapping association screen (admin.sources.mappings.edit)
- * before relying on this in production, same as the STEG placeholder below.
+ * Client correction (2026-07): WEB and SMT's actual file structures were
+ * initially swapped — WEB is STEG's online payment portal (session,
+ * reference, DATE_FORMAT(`date_au`, '%d%m%Y'), montant, date_paiement,
+ * recu_paie, valid_oper — comma-delimited), while SMT is the payment-gateway
+ * export (Order type, Acquéreur, ..., Identifiant de la réponse
+ * d'autorisation, Numéro de référence, ... — semicolon-delimited, mangled
+ * accents). A prior fix mistakenly gave WEB a "fused session,référence
+ * column" workaround: that symptom was actually each source having the
+ * other's delimiter configured (see SourceSeeder), which makes fgetcsv()
+ * return the entire line as one field — indistinguishable from a genuinely
+ * fused column in the mapping screen until the delimiter mismatch is
+ * understood. Confirmed against real headers/rows from both files; still
+ * worth re-verifying via the mapping association screen
+ * (admin.sources.mappings.edit) against a full file before trusting this in
+ * production, same as the STEG placeholder below.
  *
  * STEG has no sample file (client-confirmed). Its rows below are placeholders
  * built only from the client's written rules — source_column names are
@@ -107,34 +108,33 @@ class SourceColumnMappingSeeder extends Seeder
         $source = Source::query()->where('code', 'WEB')->firstOrFail();
 
         // Client correction (2026-07): WEB is STEG's online payment portal
-        // export, not the generic gateway file this mapping originally
-        // assumed. Its real header for the reference is a single fused
-        // "session,référence" column (a session id and the reference
-        // crammed into one field by the source system) -- the session part
-        // is of no interest, so the reference is taken as the rightmost 9
-        // digits regardless of where the comma actually falls. Mirrors the
-        // same reference-field precedent as SMT below: recu_paie (once its
-        // conditional b/B prefix is stripped) is the verified cross-source
-        // matching key, so it stays the primary `reference`; the fused
-        // column becomes an auxiliary `secondary_reference`.
+        // export -- session, reference, DATE_FORMAT(`date_au`, '%d%m%Y'),
+        // montant, date_paiement, recu_paie, valid_oper, comma-delimited.
+        // "session" and "reference" are two genuinely separate columns, not
+        // a fused one -- the CSV parses cleanly once the delimiter below is
+        // correct (see SourceSeeder; this was previously misdiagnosed as a
+        // fused column because the wrong delimiter made fgetcsv() return
+        // the entire line as a single field, which happened to *look*
+        // fused in the mapping screen). recu_paie (once its conditional
+        // b/B prefix is stripped) stays the primary `reference` -- it's the
+        // verified cross-source matching key (see class docblock); the
+        // file's own `reference` column becomes an auxiliary
+        // `secondary_reference`, no extraction needed.
         $this->upsert($source, 'reference', 'recu_paie', [
             ['key' => 'trim'],
             ['key' => 'strip_prefix_chars', 'config' => ['chars' => ['B', 'b']]],
         ], required: true, order: 0);
 
-        $this->upsert($source, 'secondary_reference', 'session,référence', [
-            ['key' => 'trim'],
-            ['key' => 'substring_from_right', 'config' => ['length' => 9]],
-        ], order: 1);
+        $this->upsert($source, 'secondary_reference', 'reference', [['key' => 'trim']], order: 1);
 
-        $this->upsert($source, 'amount', 'Montant', [
+        $this->upsert($source, 'amount', 'montant', [
             ['key' => 'trim'],
             ['key' => 'fixed_width_millimes'],
         ], required: true, order: 2);
 
-        // Same DATE_FORMAT(...) vs date_paiement distinction as SMT below --
-        // DATE_FORMAT() has no known reconciliation role and is left
-        // unmapped; date_paiement is the real transaction date.
+        // DATE_FORMAT(`date_au`, '%d%m%Y') has no known reconciliation role
+        // and is intentionally left unmapped; date_paiement is the real
+        // transaction date.
         $this->upsert($source, 'date', 'date_paiement', [
             ['key' => 'date_parse', 'config' => ['format' => 'Y-m-d H:i:s', 'output' => 'date']],
         ], required: true, order: 3);
@@ -148,36 +148,38 @@ class SourceColumnMappingSeeder extends Seeder
     {
         $source = Source::query()->where('code', 'SMT')->firstOrFail();
 
-        $this->upsert($source, 'reference', 'recu_paie', [
-            ['key' => 'trim'],
-            ['key' => 'strip_prefix_chars', 'config' => ['chars' => ['B', 'b']]],
-        ], required: true, order: 0);
+        // Client correction (2026-07): SMT is actually the payment-gateway
+        // export (Order type, Acquéreur, ..., Montant, ..., Identifiant de
+        // la réponse d'autorisation, Numéro de référence, ...), not the
+        // session/recu_paie file previously assumed for it -- that
+        // structure belongs to WEB (see seedWeb()). Semicolon-delimited.
+        // The real file's bytes have literal '?' (0x3F) wherever an accented
+        // character belongs -- verified neither UTF-8 nor CP1252 decoding
+        // recovers the accents, so it isn't fixable on read; source_column
+        // below MUST use this exact mangled form, not the grammatically
+        // correct French text.
+        $this->upsert($source, 'reference', "Identifiant de la r?ponse d'autorisation", [['key' => 'trim']], required: true, order: 0);
 
-        $this->upsert($source, 'secondary_reference', 'reference', [['key' => 'trim']], order: 1);
+        $this->upsert($source, 'secondary_reference', 'Num?ro de r?f?rence', [['key' => 'trim']], order: 1);
 
         $this->upsert($source, 'amount', 'Montant', [
             ['key' => 'trim'],
-            ['key' => 'fixed_width_millimes'],
+            ['key' => 'decimal_string_to_millimes', 'config' => ['decimals' => 3]],
         ], required: true, order: 2);
 
-        // Client correction (2026-07): the current SMT export's date column
-        // is literally named "New Deposit date", replacing date_paiement.
-        // recu_paie is kept as the `reference` field regardless -- it's the
-        // verified cross-source matching key (see class docblock); without
-        // it SMT rows could never be picked up by automatic matching, only
-        // manual reconciliation. If "New Deposit date"'s actual format
-        // turns out to differ from date_paiement's ("Y-m-d H:i:s"), the
-        // per-row error will surface on the import's detail page -- fix the
-        // format via Sources → Mappings, not by guessing here.
+        // The column literally named "New Deposit date" in the current
+        // export (not "Date", which is the auth request time, nor "New
+        // Payment date", which precedes the deposit).
         $this->upsert($source, 'date', 'New Deposit date', [
-            ['key' => 'date_parse', 'config' => ['format' => 'Y-m-d H:i:s', 'output' => 'date']],
+            ['key' => 'date_parse', 'config' => ['format' => 'Y.m.d H:i:s', 'output' => 'date']],
         ], required: true, order: 3);
 
         $this->upsert($source, 'datetime', 'New Deposit date', [
-            ['key' => 'date_parse', 'config' => ['format' => 'Y-m-d H:i:s', 'output' => 'datetime']],
+            ['key' => 'date_parse', 'config' => ['format' => 'Y.m.d H:i:s', 'output' => 'datetime']],
         ], order: 4);
 
-        $this->upsert($source, 'status_raw', 'valid_oper', [['key' => 'trim']], order: 5);
+        $this->upsert($source, 'currency_code', 'Devise', [['key' => 'trim']], order: 5);
+        $this->upsert($source, 'status_raw', 'Etat du paiement', [['key' => 'trim']], order: 6);
     }
 
     private function seedSteg(): void
