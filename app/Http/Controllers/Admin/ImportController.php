@@ -112,6 +112,7 @@ class ImportController extends Controller
                 ]));
         }
 
+        $import->update(['job_dispatched_at' => now()]);
         ProcessImportJob::dispatch($import->id);
 
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import lancé avec succès.'));
@@ -150,6 +151,22 @@ class ImportController extends Controller
             return redirect()
                 ->route('admin.sources.mappings.edit', ['source' => $source, 'import' => $import->id])
                 ->with('status', __('Colonnes requises toujours manquantes : :columns', ['columns' => implode(', ', $missing)]));
+        }
+
+        // store() already dispatches the job on a successful upload -- status
+        // stays "pending" until a worker actually picks it up, which can take
+        // a while if the queue is backed up or no worker is running. Without
+        // this guard, clicking "Lancer l'import" during that window (or
+        // double-clicking here) queues a second job for the same file, and
+        // ProcessImportJob has no idempotency check: it would insert a
+        // second full set of import_rows/transactions/normalized_transactions
+        // on top of the first. The conditional update (not read-then-write)
+        // makes the "only once" guarantee atomic against concurrent requests.
+        $claimed = Import::query()->whereKey($import->id)->whereNull('job_dispatched_at')
+            ->update(['job_dispatched_at' => now()]);
+
+        if ($claimed === 0) {
+            return redirect()->route('admin.imports.show', $import)->with('status', __('Cet import a déjà été lancé — veuillez patienter pendant son traitement.'));
         }
 
         ProcessImportJob::dispatch($import->id);

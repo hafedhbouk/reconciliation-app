@@ -131,3 +131,65 @@ test('plain user is forbidden from creating an import', function () {
         'file' => $file,
     ])->assertForbidden();
 });
+
+test('process dispatches the job and stamps job_dispatched_at when never dispatched before', function () {
+    Queue::fake();
+    Storage::fake('local');
+    $admin = actingAsAdmin();
+
+    $source = Source::factory()->create(['file_type' => 'csv']);
+    seedRequiredCsvMapping($source);
+
+    $content = "NUM_AUTO,MONTANT\nb123456, 000000042000\n";
+    Storage::disk('local')->put('imports/alpha.csv', $content);
+
+    $import = Import::query()->create([
+        'source_id' => $source->id,
+        'original_filename' => 'alpha.csv',
+        'stored_path' => 'imports/alpha.csv',
+        'file_hash' => hash('sha256', $content),
+        'mime_type' => 'text/csv',
+        'size_bytes' => strlen($content),
+        'status' => 'pending',
+        'imported_by' => $admin->id,
+    ]);
+
+    expect($import->job_dispatched_at)->toBeNull();
+
+    $response = $this->post(route('admin.imports.process', $import));
+
+    $response->assertRedirect(route('admin.imports.show', $import));
+    Queue::assertPushed(ProcessImportJob::class, fn ($job) => $job->importId === $import->id);
+    expect($import->fresh()->job_dispatched_at)->not->toBeNull();
+});
+
+test('process refuses to dispatch a second job for an import that is already queued', function () {
+    Queue::fake();
+    Storage::fake('local');
+    $admin = actingAsAdmin();
+
+    $source = Source::factory()->create(['file_type' => 'csv']);
+    seedRequiredCsvMapping($source);
+
+    $content = "NUM_AUTO,MONTANT\nb123456, 000000042000\n";
+    Storage::disk('local')->put('imports/alpha.csv', $content);
+
+    // Simulates the store() happy path: a job was already dispatched and
+    // the worker just hasn't picked it up yet, so status is still "pending".
+    $import = Import::query()->create([
+        'source_id' => $source->id,
+        'original_filename' => 'alpha.csv',
+        'stored_path' => 'imports/alpha.csv',
+        'file_hash' => hash('sha256', $content),
+        'mime_type' => 'text/csv',
+        'size_bytes' => strlen($content),
+        'status' => 'pending',
+        'job_dispatched_at' => now(),
+        'imported_by' => $admin->id,
+    ]);
+
+    $response = $this->post(route('admin.imports.process', $import));
+
+    $response->assertRedirect(route('admin.imports.show', $import));
+    Queue::assertNotPushed(ProcessImportJob::class);
+});

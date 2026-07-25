@@ -32,11 +32,15 @@
                 @endif
             </dl>
 
-            @if ($import->status->value === 'pending')
+            @if ($import->status->value === 'pending' && ! $import->job_dispatched_at)
                 <form method="POST" action="{{ route('admin.imports.process', $import) }}" class="mt-3">
                     @csrf
                     <x-primary-button>{{ __('Lancer l\'import') }}</x-primary-button>
                 </form>
+            @elseif ($import->status->value === 'pending')
+                <p class="text-secondary small mt-3 mb-0">
+                    {{ __('Import en file d\'attente — en attente du worker de traitement.') }}
+                </p>
             @endif
         </div>
     </div>

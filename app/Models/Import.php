@@ -30,6 +30,7 @@ class Import extends Model
         'error_rows',
         'started_at',
         'finished_at',
+        'job_dispatched_at',
         'error_summary',
         'meta',
         'imported_by',
@@ -41,6 +42,7 @@ class Import extends Model
             'status' => ImportStatus::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'job_dispatched_at' => 'datetime',
             'meta' => 'array',
         ];
     }
