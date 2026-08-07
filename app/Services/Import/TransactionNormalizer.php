@@ -60,15 +60,22 @@ class TransactionNormalizer
      */
     public function computeNormalizedSnapshot(array $transactionRow): array
     {
+        // SMT has no reference column (client spec: only date + amount). For
+        // sources without a reference, build a composite key date|amount so
+        // normalized_reference stays non-null and the matching layer can
+        // group on it (RuleMatcher uses 'date|amount' as primary_key for SMT).
+        $reference = $transactionRow['external_reference']
+            ?? ($transactionRow['transaction_date'].'|'.$transactionRow['amount_millimes']);
+
         $hash = hash('sha256', implode('|', [
             $transactionRow['source_id'],
-            $transactionRow['external_reference'],
+            $reference,
             $transactionRow['amount_millimes'],
             $transactionRow['transaction_date'],
         ]));
 
         return [
-            'normalized_reference' => $transactionRow['external_reference'],
+            'normalized_reference' => $reference,
             'normalized_amount_millimes' => $transactionRow['amount_millimes'],
             'normalized_date' => $transactionRow['transaction_date'],
             'dedup_hash' => $hash,

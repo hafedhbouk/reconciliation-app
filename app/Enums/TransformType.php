@@ -11,6 +11,7 @@ enum TransformType: string
     case DateParse = 'date_parse';
     case SubstringAfterNthDelimiter = 'substring_after_nth_delimiter';
     case ZeroPad = 'zero_pad';
+    case RightChars = 'right_chars';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum TransformType: string
             self::DateParse => 'Analyser une date/heure',
             self::SubstringAfterNthDelimiter => 'Sous-chaîne après le n-ième séparateur',
             self::ZeroPad => 'Compléter avec des zéros à gauche',
+            self::RightChars => 'Extraire les N derniers caractères',
         };
     }
 }

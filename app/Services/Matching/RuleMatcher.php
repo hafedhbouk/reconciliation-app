@@ -17,20 +17,27 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Groups unmatched NormalizedTransactions across a rule's two sources by
- * normalized_reference and applies a 3-way amount/date tolerance branch —
- * NOT a simple match/no-match binary. Verified against real data: a 6-digit
- * reference space collides at real transaction volume (~3,482 of ~75,000
- * cross-referenced ALPHA/BNA pairs share a reference but nothing else), so
- * reference-only matching is not trustworthy. The branch:
+ * Groups unmatched NormalizedTransactions across a rule's two sources by a
+ * configurable primary key (from criteria.primary_key) and applies a 3-way
+ * amount/date tolerance branch — NOT a simple match/no-match binary.
  *
+ * The primary key can be:
+ *   - a single field name ('reference', 'num_autorisation',
+ *     'secondary_reference') — resolved from normalized_reference or from
+ *     the transaction's raw_payload (transformed fields)
+ *   - 'date|amount' — a composite key for SMT (date + amount only)
+ *
+ * After grouping by the primary key, criteria.verify_fields are checked to
+ * confirm the match (e.g. ALPHA-WEB groups by reference, then verifies
+ * num_autorisation-secondary_reference, amount, date).
+ *
+ * The 3-way branch:
  *   1. Amount AND date both within tolerance  -> genuine match.
  *   2. Exactly one of the two within tolerance -> a real conflict signal
- *      (right reference, something's off) -> ExceptionRecord.
- *   3. Neither within tolerance -> almost certainly an unrelated reference
+ *      (right primary key, something's off) -> ExceptionRecord.
+ *   3. Neither within tolerance -> almost certainly an unrelated key
  *      collision -> do nothing (no link, no exception, both sides stay
- *      unmatched). Treating this as a conflict would flood the exceptions
- *      table with false positives for zero operational value.
+ *      unmatched).
  *
  * Before that 3-way branch, evaluateGroup() first checks for an EXACT
  * multiset match (same bag of (amount, date) pairs on both sides, regardless
@@ -60,25 +67,29 @@ class RuleMatcher
         $toleranceDays = (int) ($criteria['tolerance_days'] ?? 0);
         $excludedA = $criteria['excluded_status_raw']['a'] ?? [];
         $excludedB = $criteria['excluded_status_raw']['b'] ?? [];
+        $primaryKeyA = $criteria['primary_key']['a'] ?? 'reference';
+        $primaryKeyB = $criteria['primary_key']['b'] ?? 'reference';
+        $verifyFields = $criteria['verify_fields'] ?? [];
 
-        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA);
-        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB);
+        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA);
+        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB);
 
         $matched = 0;
         $conflicts = 0;
         $noSignal = 0;
         $skipped = 0;
 
-        $references = $candidatesA->keys()->intersect($candidatesB->keys());
+        $keys = $candidatesA->keys()->intersect($candidatesB->keys());
 
-        foreach ($references as $reference) {
+        foreach ($keys as $key) {
             $outcome = $this->evaluateGroup(
-                $candidatesA->get($reference),
-                $candidatesB->get($reference),
+                $candidatesA->get($key),
+                $candidatesB->get($key),
                 $rule,
                 $toleranceAmount,
                 $toleranceDays,
                 $batchReference,
+                $verifyFields,
             );
 
             match ($outcome) {
@@ -90,7 +101,7 @@ class RuleMatcher
         }
 
         return new MatchingRunSummary(
-            referencesConsidered: $references->count(),
+            referencesConsidered: $keys->count(),
             matched: $matched,
             conflicts: $conflicts,
             noSignal: $noSignal,
@@ -98,10 +109,12 @@ class RuleMatcher
         );
     }
 
-    /** @return Collection<string,Collection<int,NormalizedTransaction>> keyed by normalized_reference */
-    private function loadCandidates(int $sourceId, array $excludedStatusRaw): Collection
+    /**
+     * @return Collection<string,Collection<int,NormalizedTransaction>> keyed by the configured primary key
+     */
+    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string $primaryKey): Collection
     {
-        return NormalizedTransaction::query()
+        $rows = NormalizedTransaction::query()
             ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
             ->where('transactions.source_id', $sourceId)
             ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
@@ -109,9 +122,42 @@ class RuleMatcher
                 $inner->whereNull('transactions.raw_payload->status_raw')
                     ->orWhereNotIn('transactions.raw_payload->status_raw', $excludedStatusRaw);
             }))
-            ->select('normalized_transactions.*')
-            ->get()
-            ->groupBy('normalized_reference');
+            ->select('normalized_transactions.*', 'transactions.raw_payload')
+            ->get();
+
+        return $rows->groupBy(fn (NormalizedTransaction $nt) => $this->primaryKeyValue($nt, $primaryKey));
+    }
+
+    /**
+     * Resolve the configured primary key value for a normalized transaction.
+     * 'date|amount' is the composite SMT key; otherwise the field is read
+     * from normalized_reference (for 'reference') or from the transaction's
+     * raw_payload (for 'num_autorisation', 'secondary_reference', etc.).
+     */
+    private function primaryKeyValue(NormalizedTransaction $nt, string $primaryKey): string
+    {
+        if ($primaryKey === 'date|amount') {
+            return $nt->normalized_date->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
+        }
+
+        if ($primaryKey === 'reference') {
+            return (string) $nt->normalized_reference;
+        }
+
+        // Read from raw_payload (transformed fields like num_autorisation,
+        // secondary_reference). The column is selected directly in
+        // loadCandidates(), so it's available as a raw attribute on the
+        // NormalizedTransaction model. It's a JSON string (not cast on this
+        // model), so decode it before reading a key.
+        $payload = $nt->getAttribute('raw_payload');
+
+        if (is_string($payload)) {
+            $payload = json_decode($payload, true) ?? [];
+        }
+
+        $payload = is_array($payload) ? $payload : [];
+
+        return (string) ($payload[$primaryKey] ?? '');
     }
 
     /**
@@ -126,7 +172,16 @@ class RuleMatcher
         int $toleranceAmount,
         int $toleranceDays,
         string $batchReference,
+        array $verifyFields = [],
     ): string {
+        // If verify_fields are configured, they must ALL match before we
+        // even consider the amount/date tolerance branch. A mismatch here
+        // means the primary key collided but the secondary fields don't
+        // line up — treat as no_signal (no link, no exception).
+        if ($verifyFields !== [] && ! $this->verifyFieldsMatch($groupA, $groupB, $verifyFields)) {
+            return 'no_signal';
+        }
+
         [$amountOk, $amountExact, $dateOk, $dateExact] = $this->computeToleranceSignals(
             $groupA, $groupB, $toleranceAmount, $toleranceDays,
         );
@@ -163,6 +218,85 @@ class RuleMatcher
 
             return 'no_signal';
         });
+    }
+
+    /**
+     * Verify that all configured secondary fields match between the two
+     * groups. Each entry in $verifyFields is either:
+     *   - a string field name ('amount', 'date') — must match on both sides
+     *   - an array ['a' => fieldA, 'b' => fieldB] — fieldA on side A must
+     *     equal fieldB on side B (e.g. num_autorisation ↔ secondary_reference)
+     *
+     * @param Collection<int,NormalizedTransaction> $groupA
+     * @param Collection<int,NormalizedTransaction> $groupB
+     * @param array<int,mixed> $verifyFields
+     */
+    private function verifyFieldsMatch(Collection $groupA, Collection $groupB, array $verifyFields): bool
+    {
+        foreach ($verifyFields as $field) {
+            // 'amount' and 'date' are NOT gating here — they are handled by
+            // the 3-way tolerance branch (match/conflict/no_signal) in
+            // evaluateGroup(). Treating them as hard gates would silently
+            // suppress genuine AmountMismatch/DateMismatch conflicts.
+            if (is_string($field) && in_array($field, ['amount', 'date'], true)) {
+                continue;
+            }
+
+            if (is_array($field)) {
+                $fieldA = $field['a'] ?? null;
+                $fieldB = $field['b'] ?? null;
+
+                if ($fieldA === null || $fieldB === null) {
+                    continue;
+                }
+
+                // Also skip cross-field checks that resolve to amount/date.
+                if (in_array($fieldA, ['amount', 'date'], true) || in_array($fieldB, ['amount', 'date'], true)) {
+                    continue;
+                }
+
+                $valuesA = $groupA->map(fn (NormalizedTransaction $nt) => $this->fieldValue($nt, $fieldA))->unique()->values();
+                $valuesB = $groupB->map(fn (NormalizedTransaction $nt) => $this->fieldValue($nt, $fieldB))->unique()->values();
+
+                if ($valuesA->count() !== 1 || $valuesB->count() !== 1 || $valuesA->first() !== $valuesB->first()) {
+                    return false;
+                }
+            } else {
+                $valuesA = $groupA->map(fn (NormalizedTransaction $nt) => $this->fieldValue($nt, $field))->unique()->values();
+                $valuesB = $groupB->map(fn (NormalizedTransaction $nt) => $this->fieldValue($nt, $field))->unique()->values();
+
+                if ($valuesA->count() !== 1 || $valuesB->count() !== 1 || $valuesA->first() !== $valuesB->first()) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve a field value from a normalized transaction. 'amount' and
+     * 'date' map to normalized columns; everything else is read from the
+     * transaction's raw_payload (transformed fields).
+     */
+    private function fieldValue(NormalizedTransaction $nt, string $field): mixed
+    {
+        return match ($field) {
+            'amount' => $nt->normalized_amount_millimes,
+            'date' => $nt->normalized_date->format('Y-m-d'),
+            default => $this->payloadField($nt, $field),
+        };
+    }
+
+    private function payloadField(NormalizedTransaction $nt, string $field): mixed
+    {
+        $payload = $nt->getAttribute('raw_payload');
+
+        if (is_string($payload)) {
+            $payload = json_decode($payload, true) ?? [];
+        }
+
+        return is_array($payload) ? ($payload[$field] ?? null) : null;
     }
 
     /**

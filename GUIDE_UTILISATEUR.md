@@ -38,13 +38,17 @@ gauche n'affiche que les sections auxquelles votre rôle donne accès.
 
 ## 2. Rôles et permissions
 
-L'application distingue trois rôles :
+L'application distingue les rôles suivants :
 
 | Rôle | Ce qu'il peut faire |
 |---|---|
-| **admin** | Accès complet à toutes les fonctionnalités : imports, règles de rapprochement, exceptions, paramétrage, gestion des utilisateurs et des rôles. |
-| **auditor** | Accès en lecture seule à toutes les ressources, plus le journal d'audit. Rôle de supervision, aucune action de modification. |
-| **operator** | Travail quotidien de rapprochement : créer des imports, modifier le mapping des colonnes d'une source, effectuer des rapprochements manuels, traiter les exceptions, utiliser la recherche. Ne peut ni modifier/lancer les règles de rapprochement automatique, ni gérer les utilisateurs/rôles. |
+| **admin** | Accès complet à toutes les fonctionnalités : imports, règles de rapprochement, exceptions, paramétrage, gestion des utilisateurs et des rôles/permissions. |
+| **directeur** | Consultation uniquement (lecture seule) : consulter les imports, les règles/résultats de rapprochement, les exceptions, le paramétrage, le journal d'audit et la recherche. Aucune action de modification. |
+| **chef-departement** | Tous les droits métier : exécuter des rapprochements, ajouter/modifier/supprimer des agents (utilisateurs), gérer les imports, les règles de rapprochement, les exceptions et le paramétrage. La gestion des rôles/permissions reste réservée à l'admin. |
+| **agent-execution** | Rapprochement uniquement : lancer les règles de rapprochement automatique, effectuer des rapprochements manuels et traiter les exceptions. |
+
+Le rôle **super-admin** (réservé à l'installation) a un accès total non
+restreint.
 
 Si un menu ou un bouton n'apparaît pas, c'est que votre rôle n'y donne pas
 accès — contactez un administrateur si vous pensez qu'il s'agit d'une

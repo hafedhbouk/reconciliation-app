@@ -60,3 +60,36 @@ function actingAsPlainUser(): \App\Models\User
 
     return $user;
 }
+
+function actingAsDirector(): \App\Models\User
+{
+    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+
+    $user = \App\Models\User::factory()->create();
+    $user->assignRole('directeur');
+    test()->actingAs($user);
+
+    return $user;
+}
+
+function actingAsDepartmentHead(): \App\Models\User
+{
+    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+
+    $user = \App\Models\User::factory()->create();
+    $user->assignRole('chef-departement');
+    test()->actingAs($user);
+
+    return $user;
+}
+
+function actingAsExecutionAgent(): \App\Models\User
+{
+    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+
+    $user = \App\Models\User::factory()->create();
+    $user->assignRole('agent-execution');
+    test()->actingAs($user);
+
+    return $user;
+}

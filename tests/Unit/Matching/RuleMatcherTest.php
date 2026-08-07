@@ -265,3 +265,142 @@ test('a tolerance-consumed partial match produces a Partial status with reduced 
     expect($result->status)->toBe(MatchingResultStatus::Partial);
     expect((float) $result->confidence_score)->toBe(85.0);
 });
+
+test('WEB-BNA matches via secondary_reference (recu_paie) against num_autorisation', function () {
+    $web = Source::factory()->create();
+    $bna = Source::factory()->create();
+
+    // WEB recu_paie = 'b416779' → stripped b → '416779'; BNA num_autorisation = '416779'
+    $ntWeb = makeNormalizedTx($web, '104725801', 16000, '2026-02-01');
+    $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
+    $ntWeb->transaction->save();
+
+    $ntBna = makeNormalizedTx($bna, '416779', 16000, '2026-02-01');
+    $ntBna->transaction->raw_payload = ['num_autorisation' => '416779'];
+    $ntBna->transaction->save();
+
+    $rule = \App\Models\MatchingRule::factory()->create([
+        'source_a_id' => $web->id,
+        'source_b_id' => $bna->id,
+        'criteria' => [
+            'tolerance_amount_millimes' => 0,
+            'tolerance_days' => 0,
+            'excluded_status_raw' => ['a' => [], 'b' => []],
+            'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
+            'verify_fields' => ['amount', 'date'],
+        ],
+    ]);
+
+    $summary = $this->matcher->match($rule, 'web-bna-1');
+
+    expect($summary->matched)->toBe(1);
+    $result = MatchingResult::query()->sole();
+    expect($result->status)->toBe(MatchingResultStatus::Matched);
+    expect($result->matchingDetails)->toHaveCount(2);
+});
+
+test('ALPHA-WEB matches via reference with num_autorisation-secondary_reference verification', function () {
+    $alpha = Source::factory()->create();
+    $web = Source::factory()->create();
+
+    // ALPHA: reference='104725801', num_autorisation='416779'
+    // WEB:   reference='104725801', secondary_reference='416779'
+    $ntAlpha = makeNormalizedTx($alpha, '104725801', 16000, '2026-02-01');
+    $ntAlpha->transaction->raw_payload = ['num_autorisation' => '416779'];
+    $ntAlpha->transaction->save();
+
+    $ntWeb = makeNormalizedTx($web, '104725801', 16000, '2026-02-01');
+    $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
+    $ntWeb->transaction->save();
+
+    $rule = \App\Models\MatchingRule::factory()->create([
+        'source_a_id' => $alpha->id,
+        'source_b_id' => $web->id,
+        'criteria' => [
+            'tolerance_amount_millimes' => 0,
+            'tolerance_days' => 0,
+            'excluded_status_raw' => ['a' => [], 'b' => []],
+            'primary_key' => ['a' => 'reference', 'b' => 'reference'],
+            'verify_fields' => [
+                ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
+                'amount',
+                'date',
+            ],
+        ],
+    ]);
+
+    $summary = $this->matcher->match($rule, 'alpha-web-1');
+
+    expect($summary->matched)->toBe(1);
+    $result = MatchingResult::query()->sole();
+    expect($result->status)->toBe(MatchingResultStatus::Matched);
+    expect($result->matchingDetails)->toHaveCount(2);
+});
+
+test('ALPHA-WEB with mismatched num_autorisation produces no_signal (no match, no exception)', function () {
+    $alpha = Source::factory()->create();
+    $web = Source::factory()->create();
+
+    // Same reference but different num_autorisation/secondary_reference
+    $ntAlpha = makeNormalizedTx($alpha, '104725801', 16000, '2026-02-01');
+    $ntAlpha->transaction->raw_payload = ['num_autorisation' => '111111'];
+    $ntAlpha->transaction->save();
+
+    $ntWeb = makeNormalizedTx($web, '104725801', 16000, '2026-02-01');
+    $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
+    $ntWeb->transaction->save();
+
+    $rule = \App\Models\MatchingRule::factory()->create([
+        'source_a_id' => $alpha->id,
+        'source_b_id' => $web->id,
+        'criteria' => [
+            'tolerance_amount_millimes' => 0,
+            'tolerance_days' => 0,
+            'excluded_status_raw' => ['a' => [], 'b' => []],
+            'primary_key' => ['a' => 'reference', 'b' => 'reference'],
+            'verify_fields' => [
+                ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
+                'amount',
+                'date',
+            ],
+        ],
+    ]);
+
+    $summary = $this->matcher->match($rule, 'alpha-web-2');
+
+    expect($summary->matched)->toBe(0);
+    expect($summary->noSignal)->toBe(1);
+    expect(MatchingResult::query()->count())->toBe(0);
+    expect(ExceptionRecord::query()->count())->toBe(0);
+    expect($ntAlpha->fresh()->matching_status->value)->toBe('unmatched');
+    expect($ntWeb->fresh()->matching_status->value)->toBe('unmatched');
+});
+
+test('SMT composite date|amount key matches across sources', function () {
+    $smt = Source::factory()->create();
+    $bna = Source::factory()->create();
+
+    // SMT has no reference — only date + amount. The composite key
+    // 'date|amount' should group both sides.
+    makeNormalizedTx($smt, '2026-02-01|16000', 16000, '2026-02-01');
+    makeNormalizedTx($bna, '416779', 16000, '2026-02-01');
+
+    $rule = \App\Models\MatchingRule::factory()->create([
+        'source_a_id' => $smt->id,
+        'source_b_id' => $bna->id,
+        'criteria' => [
+            'tolerance_amount_millimes' => 0,
+            'tolerance_days' => 0,
+            'excluded_status_raw' => ['a' => [], 'b' => []],
+            'primary_key' => ['a' => 'date|amount', 'b' => 'date|amount'],
+            'verify_fields' => [],
+        ],
+    ]);
+
+    $summary = $this->matcher->match($rule, 'smt-bna-1');
+
+    expect($summary->matched)->toBe(1);
+    $result = MatchingResult::query()->sole();
+    expect($result->status)->toBe(MatchingResultStatus::Matched);
+    expect($result->matchingDetails)->toHaveCount(2);
+});

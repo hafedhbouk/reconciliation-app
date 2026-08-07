@@ -5,6 +5,7 @@ namespace App\Enums;
 enum MappingTargetField: string
 {
     case Reference = 'reference';
+    case NumAutorisation = 'num_autorisation';
     case Amount = 'amount';
     case Date = 'date';
     case Datetime = 'datetime';
@@ -17,6 +18,7 @@ enum MappingTargetField: string
     {
         return match ($this) {
             self::Reference => 'Référence (clé de rapprochement)',
+            self::NumAutorisation => 'N° autorisation',
             self::Amount => 'Montant',
             self::Date => 'Date',
             self::Datetime => 'Date et heure',
@@ -30,12 +32,15 @@ enum MappingTargetField: string
     /**
      * Core fields map onto a real transactions column; auxiliary fields are
      * only captured inside transformed_data/raw_payload for traceability.
+     * num_autorisation has no dedicated column on transactions — it lives in
+     * raw_payload (the matching layer resolves it from there), same as
+     * secondary_reference and status_raw.
      */
     public function isCore(): bool
     {
         return match ($this) {
             self::Reference, self::Amount, self::Date, self::Datetime, self::Canal, self::CurrencyCode => true,
-            self::StatusRaw, self::SecondaryReference => false,
+            self::NumAutorisation, self::StatusRaw, self::SecondaryReference => false,
         };
     }
 }
