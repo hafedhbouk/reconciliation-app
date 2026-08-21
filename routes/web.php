@@ -55,7 +55,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::resource('audit-logs', AuditLogController::class)->only(['index', 'show']);
 
     Route::get('imports/data', [ImportController::class, 'data'])->name('imports.data');
-    Route::resource('imports', ImportController::class)->only(['index', 'create', 'store', 'show']);
+    Route::resource('imports', ImportController::class)->only(['index', 'create', 'store', 'show', 'destroy']);
     Route::post('imports/{import}/process', [ImportController::class, 'process'])->name('imports.process');
 
     Route::get('matching-rules/data', [MatchingRuleController::class, 'data'])->name('matching-rules.data');

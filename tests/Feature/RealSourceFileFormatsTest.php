@@ -56,11 +56,10 @@ test('WEB source file (comma-delimited, session/reference/recu_paie) imports cle
 
     $source = Source::query()->where('code', 'WEB')->firstOrFail();
 
-    // Per client spec, the file has a single fused column literally named
-    // "session,reference" whose cell contains session+référence. The
-    // reference = the 9 rightmost digits of that cell.
-    $csv = "\"session,reference\",\"DATE_FORMAT(`date_au`, '%d%m%Y')\",montant,date_paiement,recu_paie,valid_oper\n"
-        ."\"00001047258018969545,104725801\",22012026,000000016000,\"2026-02-01 00:02:29\",b416779,1\n";
+    // Updated format (2026-08): session and reference are now separate
+    // columns instead of the old fused "session,reference" column.
+    $csv = "session,reference,DATE_FORMAT(`date_au`, '%d%m%Y'),montant,date_paiement,recu_paie,valid_oper\n"
+        ."00001047258018969545,104725801,22012026,000000016000,\"2026-02-01 00:02:29\",b416779,1\n";
 
     $import = runImport($source, 'web_sample.csv', $csv);
 
@@ -69,8 +68,6 @@ test('WEB source file (comma-delimited, session/reference/recu_paie) imports cle
     expect($import->error_rows)->toBe(0);
 
     $normalized = NormalizedTransaction::query()->sole();
-    // The fused cell '00001047258018969545,104725801' right-9 chars =
-    // '104725801'.
     expect($normalized->normalized_reference)->toBe('104725801');
     expect($normalized->normalized_amount_millimes)->toBe(16000);
     expect($normalized->normalized_date->format('Y-m-d'))->toBe('2026-02-01');

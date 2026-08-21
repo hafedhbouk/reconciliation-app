@@ -174,6 +174,15 @@ class ImportController extends Controller
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import relancé avec succès.'));
     }
 
+    public function destroy(Import $import): RedirectResponse
+    {
+        $this->authorize('delete', $import);
+
+        $import->delete();
+
+        return redirect()->route('admin.imports.index')->with('status', __('Import supprimé avec succès.'));
+    }
+
     private function formatDuration(Import $import): string
     {
         if (! $import->started_at) {

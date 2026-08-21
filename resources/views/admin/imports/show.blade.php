@@ -33,7 +33,7 @@
             </dl>
 
             @if ($import->status->value === 'pending' && ! $import->job_dispatched_at)
-                <form method="POST" action="{{ route('admin.imports.process', $import) }}" class="mt-3">
+                <form method="POST" action="{{ route('admin.imports.process', $import) }}" class="mt-3 d-inline">
                     @csrf
                     <x-primary-button>{{ __('Lancer l\'import') }}</x-primary-button>
                 </form>
@@ -42,6 +42,14 @@
                     {{ __('Import en file d\'attente — en attente du worker de traitement.') }}
                 </p>
             @endif
+
+            @can('delete', $import)
+                <form method="POST" action="{{ route('admin.imports.destroy', $import) }}" class="mt-3 d-inline" onsubmit="return confirm('{{ __('Êtes-vous sûr de vouloir supprimer cet import ? Cette action est irréversible.') }}');">
+                    @csrf
+                    @method('DELETE')
+                    <x-danger-button>{{ __('Supprimer l\'import') }}</x-danger-button>
+                </form>
+            @endcan
         </div>
     </div>
 
