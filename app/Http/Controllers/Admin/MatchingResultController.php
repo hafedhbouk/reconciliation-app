@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
 use App\Models\MatchingResult;
+use App\Models\MatchingRule;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
@@ -21,14 +23,44 @@ class MatchingResultController extends Controller
 
     public function index(): View
     {
-        return view('admin.matching-results.index');
+        $batches = MatchingResult::query()
+            ->select('batch_reference', 'matched_at')
+            ->distinct()
+            ->orderByDesc('matched_at')
+            ->get();
+
+        $rules = MatchingRule::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('admin.matching-results.index', compact('batches', 'rules'));
     }
 
-    public function data(): JsonResponse
+    public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
 
         $results = MatchingResult::query()->with(['matchingRule', 'matchedByUser'])->select('matching_results.*');
+
+        if ($request->filled('batch_reference')) {
+            $results->where('batch_reference', $request->input('batch_reference'));
+        }
+
+        if ($request->filled('matching_rule_id')) {
+            $results->where('matching_rule_id', $request->input('matching_rule_id'));
+        }
+
+        if ($request->filled('matched_at_from')) {
+            $results->where('matched_at', '>=', $request->input('matched_at_from').' 00:00:00');
+        }
+
+        if ($request->filled('matched_at_to')) {
+            $results->where('matched_at', '<=', $request->input('matched_at_to').' 23:59:59');
+        }
+
+        if ($request->filled('status')) {
+            $results->where('status', $request->input('status'));
+        }
 
         return DataTables::of($results)
             ->addColumn('rule_name', fn (MatchingResult $result) => $result->matchingRule?->name ?? __('Rapprochement manuel'))
