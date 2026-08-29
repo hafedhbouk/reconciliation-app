@@ -1,6 +1,16 @@
+{{-- Vue détail d'un résultat de rapprochement avec suppression possible --}}
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="fs-4 fw-semibold mb-0">{{ __('Résultat de rapprochement') }} #{{ $result->id }}</h2>
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="fs-4 fw-semibold mb-0">{{ __('Résultat de rapprochement') }} #{{ $result->id }}</h2>
+            @can('delete', $result)
+                <form method="POST" action="{{ route('admin.matching-results.destroy', $result) }}" onsubmit="return confirm('{{ __('Êtes-vous sûr de vouloir supprimer ce résultat de rapprochement ?') }}');">
+                    @csrf
+                    @method('DELETE')
+                    <x-danger-button>{{ __('Supprimer') }}</x-danger-button>
+                </form>
+            @endcan
+        </div>
     </x-slot>
 
     <div class="card mb-3">

@@ -19,6 +19,7 @@ class RolePermissionSeeder extends Seeder
         'imports',
         'matching-rules',
         'matching-results',
+        'matching-exports',
         'exceptions',
     ];
 
@@ -56,6 +57,7 @@ class RolePermissionSeeder extends Seeder
             'imports.viewAny', 'imports.view',
             'matching-rules.viewAny', 'matching-rules.view',
             'matching-results.viewAny', 'matching-results.view',
+            'matching-exports.viewAny', 'matching-exports.view',
             'exceptions.viewAny', 'exceptions.view',
             'search.viewAny',
         ]);
@@ -66,6 +68,7 @@ class RolePermissionSeeder extends Seeder
             'sources.viewAny', 'sources.view', 'sources.update',
             'matching-rules.viewAny', 'matching-rules.view',
             'matching-results.viewAny', 'matching-results.view', 'matching-results.create',
+            'matching-exports.viewAny', 'matching-exports.view',
             'exceptions.viewAny', 'exceptions.view', 'exceptions.update',
             'search.viewAny',
         ]);
@@ -84,6 +87,7 @@ class RolePermissionSeeder extends Seeder
             'imports.viewAny', 'imports.view',
             'matching-rules.viewAny', 'matching-rules.view',
             'matching-results.viewAny', 'matching-results.view',
+            'matching-exports.viewAny', 'matching-exports.view',
             'exceptions.viewAny', 'exceptions.view',
             'users.viewAny', 'users.view',
             'audit-logs.viewAny', 'audit-logs.view',
@@ -103,6 +107,7 @@ class RolePermissionSeeder extends Seeder
             'imports.viewAny', 'imports.view', 'imports.create', 'imports.update', 'imports.delete', 'imports.restore',
             'matching-rules.viewAny', 'matching-rules.view', 'matching-rules.create', 'matching-rules.update', 'matching-rules.delete', 'matching-rules.restore',
             'matching-results.viewAny', 'matching-results.view', 'matching-results.create', 'matching-results.update', 'matching-results.delete', 'matching-results.restore',
+            'matching-exports.viewAny', 'matching-exports.view', 'matching-exports.create',
             'exceptions.viewAny', 'exceptions.view', 'exceptions.create', 'exceptions.update', 'exceptions.delete', 'exceptions.restore',
             'users.viewAny', 'users.view', 'users.create', 'users.update', 'users.delete', 'users.restore',
             'audit-logs.viewAny', 'audit-logs.view',
@@ -117,6 +122,7 @@ class RolePermissionSeeder extends Seeder
             'sources.viewAny', 'sources.view',
             'matching-rules.viewAny', 'matching-rules.view', 'matching-rules.update',
             'matching-results.viewAny', 'matching-results.view', 'matching-results.create',
+            'matching-exports.viewAny', 'matching-exports.view',
             'exceptions.viewAny', 'exceptions.view', 'exceptions.update',
             'search.viewAny',
         ]);

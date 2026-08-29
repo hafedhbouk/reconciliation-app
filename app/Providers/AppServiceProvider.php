@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
 use App\Listeners\LogSuccessfulLogout;
+use App\Policies\MatchingExportPolicy;
 use App\Repositories\EloquentSettingsRepository;
 use App\Repositories\SettingsRepositoryInterface;
 use App\Services\Import\TransformRegistry;
@@ -50,6 +51,7 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Role::class, \App\Policies\RolePolicy::class);
         Gate::policy(Permission::class, \App\Policies\RolePolicy::class);
+        Gate::policy(\App\Models\MatchingExport::class, MatchingExportPolicy::class);
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(Logout::class, LogSuccessfulLogout::class);

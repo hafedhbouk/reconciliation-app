@@ -67,7 +67,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
     Route::get('matching-results/data', [MatchingResultController::class, 'data'])->name('matching-results.data');
     Route::get('matching-results/export/{format}', [MatchingResultController::class, 'export'])->middleware('throttle:expensive-actions')->name('matching-results.export');
-    Route::resource('matching-results', MatchingResultController::class)->only(['index', 'show']);
+    Route::post('matching-results/export-async', [MatchingResultController::class, 'exportAsync'])->middleware('throttle:expensive-actions')->name('matching-results.export-async');
+    Route::get('matching-results/exports', [MatchingResultController::class, 'exports'])->name('matching-results.exports');
+    Route::get('matching-results/exports/{token}/download', [MatchingResultController::class, 'downloadExport'])->name('matching-results.exports.download');
+    Route::resource('matching-results', MatchingResultController::class)->only(['index', 'show', 'destroy']); // destroy permet de supprimer un résultat erroné
 
     Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
     Route::get('reconciliation/search', [ReconciliationController::class, 'search'])->name('reconciliation.search');

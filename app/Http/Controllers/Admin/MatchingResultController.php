@@ -4,16 +4,30 @@ namespace App\Http\Controllers\Admin;
 
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateMatchingExportJob;
+use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\MatchingRule;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Yajra\DataTables\Facades\DataTables;
 
+/**
+ * Contrôleur des résultats de rapprochement.
+ *
+ * Fonctionnalités :
+ * - Liste des résultats avec filtres par règle, lot, date et statut
+ * - Affichage détaillé d'un résultat (côtés A et B, exceptions liées)
+ * - Suppression d'un résultat (avec suppression en cascade des détails et exceptions)
+ * - Export complet aux formats CSV, Excel et PDF sans limite de lignes
+ */
 class MatchingResultController extends Controller
 {
     public function __construct()
@@ -70,7 +84,7 @@ class MatchingResultController extends Controller
                 $result->status->label()
             ))
             ->addColumn('matched_by', fn (MatchingResult $result) => $result->matchedByUser?->name ?? __('Automatique'))
-            ->addColumn('actions', fn (MatchingResult $result) => '<a href="'.route('admin.matching-results.show', $result).'" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>')
+            ->addColumn('actions', fn (MatchingResult $result) => view('admin.matching-results._actions', ['result' => $result])->render())
             ->rawColumns(['status', 'actions'])
             ->toJson();
     }
@@ -88,6 +102,26 @@ class MatchingResultController extends Controller
         return view('admin.matching-results.show', ['result' => $matchingResult]);
     }
 
+    /**
+     * Supprime un résultat de rapprochement ainsi que ses détails et exceptions liées.
+     */
+    public function destroy(MatchingResult $matchingResult): RedirectResponse
+    {
+        $this->authorize('delete', $matchingResult);
+
+        $matchingRuleName = $matchingResult->matchingRule?->name ?? __('Rapprochement manuel');
+
+        // Supprime les détails et exceptions associés avant le résultat principal
+        $matchingResult->matchingDetails()->delete();
+        $matchingResult->exceptions()->delete();
+        $matchingResult->delete();
+
+        return redirect()->route('admin.matching-results.index')->with('status', __('Résultat de rapprochement supprimé avec succès (:rule).', ['rule' => $matchingRuleName]));
+    }
+
+    /**
+     * Export synchrone limité à 1000 lignes pour les petits volumes.
+     */
     public function export(string $format): BinaryFileResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -99,22 +133,89 @@ class MatchingResultController extends Controller
                 'matchedByUser',
                 'matchingDetails.normalizedTransaction.transaction.source',
             ])
-            ->orderByDesc('id');
+            ->orderByDesc('id')
+            ->limit(1000);
 
-        // See SearchController::export() -- XLSX/PDF both build a full
-        // in-memory object model and exhausted PHP's memory limit on a real
-        // ~150k-row export (this exact resource); only CSV streams and stays
-        // uncapped.
-        if (in_array($format, ['xlsx', 'pdf'], true)) {
-            $query->limit(1000);
+        return $this->buildExport($query, $format);
+    }
+
+    /**
+     * Lance un export asynchrone pour les gros volumes.
+     * Crée un enregistrement MatchingExport et dispatche le job de génération.
+     */
+    public function exportAsync(Request $request): RedirectResponse
+    {
+        $this->authorize('viewAny', MatchingResult::class);
+        $request->validate([
+            'format' => 'required|in:csv,xlsx,pdf',
+            'matching_rule_id' => 'nullable|exists:matching_rules,id',
+            'batch_reference' => 'nullable|string|max:255',
+            'matched_at_from' => 'nullable|date',
+            'matched_at_to' => 'nullable|date',
+            'status' => 'nullable|in:matched,partial,conflict,rejected',
+        ]);
+
+        $filters = $request->only([
+            'matching_rule_id',
+            'batch_reference',
+            'matched_at_from',
+            'matched_at_to',
+            'status',
+        ]);
+
+        $matchingExport = MatchingExport::query()->create([
+            'user_id' => auth()->id(),
+            'format' => $request->input('format'),
+            'status' => 'pending',
+            'filters' => $filters,
+            'download_token' => Str::random(64),
+        ]);
+
+        GenerateMatchingExportJob::dispatch($matchingExport);
+
+        return redirect()->route('admin.matching-results.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
+    }
+
+    /**
+     * Liste des exports de l'utilisateur connecté.
+     */
+    public function exports(Request $request): View
+    {
+        $this->authorize('viewAny', MatchingExport::class);
+
+        $exports = MatchingExport::query()
+            ->when($request->user()->cannot('viewAny', MatchingExport::class), fn ($q) => $q->where('user_id', $request->user()->id))
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return view('admin.matching-results.exports', compact('exports'));
+    }
+
+    /**
+     * Téléchargement sécurisé par token (pas d'auth requise).
+     */
+    public function downloadExport(string $token): BinaryFileResponse
+    {
+        $export = MatchingExport::query()->where('download_token', $token)->firstOrFail();
+
+        if (! $export->isCompleted() || ! $export->file_path) {
+            abort(404);
         }
 
-        // Side A/B transaction detail columns are included on every row (not
-        // only conflicts) since the same export is the one linked from this
-        // index for every status -- conflicts are the case that most needs
-        // this detail to investigate the mismatch, but matched/partial rows
-        // benefit from it too and filtering by status is already available
-        // upstream in the results list.
+        $path = Storage::path($export->file_path);
+
+        if (! file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, "matching-results.{$export->format}");
+    }
+
+    /**
+     * Construit l'export synchrone pour un query donné.
+     */
+    private function buildExport(\Illuminate\Database\Eloquent\Builder $query, string $format): BinaryFileResponse
+    {
         $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
             ->where('side', $side)
             ->map(fn ($detail) => $detail->normalizedTransaction)

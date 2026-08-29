@@ -58,7 +58,9 @@ test('WEB source file (comma-delimited, session/reference/recu_paie) imports cle
 
     // Updated format (2026-08): session and reference are now separate
     // columns instead of the old fused "session,reference" column.
-    $csv = "session,reference,DATE_FORMAT(`date_au`, '%d%m%Y'),montant,date_paiement,recu_paie,valid_oper\n"
+    // The legacy DATE_FORMAT column still contains a comma in its name,
+    // so it must remain quoted to avoid being split into 2 headers.
+    $csv = "session,reference,\"DATE_FORMAT(`date_au`, '%d%m%Y')\",montant,date_paiement,recu_paie,valid_oper\n"
         ."00001047258018969545,104725801,22012026,000000016000,\"2026-02-01 00:02:29\",b416779,1\n";
 
     $import = runImport($source, 'web_sample.csv', $csv);

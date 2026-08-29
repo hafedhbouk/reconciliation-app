@@ -7,6 +7,16 @@ use App\Models\Currency;
 use App\Models\Source;
 use Illuminate\Database\Seeder;
 
+/**
+ * Seed des sources de données métier (banques et passerelles de paiement).
+ *
+ * Sources configurables :
+ * - ALPHA : fichier XLSX d'encaissements
+ * - BNA : relevé bancaire XLSX
+ * - WEB : portail STEG au format CSV
+ * - SMT : export passerelle SMT au format CSV
+ * - STEG : même structure que WEB, activée pour le rapprochement
+ */
 class SourceSeeder extends Seeder
 {
     public function run(): void
@@ -69,8 +79,9 @@ class SourceSeeder extends Seeder
                 'name' => 'STEG',
                 'file_type' => 'csv',
                 'default_currency_id' => $tnd?->id,
-                'is_active' => false,
-                'description' => 'Règles définies mais non vérifiées : aucun fichier d\'exemple fourni à ce jour.',
+                'is_active' => true,
+                'description' => 'Portail de paiement en ligne STEG (même structure que WEB : session, reference, montant, date_paiement, recu_paie).',
+                'config' => ['csv_delimiter' => ','],
             ]
         );
     }

@@ -1,11 +1,13 @@
+{{-- Vue liste des résultats de rapprochement avec filtres --}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">
             <h2 class="fs-4 fw-semibold mb-0">{{ __('Résultats de rapprochement') }}</h2>
             <div class="d-flex gap-2">
-                <a href="{{ route('admin.matching-results.export', 'csv') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-filetype-csv me-1"></i>CSV</a>
-                <a href="{{ route('admin.matching-results.export', 'xlsx') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-excel me-1"></i>Excel</a>
-                <a href="{{ route('admin.matching-results.export', 'pdf') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</a>
+                <a href="{{ route('admin.matching-results.exports') }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>{{ __('Mes exports') }}</a>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#exportModal">
+                    <i class="bi bi-download me-1"></i>{{ __('Exporter') }}
+                </button>
             </div>
         </div>
     </x-slot>
@@ -111,4 +113,77 @@
             });
         </script>
     @endpush
+
+    {{-- Modal d'export asynchrone --}}
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exportModalLabel">{{ __('Exporter les résultats') }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ __('Fermer') }}"></button>
+                </div>
+                <form method="POST" action="{{ route('admin.matching-results.export-async') }}">
+                    @csrf
+                    <div class="modal-body">
+                        <p class="text-muted small">{{ __('L\'export sera généré en arrière-plan. Vous serez notifié une fois le fichier prêt.') }}</p>
+
+                        <div class="mb-3">
+                            <label for="export_format" class="form-label">{{ __('Format') }}</label>
+                            <select name="format" id="export_format" class="form-select" required>
+                                <option value="csv">CSV</option>
+                                <option value="xlsx">Excel (XLSX)</option>
+                                <option value="pdf">PDF</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="export_rule" class="form-label">{{ __('Règle (optionnel)') }}</label>
+                            <select name="matching_rule_id" id="export_rule" class="form-select">
+                                <option value="">{{ __('Toutes les règles') }}</option>
+                                @foreach ($rules as $rule)
+                                    <option value="{{ $rule->id }}">{{ $rule->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="export_batch" class="form-label">{{ __('Lot (optionnel)') }}</label>
+                            <select name="batch_reference" id="export_batch" class="form-select">
+                                <option value="">{{ __('Tous les lots') }}</option>
+                                @foreach ($batches as $batch)
+                                    <option value="{{ $batch->batch_reference }}">{{ $batch->matched_at?->format('d/m/Y H:i') }} — {{ $batch->batch_reference }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="export_from" class="form-label">{{ __('Date de début') }}</label>
+                                <input type="date" name="matched_at_from" id="export_from" class="form-control" value="{{ request('matched_at_from') }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="export_to" class="form-label">{{ __('Date de fin') }}</label>
+                                <input type="date" name="matched_at_to" id="export_to" class="form-control" value="{{ request('matched_at_to') }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="export_status" class="form-label">{{ __('Statut') }}</label>
+                            <select name="status" id="export_status" class="form-select">
+                                <option value="">{{ __('Tous les statuts') }}</option>
+                                <option value="matched">{{ __('Rapproché') }}</option>
+                                <option value="partial">{{ __('Partiel') }}</option>
+                                <option value="conflict">{{ __('Conflit') }}</option>
+                                <option value="rejected">{{ __('Rejeté') }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">{{ __('Annuler') }}</button>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-download me-1"></i>{{ __('Lancer l\'export') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 </x-app-layout>

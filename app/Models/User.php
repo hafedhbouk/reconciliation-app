@@ -11,6 +11,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * Modèle utilisateur de l'application de rapprochement.
+ *
+ * Champs profil métier :
+ * - prenom : prénom de l'utilisateur
+ * - nom : nom de famille de l'utilisateur
+ * - matricule : identifiant unique métier
+ * - portable : numéro de téléphone mobile
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -23,7 +32,11 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'prenom',
+        'nom',
+        'matricule',
         'email',
+        'portable',
         'password',
         'is_active',
     ];

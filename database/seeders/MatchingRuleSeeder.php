@@ -7,32 +7,29 @@ use App\Models\Source;
 use Illuminate\Database\Seeder;
 
 /**
- * Seeds the 6 pairwise matching rules the client's spec lists explicitly
- * (STEG excluded -- no verified sample data yet, same boundary as
- * SourceColumnMappingSeeder). All rules use zero tolerance and N:M
- * cardinality (descriptive only, never a hard reject -- see RuleMatcher's
- * cardinalityNote()): real data supports exact reference/amount/date
- * matching, and ALPHA itself has verified internal reference duplication
- * that a strict 1:1 rule would strand as unmatched forever. Priority puts
- * the best-verified, highest-volume BNA pairs first; BNA-involving rules
- * exclude its "Commission" rows (a fee row, not a transaction, sharing its
- * reference with a paired sale) from the candidate pool.
+ * Seed des règles de rapprochement automatique par paires de sources.
  *
- * Each rule's criteria now carries:
- *   - primary_key: the field(s) used to GROUP candidates on each side
- *     (a single field name, or 'date|amount' for SMT's date+amount-only
- *     matching). The group key is built from the normalized_transactions
- *     columns (normalized_reference, normalized_amount_millimes,
- *     normalized_date) or from the raw_payload's transformed fields.
- *   - verify_fields: additional fields that must ALSO match after the
- *     primary-key grouping (e.g. ALPHA-WEB groups by reference, then
- *     verifies num_autorisation-secondary_reference, amount, date).
+ * Règles configurées et champs comparés :
+ * - ALPHA - BNA : num_autorisation, montant, date
+ * - SMT - BNA : montant, date
+ * - WEB - BNA : num_autorisation, montant, date
+ * - ALPHA - WEB : reference, num_autorisation, montant, date
+ * - ALPHA - SMT : montant, date
+ * - WEB - SMT : montant, date
+ * - ALPHA - STEG : reference, num_autorisation, montant, date
+ * - STEG - BNA : num_autorisation, montant, date
+ * - STEG - SMT : montant, date
+ *
+ * Chaque règle utilise :
+ * - primary_key : champ(s) de regroupement des candidats
+ * - verify_fields : champs secondaires à vérifier après le regroupement
+ * - excluded_b : statuts bruts à exclure côté B (ex: Commission pour BNA)
  */
 class MatchingRuleSeeder extends Seeder
 {
     public function run(): void
     {
-        $sourceIds = Source::query()->whereIn('code', ['ALPHA', 'BNA', 'WEB', 'SMT'])->pluck('id', 'code');
+        $sourceIds = Source::query()->whereIn('code', ['ALPHA', 'BNA', 'WEB', 'SMT', 'STEG'])->pluck('id', 'code');
 
         $rules = [
             [
@@ -89,6 +86,37 @@ class MatchingRuleSeeder extends Seeder
                 'a' => 'WEB',
                 'b' => 'SMT',
                 'priority' => 60,
+                'excluded_b' => [],
+                'primary_key' => ['a' => 'date|amount', 'b' => 'date|amount'],
+                'verify_fields' => [],
+            ],
+            [
+                'name' => 'ALPHA - STEG',
+                'a' => 'ALPHA',
+                'b' => 'STEG',
+                'priority' => 70,
+                'excluded_b' => [],
+                'primary_key' => ['a' => 'reference', 'b' => 'reference'],
+                'verify_fields' => [
+                    ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
+                    'amount',
+                    'date',
+                ],
+            ],
+            [
+                'name' => 'STEG - BNA',
+                'a' => 'STEG',
+                'b' => 'BNA',
+                'priority' => 80,
+                'excluded_b' => ['Commission'],
+                'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
+                'verify_fields' => ['amount', 'date'],
+            ],
+            [
+                'name' => 'STEG - SMT',
+                'a' => 'STEG',
+                'b' => 'SMT',
+                'priority' => 90,
                 'excluded_b' => [],
                 'primary_key' => ['a' => 'date|amount', 'b' => 'date|amount'],
                 'verify_fields' => [],
