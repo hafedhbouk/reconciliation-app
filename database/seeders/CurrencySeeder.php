@@ -2,6 +2,13 @@
 
 namespace Database\Seeders;
 
+/**
+ * Seed des devises supportées.
+ *
+ * Le champ decimal_places détermine la précision utilisée par
+ * DecimalStringToMillimesTransform lors de la conversion des montants
+ * en millimes.
+ */
 use App\Models\Currency;
 use Illuminate\Database\Seeder;
 

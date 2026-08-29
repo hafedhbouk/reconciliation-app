@@ -2,6 +2,19 @@
 
 namespace App\Services\Matching;
 
+/**
+ * Moteur de rapprochement : applique une règle pour comparer deux sources.
+ *
+ * Le matching fonctionne en 3 étapes :
+ * 1. Groupement par clé primaire configurable (référence, date|montant, etc.)
+ * 2. Vérification des champs secondaires (verify_fields)
+ * 3. Branche de tolérance 3 voies : match exact, conflit (un seul critère
+ *    respecté) ou sans signal (aucun critère respecté).
+ *
+ * Un chemin rapide multiset vérifie l'égalité parfaite des paires
+ * (montant, date) pour éviter les faux conflits quand une référence est
+ * réutilisée sur plusieurs dates distinctes.
+ */
 use App\DataTransferObjects\MatchingRunSummary;
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
@@ -81,6 +94,7 @@ class RuleMatcher
 
         $keys = $candidatesA->keys()->intersect($candidatesB->keys());
 
+        // Traiter uniquement les clés présentes dans les deux sources.
         foreach ($keys as $key) {
             $outcome = $this->evaluateGroup(
                 $candidatesA->get($key),
@@ -178,6 +192,9 @@ class RuleMatcher
         // even consider the amount/date tolerance branch. A mismatch here
         // means the primary key collided but the secondary fields don't
         // line up — treat as no_signal (no link, no exception).
+        // Si des champs secondaires sont configurés, ils doivent tous
+        // correspondre avant même d'appliquer la tolérance montant/date.
+        // Un écart ici signifie une collision de clé primaire sans lien réel.
         if ($verifyFields !== [] && ! $this->verifyFieldsMatch($groupA, $groupB, $verifyFields)) {
             return 'no_signal';
         }
@@ -189,17 +206,16 @@ class RuleMatcher
         return DB::transaction(function () use ($groupA, $groupB, $rule, $amountOk, $dateOk, $amountExact, $dateExact, $batchReference) {
             $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'));
 
-            // Defense-in-depth: the candidate query already scopes to matching_status
-            // = unmatched, so this should always hold; re-check immediately before
-            // writing in case a concurrent job already claimed part of this group.
-            $stillUnmatched = NormalizedTransaction::query()
-                ->whereIn('id', $allIds)
-                ->where('matching_status', MatchingStatus::Unmatched->value)
-                ->count();
+        // Vérification défensive : un job concurrent peut avoir déjà
+        // traité une partie de ce groupe pendant l'exécution.
+        $stillUnmatched = NormalizedTransaction::query()
+            ->whereIn('id', $allIds)
+            ->where('matching_status', MatchingStatus::Unmatched->value)
+            ->count();
 
-            if ($stillUnmatched !== $allIds->count()) {
-                return 'skipped';
-            }
+        if ($stillUnmatched !== $allIds->count()) {
+            return 'skipped';
+        }
 
             if ($amountOk && $dateOk) {
                 $status = ($amountExact && $dateExact) ? MatchingResultStatus::Matched : MatchingResultStatus::Partial;

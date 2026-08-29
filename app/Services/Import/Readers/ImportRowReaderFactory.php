@@ -2,6 +2,13 @@
 
 namespace App\Services\Import\Readers;
 
+/**
+ * Fabrique de lecteurs de fichiers importés.
+ *
+ * Détermine le lecteur approprié selon le file_type de la Source :
+ * - csv -> CsvRowReader (streaming via fgetcsv)
+ * - xls/xlsx -> XlsxRowReader (lecture fenêtrée pour limiter la mémoire)
+ */
 use App\Contracts\ImportRowReader;
 use App\Models\Source;
 use InvalidArgumentException;

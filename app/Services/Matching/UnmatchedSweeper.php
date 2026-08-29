@@ -2,6 +2,15 @@
 
 namespace App\Services\Matching;
 
+/**
+ * Balayeur des transactions non rapprochées.
+ *
+ * Dernière étape d'un batch de matching : toute normalized_transaction
+ * toujours en statut Unmatched se voit créer une exception de type
+ * Unmatched, sauf si une exception ouverte/en revue existe déjà pour
+ * cette ligne. L'insertion est massique (query builder) pour supporter
+ * des volumes importants sans saturer la mémoire.
+ */
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
 use App\Enums\MatchingStatus;
@@ -29,6 +38,7 @@ class UnmatchedSweeper
                 fn ($inner) => $inner->where('source_id', $sourceId),
             ))
             ->where('matching_status', MatchingStatus::Unmatched->value)
+            // Ne pas créer d'exception si une existe déjà en ouvert ou en revue.
             ->whereDoesntHave('exceptions', fn ($query) => $query->whereIn('status', [
                 ExceptionStatus::Open->value,
                 ExceptionStatus::InReview->value,

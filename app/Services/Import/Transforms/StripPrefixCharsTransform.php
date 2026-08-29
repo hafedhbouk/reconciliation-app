@@ -2,6 +2,15 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme StripPrefixChars : retire le premier caractère s'il fait
+ * partie d'une liste donnée.
+ *
+ * Conçu pour les sources où un préfixe inconstant (ex: "R" pour
+ * référence) peut précéder la valeur. Ne retire jamais le caractère
+ * s'il n'est pas dans la liste configurée, car les fichiers réels
+ * mélangent souvent des valeurs préfixées et non préfixées.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 

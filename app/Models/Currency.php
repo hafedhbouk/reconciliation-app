@@ -2,6 +2,14 @@
 
 namespace App\Models;
 
+/**
+ * Devise monétaire.
+ *
+ * Stocke la précision décimale (decimal_places) car l'application travaille
+ * en millimes (unité de compte) pour éviter les erreurs d'arrondi liées
+ * aux flottants. La conversion decimalString -> millimes utilise cette
+ * précision dans DecimalStringToMillimesTransform.
+ */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

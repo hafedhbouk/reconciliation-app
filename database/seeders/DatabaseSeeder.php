@@ -2,6 +2,12 @@
 
 namespace Database\Seeders;
 
+/**
+ * Point d'entrée des seeds de l'application.
+ *
+ * Orchestre l'exécution ordonnée des seeders de référence, utilisateurs,
+ * devises, banques, sources, mappings et règles de rapprochement.
+ */
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

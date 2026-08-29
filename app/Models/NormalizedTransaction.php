@@ -2,6 +2,16 @@
 
 namespace App\Models;
 
+/**
+ * Snapshot normalisé d'une transaction, optimisé pour le rapprochement.
+ *
+ * Contrairement à Transaction (qui conserve les données brutes et le payload
+ * complet), NormalizedTransaction ne garde que les champs nécessaires au
+ * matching : référence normalisée, montant en millimes, date et un hash de
+ * dédoublonnage (dedup_hash). Le champ matching_status reflète l'état du
+ * rapprochement (unmatched, matched, conflict) et est mis à jour par les
+ * jobs de matching.
+ */
 use App\Enums\MatchingStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;

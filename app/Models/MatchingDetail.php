@@ -2,6 +2,14 @@
 
 namespace App\Models;
 
+/**
+ * Détail d'un résultat de rapprochement : lien entre une MatchingResult et
+ * une NormalizedTransaction.
+ *
+ * Chaque ligne indique de quel côté (a ou b) de la règle se trouve la
+ * transaction rapprochée. Ce modèle permet de reconstituer les paires
+ * exactes et est utilisé par GenericTableExport pour afficher les résultats.
+ */
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

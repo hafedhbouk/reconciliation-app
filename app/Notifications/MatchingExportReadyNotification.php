@@ -2,6 +2,13 @@
 
 namespace App\Notifications;
 
+/**
+ * Notification de disponibilité d'un export de matching.
+ *
+ * Contient le statut de l'export (complété ou échoué), l'URL de
+ * téléchargement sécurisée par token et, en cas d'erreur, le message
+ * correspondant. Stockée en base pour le tableau de bord.
+ */
 use App\Models\MatchingExport;
 use Illuminate\Notifications\Notification;
 

@@ -2,6 +2,15 @@
 
 namespace App\Jobs;
 
+/**
+ * Notification agrégée de fin de batch "Lancer tout".
+ *
+ * Ce job est appendé à la chaîne Bus::chain après toutes les règles et
+ * les deux sweepers (doublons, non-rapprochés). Au lieu d'envoyer une
+ * notification par règle (6 notifications pour un clic), il produit un
+ * résumé consolidé : statuts des MatchingResult et nombre total
+ * d'exceptions créées pendant le batch.
+ */
 use App\Models\ExceptionRecord;
 use App\Models\MatchingResult;
 use App\Models\User;

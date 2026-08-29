@@ -22,7 +22,11 @@ test('admin can create a user with a role', function () {
     actingAsAdmin();
 
     $response = $this->post(route('admin.users.store'), [
-        'name' => 'New User',
+        'prenom' => 'Jean',
+        'nom' => 'Dupont',
+        'name' => 'Jean Dupont',
+        'matricule' => 'EMP-0001',
+        'portable' => '0600000000',
         'email' => 'new.user@example.com',
         'password' => 'Str0ng!Passw0rd',
         'is_active' => 1,
@@ -33,6 +37,10 @@ test('admin can create a user with a role', function () {
     $user = User::query()->where('email', 'new.user@example.com')->first();
     expect($user)->not->toBeNull();
     expect($user->hasRole('auditor'))->toBeTrue();
+    expect($user->prenom)->toBe('Jean');
+    expect($user->nom)->toBe('Dupont');
+    expect($user->matricule)->toBe('EMP-0001');
+    expect($user->portable)->toBe('0600000000');
 });
 
 test('creating a user with a password missing complexity requirements is rejected', function () {
@@ -40,6 +48,9 @@ test('creating a user with a password missing complexity requirements is rejecte
 
     $response = $this->post(route('admin.users.store'), [
         'name' => 'Weak Password User',
+        'prenom' => 'Weak',
+        'nom' => 'Password',
+        'matricule' => 'EMP-0002',
         'email' => 'weak@example.com',
         'password' => 'password123',
         'is_active' => 1,
@@ -54,7 +65,11 @@ test('admin can update a user without changing password', function () {
     $user = User::factory()->create(['name' => 'Old Name']);
 
     $response = $this->put(route('admin.users.update', $user), [
+        'prenom' => 'New',
+        'nom' => 'Name',
         'name' => 'New Name',
+        'matricule' => $user->matricule,
+        'portable' => '0611111111',
         'email' => $user->email,
         'is_active' => 1,
     ]);

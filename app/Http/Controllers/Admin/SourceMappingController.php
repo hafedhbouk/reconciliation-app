@@ -2,6 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de configuration des mappings de colonnes par source.
+ *
+ * Permet aux utilisateurs de définir, pour chaque Source, quelle colonne
+ * du fichier correspond à quel champ métier, et quelles transformations
+ * appliquer (trim, zero-pad, parsing de date, conversion millimes, etc.).
+ */
 use App\Enums\MappingTargetField;
 use App\Enums\TransformType;
 use App\Http\Controllers\Controller;

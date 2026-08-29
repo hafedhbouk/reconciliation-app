@@ -2,6 +2,14 @@
 
 namespace App\Jobs;
 
+/**
+ * Lance une détection de doublons sur les transactions normalisées.
+ *
+ * Déclenché manuellement depuis l'interface admin. Le scan couvre
+ * toutes les sources ou une source spécifique, selon le paramètre
+ * sourceId. Un résumé (groupes trouvés, exceptions créées) est notifié
+ * à l'utilisateur si notifyUserId est fourni.
+ */
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\DuplicateDetector;

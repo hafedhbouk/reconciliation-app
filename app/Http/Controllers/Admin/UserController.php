@@ -47,7 +47,11 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $user = User::query()->create([
+            'prenom' => $request->validated('prenom'),
+            'nom' => $request->validated('nom'),
             'name' => $request->validated('name'),
+            'matricule' => $request->validated('matricule'),
+            'portable' => $request->validated('portable'),
             'email' => $request->validated('email'),
             'password' => Hash::make($request->validated('password')),
             'is_active' => $request->boolean('is_active', true),
@@ -67,7 +71,11 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $data = [
+            'prenom' => $request->validated('prenom'),
+            'nom' => $request->validated('nom'),
             'name' => $request->validated('name'),
+            'matricule' => $request->validated('matricule'),
+            'portable' => $request->validated('portable'),
             'email' => $request->validated('email'),
             'is_active' => $request->boolean('is_active', true),
         ];

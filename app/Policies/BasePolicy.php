@@ -2,6 +2,14 @@
 
 namespace App\Policies;
 
+/**
+ * Politique de base abstraite pour toutes les ressources.
+ *
+ * Chaque policy concrète définit un préfixe de permission (ex:
+ * "imports") et hérite des méthodes viewAny, view, create, update,
+ * delete, restore qui vérifient la permission correspondante
+ * (ex: "imports.update").
+ */
 use App\Models\User;
 
 abstract class BasePolicy

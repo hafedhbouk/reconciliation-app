@@ -2,6 +2,15 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme SubstringAfterNthDelimiter : extrait le sous-texte situé
+ * après le N-ième délimiteur.
+ *
+ * Utilisé pour les colonnes composites (ex: session,type,référence) où
+ * la référence se trouve après le deuxième séparateur. Le délimiteur et
+ * N sont configurables ; une troncature optionnelle (length) permet de
+ * ne garder qu'une partie du reste.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 use App\Exceptions\Import\TransformException;

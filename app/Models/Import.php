@@ -2,6 +2,15 @@
 
 namespace App\Models;
 
+/**
+ * Modèle représentant un fichier importé par les utilisateurs.
+ *
+ * Un Import est le point d'entrée du pipeline : il stocke le fichier brut,
+ * son hachage SHA-256 (pour détecter les doublons), les métadonnées de
+ * traitement (statut, durée, compteurs de lignes) et l'utilisateur à l'origine
+ * de l'import. Les relations vers ImportRow, Transaction et Source permettent
+ * de naviguer depuis le fichier jusqu'aux transactions normalisées.
+ */
 use App\Enums\ImportStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;

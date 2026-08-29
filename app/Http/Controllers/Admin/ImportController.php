@@ -2,6 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de gestion des imports de fichiers.
+ *
+ * Responsabilités :
+ *  - Upload et stockage sécurisé du fichier (détection de doublon par SHA-256)
+ *  - Validation des en-têtes contre les mappings requis avant traitement
+ *  - Déclenchement du ProcessImportJob
+ *  - Garantie d'idempotie : un import ne peut être lancé qu'une seule fois
+ *    (guard atomique sur job_dispatched_at)
+ */
 use App\Enums\ImportStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreImportRequest;
@@ -153,15 +163,12 @@ class ImportController extends Controller
                 ->with('status', __('Colonnes requises toujours manquantes : :columns', ['columns' => implode(', ', $missing)]));
         }
 
-        // store() already dispatches the job on a successful upload -- status
-        // stays "pending" until a worker actually picks it up, which can take
-        // a while if the queue is backed up or no worker is running. Without
-        // this guard, clicking "Lancer l'import" during that window (or
-        // double-clicking here) queues a second job for the same file, and
-        // ProcessImportJob has no idempotency check: it would insert a
-        // second full set of import_rows/transactions/normalized_transactions
-        // on top of the first. The conditional update (not read-then-write)
-        // makes the "only once" guarantee atomic against concurrent requests.
+        // store() dispatche déjà le job -- le statut reste "pending" jusqu'à
+        // ce qu'un worker le prenne. Sans cette garde, un double-clic ou un
+        // rechargement pendant la file d'attente pourrait lancer un second
+        // job et doubler les insertions. La mise à jour conditionnelle
+        // (pas de read-then-write) rend la garantie "une seule fois"
+        // atomique contre les requêtes concurrentes.
         $claimed = Import::query()->whereKey($import->id)->whereNull('job_dispatched_at')
             ->update(['job_dispatched_at' => now()]);
 

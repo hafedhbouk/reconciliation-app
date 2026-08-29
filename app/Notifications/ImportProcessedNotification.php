@@ -2,6 +2,13 @@
 
 namespace App\Notifications;
 
+/**
+ * Notification de fin de traitement d'un import.
+ *
+ * Stockée en base (driver database) pour affichage dans le tableau de
+ * bord des notifications. Contient les compteurs de lignes traitées,
+ * réussies et en erreur.
+ */
 use App\Models\Import;
 use Illuminate\Notifications\Notification;
 

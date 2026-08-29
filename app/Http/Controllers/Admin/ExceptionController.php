@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de gestion des exceptions de rapprochement.
+ *
+ * Permet de consulter, filtrer, assigner et résoudre les anomalies
+ * (doublons, dépassements de tolérance, non-rapprochés). L'export est
+ * limité pour XLSX/PDF pour les mêmes raisons de mémoire que
+ * SearchController.
+ */
 use App\Enums\ExceptionStatus;
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;

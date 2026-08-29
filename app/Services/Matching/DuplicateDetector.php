@@ -2,6 +2,15 @@
 
 namespace App\Services\Matching;
 
+/**
+ * Détecteur de doublons.
+ *
+ * Recherche les groupes de NormalizedTransaction partageant le même
+ * dedup_hash (même source, référence, montant et date). La première ligne
+ * (la plus ancienne par id) est considérée comme l'originale ; les
+ * suivantes sont signalées comme doublons via ExceptionRecord. Ce scan
+ * est déclenché manuellement, pas automatiquement après import.
+ */
 use App\DataTransferObjects\DuplicateScanSummary;
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
@@ -39,8 +48,8 @@ class DuplicateDetector
                 ->select('normalized_transactions.*')
                 ->get();
 
-            // The first (oldest) row is treated as the original; every later
-            // row sharing the same hash is the duplicate worth flagging.
+            // La première ligne (la plus ancienne) est l'originale ;
+            // chaque ligne suivante partageant le même hash est un doublon.
             foreach ($rows->slice(1) as $duplicate) {
                 $alreadyFlagged = ExceptionRecord::query()
                     ->where('normalized_transaction_id', $duplicate->id)

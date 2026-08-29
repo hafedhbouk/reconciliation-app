@@ -2,6 +2,14 @@
 
 namespace App\Models;
 
+/**
+ * Source de données de transaction (fichier émanant d'une banque ou d'un canal).
+ *
+ * Une Source définit la nature du fichier importé : type de fichier (csv/xlsx),
+ * banque émettrice, devise par défaut et le mapping de colonnes qui lui est
+ * associé. C'est le pivot entre les imports, les transactions et les règles
+ * de rapprochement.
+ */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

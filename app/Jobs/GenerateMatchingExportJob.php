@@ -2,6 +2,19 @@
 
 namespace App\Jobs;
 
+/**
+ * Génère un export de résultats de rapprochement (CSV, XLSX ou PDF).
+ *
+ * Le fichier est écrit sur le disque local (storage/app/exports) et le
+ * chemin est stocké dans matching_exports.file_path. L'utilisateur
+ * déclencheur est notifié à la fin du traitement.
+ *
+ * Formats supportés :
+ * - csv : streamé ligne par ligne, peu gourmand en mémoire
+ * - xlsx : chargé en mémoire par PhpSpreadsheet, réservé aux volumes
+ *          raisonnables (< ~50k lignes)
+ * - pdf : idem, limité aux volumes raisonnables
+ */
 use App\Exports\GenericTableExport;
 use App\Models\MatchingExport;
 use Illuminate\Foundation\Bus\Dispatchable;

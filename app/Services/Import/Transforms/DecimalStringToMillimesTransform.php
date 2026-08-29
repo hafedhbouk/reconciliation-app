@@ -2,6 +2,15 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme DecimalStringToMillimes : convertit une chaîne décimale
+ * (ex: "78.000" ou "4.75") en montant en millimes.
+ *
+ * Utilise de l'arithmétique sur chaînes (jamais de multiplication par
+ * un flottant) pour éviter l'accumulation d'erreurs d'arrondi sur des
+ * dizaines de milliers de lignes. Gère les séparateurs de milliers
+ * (espaces et espaces insécables) rencontrés dans les fichiers BNA.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 use App\Exceptions\Import\TransformException;

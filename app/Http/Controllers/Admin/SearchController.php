@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de recherche globale dans les transactions normalisées.
+ *
+ * Permet de filtrer par source, référence, plage de montants, dates,
+ * canal et statut de matching. L'export est limité en taille pour XLSX
+ * et PDF (limite de mémoire PhpSpreadsheet/dompdf), seuls les CSV
+ * restent illimités.
+ */
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
 use App\Models\NormalizedTransaction;
@@ -48,11 +56,11 @@ class SearchController extends Controller
 
         $query = $this->buildQuery($request);
 
-        // CSV streams row-by-row and handles large result sets fine (verified
-        // against ~150k real rows). XLSX (PhpSpreadsheet) and PDF (dompdf)
-        // both build a full in-memory object model first -- verified this
-        // exhausts PHP's 512MB memory limit on the same ~150k-row export, so
-        // both get the same cap; only CSV is left uncapped.
+        // CSV stream ligne par ligne et supporte de grands volumes (vérifié
+        // sur ~150k lignes). XLSX (PhpSpreadsheet) et PDF (dompdf)
+        // construisent d'abord un objet modèle complet en mémoire -- ce qui
+        // épuise la memory_limit de PHP sur le même volume -- donc les deux
+        // formats sont plafonnés à 1000 lignes.
         if (in_array($format, ['xlsx', 'pdf'], true)) {
             $query->limit(1000);
         }

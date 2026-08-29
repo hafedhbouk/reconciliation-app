@@ -1,8 +1,26 @@
 @props(['user' => null, 'roles' => []])
 
 <div class="mb-3">
-    <x-input-label for="name" :value="__('Nom')" />
-    <x-text-input id="name" name="name" type="text" :value="old('name', $user?->name)" required autofocus />
+    <x-input-label for="prenom" :value="__('Prénom')" />
+    <x-text-input id="prenom" name="prenom" type="text" :value="old('prenom', $user?->prenom)" required autofocus />
+    <x-input-error :messages="$errors->get('prenom')" />
+</div>
+
+<div class="mb-3">
+    <x-input-label for="nom" :value="__('Nom')" />
+    <x-text-input id="nom" name="nom" type="text" :value="old('nom', $user?->nom)" required />
+    <x-input-error :messages="$errors->get('nom')" />
+</div>
+
+<div class="mb-3">
+    <x-input-label for="matricule" :value="__('Matricule')" />
+    <x-text-input id="matricule" name="matricule" type="text" :value="old('matricule', $user?->matricule)" required />
+    <x-input-error :messages="$errors->get('matricule')" />
+</div>
+
+<div class="mb-3">
+    <x-input-label for="name" :value="__('Nom complet')" />
+    <x-text-input id="name" name="name" type="text" :value="old('name', $user?->name)" required />
     <x-input-error :messages="$errors->get('name')" />
 </div>
 
@@ -10,6 +28,12 @@
     <x-input-label for="email" :value="__('Email')" />
     <x-text-input id="email" name="email" type="email" :value="old('email', $user?->email)" required />
     <x-input-error :messages="$errors->get('email')" />
+</div>
+
+<div class="mb-3">
+    <x-input-label for="portable" :value="__('Numéro de portable')" />
+    <x-text-input id="portable" name="portable" type="tel" :value="old('portable', $user?->portable)" />
+    <x-input-error :messages="$errors->get('portable')" />
 </div>
 
 <div class="mb-3">

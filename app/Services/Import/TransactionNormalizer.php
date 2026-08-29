@@ -2,6 +2,15 @@
 
 namespace App\Services\Import;
 
+/**
+ * Construit les lignes Transaction et NormalizedTransaction prêtes pour
+ * l'insertion en masse.
+ *
+ * S'interface avec MappingEngine pour recevoir les valeurs transformées,
+ * puis assemble : la ligne transactions, le snapshot normalized (référence,
+ * montant, date, hash) et la ligne normalized_transactions. Le cache
+ * interne des devises évite un lookup par ligne sur les imports volumineux.
+ */
 use App\Enums\MappingTargetField;
 use App\Enums\MatchingStatus;
 use App\Models\Currency;
@@ -24,6 +33,7 @@ class TransactionNormalizer
      */
     public function buildTransactionRow(array $transformed, Source $source, Import $import, int $userId): array
     {
+        // Construire la date à partir de datetime si la date seule n'est pas fournie.
         $date = $transformed[MappingTargetField::Date->value]
             ?? $this->dateFromDatetime($transformed[MappingTargetField::Datetime->value] ?? null);
 
@@ -33,12 +43,14 @@ class TransactionNormalizer
             'import_id' => $import->id,
             'source_id' => $source->id,
             'bank_id' => $source->bank_id,
+            // Résoudre la devise : code explicite > devise par défaut de la source.
             'currency_id' => $this->resolveCurrencyId($transformed[MappingTargetField::CurrencyCode->value] ?? null, $source),
             'external_reference' => $transformed[MappingTargetField::Reference->value] ?? null,
             'transaction_date' => $date,
             'transaction_datetime' => $transformed[MappingTargetField::Datetime->value] ?? null,
             'amount_millimes' => $transformed[MappingTargetField::Amount->value] ?? null,
             'canal' => $transformed[MappingTargetField::Canal->value] ?? null,
+            // Conserver le payload complet transformé pour debug et matching avancé.
             'raw_payload' => json_encode($transformed),
             'created_at' => $now,
             'updated_at' => $now,
@@ -60,13 +72,15 @@ class TransactionNormalizer
      */
     public function computeNormalizedSnapshot(array $transactionRow): array
     {
-        // SMT has no reference column (client spec: only date + amount). For
-        // sources without a reference, build a composite key date|amount so
-        // normalized_reference stays non-null and the matching layer can
-        // group on it (RuleMatcher uses 'date|amount' as primary_key for SMT).
+        // SMT n'a pas de colonne référence (spécification client : date + montant).
+        // Pour ces sources, on construit une clé composite date|montant afin que
+        // normalized_reference ne soit jamais null et que le moteur de matching
+        // puisse grouper dessus.
         $reference = $transactionRow['external_reference']
             ?? ($transactionRow['transaction_date'].'|'.$transactionRow['amount_millimes']);
 
+        // Hash déterministe pour le dédoublonnage : identique pour 2 lignes
+        // ayant la même source, référence, montant et date.
         $hash = hash('sha256', implode('|', [
             $transactionRow['source_id'],
             $reference,

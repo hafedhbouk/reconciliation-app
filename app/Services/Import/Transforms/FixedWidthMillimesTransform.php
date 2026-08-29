@@ -2,6 +2,14 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme FixedWidthMillimes : convertit une chaîne à largeur fixe
+ * (ex: " 000000042000") en entier millimes.
+ *
+ * Utilisé pour les sources où le montant est déjà exprimé en millimes
+ * dans une colonne textuelle à padding espaces. Valide que la valeur
+ * ne contient que des chiffres et un éventuel signe moins.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 use App\Exceptions\Import\TransformException;

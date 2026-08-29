@@ -2,6 +2,15 @@
 
 namespace App\Models;
 
+/**
+ * Règle de rapprochement entre deux sources de transactions.
+ *
+ * Définit les sources à comparer (source_a_id / source_b_id), la
+ * cardinalité attendue (1:1, 1:N, N:1, N:M), la priorité d'exécution et
+ * le JSON criteria qui contient les tolérances (montant en millimes,
+ * jours), les statuts exclus et la clé primaire de groupement. Les règles
+ * actives sont exécutées séquentiellement par MatchingRuleController::runAll().
+ */
 use App\Enums\MatchingCardinality;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;

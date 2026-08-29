@@ -2,6 +2,12 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme Trim : supprime les espaces blancs en début et fin de chaîne.
+ *
+ * Transforme les chaînes vides en null après trim, ce qui permet aux
+ * mappings non requis de produire une valeur nulle cohérente.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 

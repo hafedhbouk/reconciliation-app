@@ -2,6 +2,15 @@
 
 namespace App\Models;
 
+/**
+ * Exception ou anomalie détectée durant le processus de rapprochement.
+ *
+ * Couvre tous les cas : doublons (Duplicate), dépassements de tolérance
+ * (AmountMismatch, DateMismatch), transactions non rapprochées (Unmatched)
+ * et erreurs de parsing. Le cycle de vie est géré par le statut (Open,
+ * InReview, Resolved) et les champs assigned_to / resolved_by permettent
+ * le workflow de revue manuelle.
+ */
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
 use App\Models\Concerns\Auditable;

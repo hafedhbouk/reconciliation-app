@@ -2,6 +2,15 @@
 
 namespace App\Jobs;
 
+/**
+ * Exécute une règle de rapprochement unique en arrière-plan.
+ *
+ * Déclenché soit individuellement (bouton "Lancer" sur une règle), soit
+ * dans le cadre d'un "Lancer tout". Le paramètre notifyUserId permet
+ * d'envoyer une notification à l'utilisateur déclencheur à la fin du
+ * traitement ; MatchingResult.matched_by reste null car le matching
+ * automatique n'a pas d'opérateur humain.
+ */
 use App\Models\MatchingRule;
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;

@@ -2,6 +2,15 @@
 
 namespace App\Exports;
 
+/**
+ * Export générique réutilisable pour CSV, XLSX et PDF.
+ *
+ * Cette classe n'a aucune connaissance métier : chaque appelant fournit
+ * sa propre query, ses en-têtes et une closure de mapping. Le writer
+ * type (CSV/XLSX/PDF) est choisi par l'appelant via Excel::download().
+ * Ce design évite la duplication entre SearchController,
+ * ExceptionController et GenerateMatchingExportJob.
+ */
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;

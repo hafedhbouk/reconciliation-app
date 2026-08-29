@@ -2,6 +2,19 @@
 
 namespace App\Jobs;
 
+/**
+ * Job asynchrone qui exécute un import complet.
+ *
+ * Lit le fichier via le lecteur adapté (CSV/XLSX), applique les mappings
+ * de colonnes de la Source, insère les transactions et leurs snapshots
+ * normalisés par chunks pour rester mémoire-safe sur les gros fichiers.
+ *
+ * Choix d'architecture : insertions en masse via query builder (pas de
+ * Eloquent ::create par ligne) pour éviter des milliers de logs
+ * d'audit/événements HasUserstamps pour un seul fichier. Les champs
+ * created_by/updated_by sont renseignés manuellement dans les arrays
+ * d'insertion.
+ */
 use App\Enums\ImportRowStatus;
 use App\Enums\ImportStatus;
 use App\Exceptions\Import\MissingRequiredFieldException;
@@ -86,6 +99,8 @@ class ProcessImportJob implements ShouldQueue
 
         $rows = LazyCollection::make(fn () => yield from $reader->read($path, $sourceConfig));
 
+        // Traiter le fichier par chunks pour ne pas dépasser la mémoire,
+        // même sur des imports de 80k+ lignes.
         foreach ($rows->chunk($chunkSize) as $chunk) {
             [$chunkProcessed, $chunkSuccess, $chunkErrors] = $this->processChunk(
                 $chunk, $import, $source, $mappings, $engine, $normalizer, $userId

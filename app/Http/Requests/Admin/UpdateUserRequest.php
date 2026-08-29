@@ -11,7 +11,11 @@ class UpdateUserRequest extends BaseFormRequest
     public function rules(): array
     {
         return [
+            'prenom' => ['required', 'string', 'max:255'],
+            'nom' => ['required', 'string', 'max:255'],
             'name' => ['required', 'string', 'max:255'],
+            'matricule' => ['required', 'string', 'max:255', Rule::unique('users', 'matricule')->ignore($this->route('user'))],
+            'portable' => ['nullable', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($this->route('user'))],
             'password' => ['nullable', Password::defaults()],
             'is_active' => ['boolean'],

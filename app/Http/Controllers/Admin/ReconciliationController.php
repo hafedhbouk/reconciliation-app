@@ -2,6 +2,14 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de rapprochement manuel.
+ *
+ * Affiche les transactions non rapprochées et permet de créer des
+ * rapprochements manuels (matching sans règle, avec confiance humaine).
+ * L'action "Sélectionner tout" est plafonnée à 500 lignes pour éviter
+ * des requêtes trop lourdes côté client et serveur.
+ */
 use App\Enums\MatchingResultStatus;
 use App\Enums\MatchingStatus;
 use App\Http\Controllers\Controller;
@@ -47,7 +55,8 @@ class ReconciliationController extends Controller
         $query = $this->filteredUnmatchedQuery($validated);
 
         if ($validated['all'] ?? false) {
-            // +1 over the limit just to detect (not fetch) truncation.
+            // Récupérer SELECT_ALL_LIMIT + 1 pour détecter la troncature
+            // sans charger toutes les lignes en mémoire.
             $ids = (clone $query)->orderByDesc('id')->limit(self::SELECT_ALL_LIMIT + 1)->pluck('id');
 
             return response()->json([

@@ -2,6 +2,14 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme DateParse : analyse une date selon un format donné et
+ * retourne une date (Y-m-d) ou un datetime (Y-m-d H:i:s).
+ *
+ * Le format attendu est fourni via config['format'] (ex: 'd/m/Y').
+ * Un format invalide ou une valeur non conforme lève une
+ * TransformException et marque la ligne en erreur.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 use App\Exceptions\Import\TransformException;

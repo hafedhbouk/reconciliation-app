@@ -2,6 +2,15 @@
 
 namespace App\Models;
 
+/**
+ * Transaction brute issue d'un fichier importé.
+ *
+ * Stocke toutes les colonnes transformées (montant en millimes, dates,
+ * référence, canal) ainsi que le payload JSON complet de la ligne source
+ * (raw_payload) pour les besoins de debug et de matching avancé. Chaque
+ * transaction appartient à un Import et une Source, et possède au plus un
+ * NormalizedTransaction (relation 1:1) qui en est la version allégée.
+ */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

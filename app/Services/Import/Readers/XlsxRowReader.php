@@ -2,6 +2,15 @@
 
 namespace App\Services\Import\Readers;
 
+/**
+ * Lecteur de fichiers Excel (XLSX) optimisé pour la mémoire.
+ *
+ * PhpSpreadsheet charge l'intégralité du classeur en mémoire par défaut,
+ * ce qui est prohibé pour les fichiers de 80k+ lignes. Ce lecteur lit
+ * le fichier par fenêtres de 1 000 lignes via un IReadFilter, en
+ * réinstanciant le reader à chaque fenêtre et en libérant l'objet
+ * Spreadsheet entre chaque lecture.
+ */
 use App\Contracts\ImportRowReader;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -49,7 +58,7 @@ class XlsxRowReader implements ImportRowReader
         }
 
         $rowNumber = 0;
-        $windowStart = 2; // row 1 is the header row
+        $windowStart = 2; // La ligne 1 est l'en-tête
 
         while ($windowStart <= $totalRows) {
             $windowEnd = min($windowStart + self::READER_WINDOW - 1, $totalRows);
@@ -79,6 +88,7 @@ class XlsxRowReader implements ImportRowReader
                 yield $rowNumber => array_combine($headers, $cells);
             }
 
+            // Libérer la mémoire avant la prochaine fenêtre.
             $spreadsheet->disconnectWorksheets();
             unset($spreadsheet, $reader);
 

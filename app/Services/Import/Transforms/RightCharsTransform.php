@@ -2,6 +2,14 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme RightChars : extrait les N caractères les plus à droite
+ * d'une valeur.
+ *
+ * Utilisé pour extraire la référence d'une colonne fusionnée
+ * (session + référence) où la référence occupe toujours les 9 derniers
+ * caractères (cas WEB/STEG).
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 use App\Exceptions\Import\TransformException;

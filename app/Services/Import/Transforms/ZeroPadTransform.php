@@ -2,6 +2,13 @@
 
 namespace App\Services\Import\Transforms;
 
+/**
+ * Transforme ZeroPad : complète une référence numérique avec des zéros
+ * en tête pour atteindre une largeur fixe.
+ *
+ * Indispensable pour les sources Excel (Alpha, BNA) où les cellules
+ * numériques perdent leurs zéros initiaux lors de la lecture.
+ */
 use App\Contracts\TransformPrimitive;
 use App\Enums\TransformType;
 

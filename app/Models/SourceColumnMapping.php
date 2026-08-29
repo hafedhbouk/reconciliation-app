@@ -2,6 +2,14 @@
 
 namespace App\Models;
 
+/**
+ * Mapping entre une colonne du fichier source et un champ cible de l'application.
+ *
+ * Chaque enregistrement définit : la colonne source (ex: "Réf"), le champ
+ * cible (ex: "reference"), la série de transforms à appliquer (trim,
+ * zero_pad, etc.) et si la colonne est obligatoire. L'ordre (sort_order)
+ * détermine la séquence d'application des transforms dans le MappingEngine.
+ */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

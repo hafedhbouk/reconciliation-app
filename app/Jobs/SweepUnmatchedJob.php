@@ -2,6 +2,13 @@
 
 namespace App\Jobs;
 
+/**
+ * Balaie les transactions toujours non rapprochées après un batch de matching.
+ *
+ * Chaque normalized_transaction en statut Unmatched se voit créer une
+ * exception de type Unmatched, sauf si une exception ouverte/en revue
+ * existe déjà. Peut être limité à une source spécifique via sourceId.
+ */
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\UnmatchedSweeper;

@@ -2,6 +2,14 @@
 
 namespace App\Services\Import\Readers;
 
+/**
+ * Lecteur de fichiers CSV via générateur PHP natif.
+ *
+ * Utilise fgetcsv en mode streaming pour traiter des fichiers volumineux
+ * sans charger l'intégralité en mémoire. Les lignes déséquilibrées
+ * (nombre de colonnes ≠ en-têtes) sont complétées ou tronquées plutôt que
+ * de provoquer une erreur fatale.
+ */
 use App\Contracts\ImportRowReader;
 use RuntimeException;
 
@@ -41,8 +49,9 @@ class CsvRowReader implements ImportRowReader
             while (($row = fgetcsv($handle, 0, $delimiter, $enclosure)) !== false) {
                 $rowNumber++;
 
-                // Guard against ragged rows (rare, but real-world exports aren't always clean):
-                // pad short rows with null, truncate long ones, rather than crashing the import.
+                // Protection contre les lignes déséquilibrées : on complète
+                // les lignes courtes avec null et on tronque les lignes longues
+                // pour éviter les décalages de colonnes.
                 $rowCount = count($row);
                 if ($rowCount < $headerCount) {
                     $row = array_pad($row, $headerCount, null);

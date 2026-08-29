@@ -2,6 +2,14 @@
 
 namespace App\Models;
 
+/**
+ * Institution bancaire.
+ *
+ * Référence statique utilisée pour qualifier les Sources et les Imports.
+ * Le code (ex: ALPHA, BNA) est l'identifiant métier ; le swift_code est
+ * conservé pour traçabilité mais n'est pas exploité par le moteur de
+ * rapprochement.
+ */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

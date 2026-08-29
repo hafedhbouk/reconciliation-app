@@ -2,6 +2,16 @@
 
 namespace App\Http\Middleware;
 
+/**
+ * Middleware de sécurité : envoie des en-têtes HTTP de protection sur
+ * chaque réponse admin.
+ *
+ * Le Content-Security-Policy autorise 'unsafe-inline' pour les scripts
+ * et les styles car les vues admin utilisent massivement des blocs
+ * inline (@push, scripts de layout). Ce compromis est documenté et
+ * reflète le modèle de menace d'un outil interne (pas un site public
+ * acceptant du HTML utilisateur).
+ */
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;

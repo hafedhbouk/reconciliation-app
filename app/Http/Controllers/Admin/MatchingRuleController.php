@@ -2,6 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+/**
+ * Contrôleur de gestion des règles de rapprochement.
+ *
+ * Offre le CRUD des règles ainsi que les actions de déclenchement :
+ *  - Lancer une règle unique
+ *  - Lancer toutes les règles actives (Bus::chain séquentiel par priorité)
+ *  - Lancer la détection de doublons
+ *  - Lancer le balayage des non-rapprochés
+ */
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMatchingRuleRequest;
 use App\Http\Requests\Admin\UpdateMatchingRuleRequest;
@@ -99,6 +108,9 @@ class MatchingRuleController extends Controller
 
         $batchReference = (string) Str::uuid();
 
+        // Construire la chaîne de jobs : chaque règle active (triée par
+        // priorité), puis détection des doublons, puis balayage des
+        // non-rapprochés, enfin notification agrégée.
         $ruleJobs = MatchingRule::query()
             ->where('is_active', true)
             ->orderBy('priority')
