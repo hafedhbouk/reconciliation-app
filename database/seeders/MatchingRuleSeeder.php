@@ -9,16 +9,19 @@ use Illuminate\Database\Seeder;
 /**
  * Seed des règles de rapprochement automatique par paires de sources.
  *
+ * Sources (fiches) :
+ * - ALPHA : fichier XLSX d'encaissements
+ * - BNA : relevé bancaire XLSX
+ * - WEB/STEG : portail STEG au format CSV (même source, alias WEB)
+ * - SMT : export passerelle SMT au format CSV
+ *
  * Règles configurées et champs comparés :
- * - ALPHA - BNA : num_autorisation, montant, date
- * - SMT - BNA : montant, date
- * - WEB - BNA : num_autorisation, montant, date
- * - ALPHA - WEB : reference, num_autorisation, montant, date
- * - ALPHA - SMT : montant, date
- * - WEB - SMT : montant, date
- * - ALPHA - STEG : reference, num_autorisation, montant, date
- * - STEG - BNA : num_autorisation, montant, date
- * - STEG - SMT : montant, date
+ * - ALPHA - BNA : num_autorisation ↔ N° autorisation, vérif montant + date
+ * - SMT - BNA : montant + date
+ * - WEB - BNA : recu_paie ↔ N° autorisation, vérif montant + date
+ * - ALPHA - WEB : reference ↔ reference, vérif num_autorisation + montant + date
+ * - ALPHA - SMT : montant + date
+ * - WEB - SMT : montant + date
  *
  * Chaque règle utilise :
  * - primary_key : champ(s) de regroupement des candidats
@@ -29,7 +32,7 @@ class MatchingRuleSeeder extends Seeder
 {
     public function run(): void
     {
-        $sourceIds = Source::query()->whereIn('code', ['ALPHA', 'BNA', 'WEB', 'SMT', 'STEG'])->pluck('id', 'code');
+        $sourceIds = Source::query()->whereIn('code', ['ALPHA', 'BNA', 'WEB', 'SMT'])->pluck('id', 'code');
 
         $rules = [
             [
@@ -86,37 +89,6 @@ class MatchingRuleSeeder extends Seeder
                 'a' => 'WEB',
                 'b' => 'SMT',
                 'priority' => 60,
-                'excluded_b' => [],
-                'primary_key' => ['a' => 'date|amount', 'b' => 'date|amount'],
-                'verify_fields' => [],
-            ],
-            [
-                'name' => 'ALPHA - STEG',
-                'a' => 'ALPHA',
-                'b' => 'STEG',
-                'priority' => 70,
-                'excluded_b' => [],
-                'primary_key' => ['a' => 'reference', 'b' => 'reference'],
-                'verify_fields' => [
-                    ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
-                    'amount',
-                    'date',
-                ],
-            ],
-            [
-                'name' => 'STEG - BNA',
-                'a' => 'STEG',
-                'b' => 'BNA',
-                'priority' => 80,
-                'excluded_b' => ['Commission'],
-                'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
-                'verify_fields' => ['amount', 'date'],
-            ],
-            [
-                'name' => 'STEG - SMT',
-                'a' => 'STEG',
-                'b' => 'SMT',
-                'priority' => 90,
                 'excluded_b' => [],
                 'primary_key' => ['a' => 'date|amount', 'b' => 'date|amount'],
                 'verify_fields' => [],
