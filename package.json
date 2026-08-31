@@ -13,7 +13,7 @@
         "bootstrap-icons": "^1.13.1",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^2.0.0",
-        "sass": "^1.99.0",
+        "sass": "^1.103.1",
         "vite": "^7.0.7"
     },
     "dependencies": {
