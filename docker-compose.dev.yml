@@ -1,0 +1,100 @@
+services:
+  # PHP-FPM + Nginx + Supervisor (main application)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: reconciliation-app-dev
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=${APP_KEY}
+      - APP_URL=${APP_URL:-http://localhost:8080}
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-reconciliation_app}
+      - DB_USERNAME=${DB_USERNAME:-reconciliation}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - QUEUE_CONNECTION=database
+      - CACHE_STORE=database
+      - SESSION_DRIVER=database
+      - MAIL_MAILER=log
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+      - /var/www/html/node_modules
+    networks:
+      - reconciliation-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: reconciliation-mysql-dev
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE:-reconciliation_app}
+      - MYSQL_USER=${DB_USERNAME:-reconciliation}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - MYSQL_CHARSET=utf8mb4
+      - MYSQL_COLLATION=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data-dev:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - reconciliation-network-dev
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: --default-authentication-plugin=mysql_native_password
+
+  # Queue Worker (for background jobs)
+  queue-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: reconciliation-queue-dev
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "--tries=3", "--memory=1024", "--timeout=0"]
+    environment:
+      - APP_ENV=local
+      - APP_KEY=${APP_KEY}
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-reconciliation_app}
+      - DB_USERNAME=${DB_USERNAME:-reconciliation}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - QUEUE_CONNECTION=database
+      - CACHE_STORE=database
+      - SESSION_DRIVER=database
+    volumes:
+      - .:/var/www/html
+      - /var/www/html/vendor
+    networks:
+      - reconciliation-network-dev
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+networks:
+  reconciliation-network-dev:
+    driver: bridge
+
+volumes:
+  mysql-data-dev:
+    driver: local

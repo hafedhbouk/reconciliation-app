@@ -25,3 +25,24 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Docker
+docker-compose.override.yml
+.docker/
+*.pid
+*.seed
+*.swp
+
+# IDE
+*.sublime-project
+*.sublime-workspace
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Build
+/build
+/dist
+/out

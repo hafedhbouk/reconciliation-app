@@ -44,6 +44,13 @@
 
                     {{ $slot }}
                 </main>
+
+                <footer class="bg-body-tertiary border-top py-3 px-4 mt-auto">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center small text-secondary">
+                        <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
+                        <span class="fw-semibold">Version 1.0</span>
+                    </div>
+                </footer>
             </div>
         </div>
 

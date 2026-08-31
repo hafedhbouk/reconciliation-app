@@ -1,0 +1,71 @@
+; Custom PHP configuration for Docker production environment
+; Optimized for Laravel 12 with OPcache and performance tuning
+
+[PHP]
+; Error handling
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+error_log = /var/log/php/error.log
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+
+; Resource limits
+memory_limit = 512M
+max_execution_time = 300
+max_input_time = 300
+max_input_vars = 5000
+post_max_size = 50M
+upload_max_filesize = 50M
+max_file_uploads = 20
+
+; Date and timezone
+date.timezone = UTC
+
+; Session security
+session.cookie_httponly = 1
+session.cookie_secure = 1
+session.use_strict_mode = 1
+session.cookie_samesite = "Lax"
+session.gc_maxlifetime = 7200
+
+; OPcache settings (override opcache.ini if needed)
+opcache.enable = 1
+opcache.memory_consumption = 256
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 20000
+opcache.validate_timestamps = 0
+opcache.save_comments = 1
+opcache.fast_shutdown = 1
+
+; Realpath cache
+realpath_cache_size = 4096K
+realpath_cache_ttl = 600
+
+; Security
+expose_php = Off
+allow_url_fopen = On
+allow_url_include = Off
+disable_functions = exec,passthru,shell_exec,system,proc_open,popen,curl_exec,curl_multi_exec,parse_ini_file,show_source
+
+[MySQL]
+; MySQL client settings
+mysql.allow_local_infile = On
+mysql.allow_persistent = Off
+mysql.max_persistent = -1
+mysql.max_links = -1
+mysql.default_port =
+mysql.default_socket =
+mysql.default_host =
+mysql.default_user =
+mysql.default_password =
+mysql.connect_timeout = 60
+mysql.trace_mode = Off
+
+[Assertion]
+assert.active = 0
+
+[mbstring]
+mbstring.language = Unicode
+mbstring.internal_encoding = UTF-8
+mbstring.http_output = UTF-8
+mbstring.encoding_translation = Off

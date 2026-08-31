@@ -30,6 +30,11 @@
                     {{ $slot }}
                 </div>
             </div>
+
+            <footer class="mt-4 small text-secondary text-center">
+                <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
+                <span class="d-block fw-semibold mt-1">Version 1.0</span>
+            </footer>
         </div>
     </body>
 </html>
