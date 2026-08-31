@@ -2,10 +2,10 @@ name: Docker Build & Push
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     tags: ['v*']
   pull_request:
-    branches: [main]
+    branches: [master]
     types: [closed]
 
 permissions:
@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # Only run on push to main or tags, or merged PRs
+    # Only run on push to master or tags, or merged PRs
     if: github.event_name == 'push' || (github.event.pull_request.merged == true)
 
     steps:
