@@ -2,7 +2,7 @@
 # Multi-stage build for production optimization
 
 # Stage 1: Build frontend assets
-FROM node:20-alpine AS frontend-build
+FROM node:26-alpine AS frontend-build
 WORKDIR /app
 
 # Copy package files
