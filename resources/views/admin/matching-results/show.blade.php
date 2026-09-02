@@ -78,6 +78,81 @@
         @endforeach
     </div>
 
+    @php
+        $unmatchedSourceA = $result->matchingRule->sourceA;
+        $unmatchedSourceB = $result->matchingRule->sourceB;
+    @endphp
+
+    <div class="row mt-2">
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    {{ __('Transactions dans') }} {{ $unmatchedSourceA->name ?? 'A' }} {{ __('sans correspondance dans') }} {{ $unmatchedSourceB->name ?? 'B' }}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ __('Source') }}</th>
+                                <th>{{ __('Référence') }}</th>
+                                <th>{{ __('Montant') }}</th>
+                                <th>{{ __('Date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($unmatchedA as $nt)
+                                <tr>
+                                    <td>{{ $nt->transaction->source->code }}</td>
+                                    <td>{{ $nt->normalized_reference }}</td>
+                                    <td>{{ $nt->normalized_amount_millimes }}</td>
+                                    <td>{{ $nt->normalized_date?->format('d/m/Y') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">
+                    {{ __('Transactions dans') }} {{ $unmatchedSourceB->name ?? 'B' }} {{ __('sans correspondance dans') }} {{ $unmatchedSourceA->name ?? 'A' }}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>{{ __('Source') }}</th>
+                                <th>{{ __('Référence') }}</th>
+                                <th>{{ __('Montant') }}</th>
+                                <th>{{ __('Date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($unmatchedB as $nt)
+                                <tr>
+                                    <td>{{ $nt->transaction->source->code }}</td>
+                                    <td>{{ $nt->normalized_reference }}</td>
+                                    <td>{{ $nt->normalized_amount_millimes }}</td>
+                                    <td>{{ $nt->normalized_date?->format('d/m/Y') }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     @if ($result->exceptions->isNotEmpty())
         <div class="card">
             <div class="card-header fw-semibold">{{ __('Exceptions liées') }}</div>

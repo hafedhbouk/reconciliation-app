@@ -8,6 +8,8 @@ use App\Jobs\GenerateMatchingExportJob;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\MatchingRule;
+use App\Models\NormalizedTransaction;
+use App\Enums\MatchingStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -99,7 +101,36 @@ class MatchingResultController extends Controller
             'exceptions',
         ]);
 
-        return view('admin.matching-results.show', ['result' => $matchingResult]);
+        $sourceAId = $matchingResult->matchingRule->source_a_id;
+        $sourceBId = $matchingResult->matchingRule->source_b_id;
+
+        $matchedIds = $matchingResult->matchingDetails
+            ->pluck('normalized_transaction_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $unmatchedA = NormalizedTransaction::query()
+            ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
+            ->where('transactions.source_id', $sourceAId)
+            ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
+            ->when($matchedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('normalized_transactions.id', $matchedIds))
+            ->select('normalized_transactions.*', 'transactions.raw_payload')
+            ->get();
+
+        $unmatchedB = NormalizedTransaction::query()
+            ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
+            ->where('transactions.source_id', $sourceBId)
+            ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
+            ->when($matchedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('normalized_transactions.id', $matchedIds))
+            ->select('normalized_transactions.*', 'transactions.raw_payload')
+            ->get();
+
+        return view('admin.matching-results.show', [
+            'result' => $matchingResult,
+            'unmatchedA' => $unmatchedA,
+            'unmatchedB' => $unmatchedB,
+        ]);
     }
 
     /**
