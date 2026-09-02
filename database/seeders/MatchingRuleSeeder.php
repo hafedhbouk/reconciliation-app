@@ -36,7 +36,7 @@ class MatchingRuleSeeder extends Seeder
 
         $rules = [
             [
-                'name' => 'ALPHA - BNA',
+                'name' => 'ALPHA ↔ BNA',
                 'a' => 'ALPHA',
                 'b' => 'BNA',
                 'priority' => 10,
@@ -45,7 +45,7 @@ class MatchingRuleSeeder extends Seeder
                 'verify_fields' => ['amount', 'date'],
             ],
             [
-                'name' => 'SMT - BNA',
+                'name' => 'SMT ↔ BNA',
                 'a' => 'SMT',
                 'b' => 'BNA',
                 'priority' => 20,
@@ -54,7 +54,7 @@ class MatchingRuleSeeder extends Seeder
                 'verify_fields' => [],
             ],
             [
-                'name' => 'WEB - BNA',
+                'name' => 'WEB ↔ BNA',
                 'a' => 'WEB',
                 'b' => 'BNA',
                 'priority' => 30,
@@ -63,7 +63,7 @@ class MatchingRuleSeeder extends Seeder
                 'verify_fields' => ['amount', 'date'],
             ],
             [
-                'name' => 'ALPHA - WEB',
+                'name' => 'ALPHA ↔ WEB',
                 'a' => 'ALPHA',
                 'b' => 'WEB',
                 'priority' => 40,
@@ -76,7 +76,7 @@ class MatchingRuleSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'ALPHA - SMT',
+                'name' => 'ALPHA ↔ SMT',
                 'a' => 'ALPHA',
                 'b' => 'SMT',
                 'priority' => 50,
@@ -85,7 +85,7 @@ class MatchingRuleSeeder extends Seeder
                 'verify_fields' => [],
             ],
             [
-                'name' => 'WEB - SMT',
+                'name' => 'WEB ↔ SMT',
                 'a' => 'WEB',
                 'b' => 'SMT',
                 'priority' => 60,

@@ -16,12 +16,14 @@ use App\Http\Requests\Admin\StoreMatchingRuleRequest;
 use App\Http\Requests\Admin\UpdateMatchingRuleRequest;
 use App\Jobs\DetectDuplicatesJob;
 use App\Jobs\NotifyMatchingBatchCompleteJob;
+use App\Jobs\RunAdHocMatchingJob;
 use App\Jobs\RunMatchingRuleJob;
 use App\Jobs\SweepUnmatchedJob;
 use App\Models\MatchingRule;
 use App\Models\Source;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -36,7 +38,9 @@ class MatchingRuleController extends Controller
 
     public function index(): View
     {
-        return view('admin.matching-rules.index');
+        return view('admin.matching-rules.index', [
+            'sources' => Source::query()->where('is_active', true)->orderBy('name')->get(),
+        ]);
     }
 
     public function data(): JsonResponse
@@ -100,6 +104,28 @@ class MatchingRuleController extends Controller
         RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id());
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
+    }
+
+    public function runAdHoc(Request $request): RedirectResponse
+    {
+        $this->authorize('update', MatchingRule::class);
+
+        $request->validate([
+            'source_a_id' => 'required|exists:sources,id|different:source_b_id',
+            'source_b_id' => 'required|exists:sources,id|different:source_a_id',
+        ]);
+
+        RunAdHocMatchingJob::dispatch(
+            (int) $request->input('source_a_id'),
+            (int) $request->input('source_b_id'),
+            (string) Str::uuid(),
+            auth()->id(),
+        );
+
+        $sourceA = Source::query()->findOrFail($request->input('source_a_id'));
+        $sourceB = Source::query()->findOrFail($request->input('source_b_id'));
+
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $sourceA->name, 'b' => $sourceB->name]));
     }
 
     public function runAll(): RedirectResponse

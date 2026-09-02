@@ -63,6 +63,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('matching-rules/detect-duplicates', [MatchingRuleController::class, 'detectDuplicates'])->middleware('throttle:expensive-actions')->name('matching-rules.detect-duplicates');
     Route::post('matching-rules/sweep-unmatched', [MatchingRuleController::class, 'sweepUnmatched'])->middleware('throttle:expensive-actions')->name('matching-rules.sweep-unmatched');
     Route::post('matching-rules/{matching_rule}/run', [MatchingRuleController::class, 'run'])->middleware('throttle:expensive-actions')->name('matching-rules.run');
+    Route::post('matching-rules/run-ad-hoc', [MatchingRuleController::class, 'runAdHoc'])->middleware('throttle:expensive-actions')->name('matching-rules.run-ad-hoc');
     Route::resource('matching-rules', MatchingRuleController::class)->except('show');
 
     Route::get('matching-results/data', [MatchingResultController::class, 'data'])->name('matching-results.data');
