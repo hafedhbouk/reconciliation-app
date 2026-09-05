@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\MatchingCardinality;
+use App\Models\Import;
 use App\Models\Source;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\RuleMatcher;
@@ -23,8 +24,8 @@ class RunAdHocMatchingJob implements ShouldQueue
     public int $timeout = 0;
 
     public function __construct(
-        public int $sourceAId,
-        public int $sourceBId,
+        public int $importAId,
+        public int $importBId,
         public string $batchReference,
         public ?int $notifyUserId = null
     ) {
@@ -32,26 +33,39 @@ class RunAdHocMatchingJob implements ShouldQueue
 
     public function handle(RuleMatcher $matcher): void
     {
-        $sourceA = Source::query()->findOrFail($this->sourceAId);
-        $sourceB = Source::query()->findOrFail($this->sourceBId);
+        $importA = Import::query()->findOrFail($this->importAId);
+        $importB = Import::query()->findOrFail($this->importBId);
 
-        $rule = new \App\Models\MatchingRule([
-            'source_a_id' => $sourceA->id,
-            'source_b_id' => $sourceB->id,
-            'name' => $sourceA->name . ' ↔ ' . $sourceB->name,
-            'cardinality' => MatchingCardinality::ManyToMany,
-            'priority' => 0,
-            'is_active' => true,
-            'criteria' => [
-                'tolerance_amount_millimes' => 0,
-                'tolerance_days' => 0,
-                'excluded_status_raw' => ['a' => [], 'b' => []],
-                'primary_key' => $this->detectPrimaryKey($sourceA, $sourceB),
-                'verify_fields' => $this->detectVerifyFields($sourceA, $sourceB),
-            ],
-        ]);
+        $sourceA = $importA->source;
+        $sourceB = $importB->source;
 
-        $summary = $matcher->match($rule, $this->batchReference);
+        $rule = MatchingRule::query()
+            ->where('source_a_id', $sourceA->id)
+            ->where('source_b_id', $sourceB->id)
+            ->first();
+
+        if ($rule === null) {
+            $primaryKey = $this->detectPrimaryKey($sourceA, $sourceB);
+            $verifyFields = $this->detectVerifyFields($sourceA, $sourceB);
+
+            $rule = MatchingRule::query()->create([
+                'source_a_id' => $sourceA->id,
+                'source_b_id' => $sourceB->id,
+                'name' => $sourceA->name . ' ↔ ' . $sourceB->name,
+                'cardinality' => MatchingCardinality::ManyToMany,
+                'priority' => 0,
+                'is_active' => true,
+                'criteria' => [
+                    'tolerance_amount_millimes' => 0,
+                    'tolerance_days' => 0,
+                    'excluded_status_raw' => ['a' => [], 'b' => []],
+                    'primary_key' => $primaryKey,
+                    'verify_fields' => $verifyFields,
+                ],
+            ]);
+        }
+
+        $summary = $matcher->match($rule, $this->batchReference, $this->importAId, $this->importBId);
 
         if ($this->notifyUserId !== null) {
             \App\Models\User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
@@ -68,15 +82,15 @@ class RunAdHocMatchingJob implements ShouldQueue
     public function failed(Throwable $e): void
     {
         Log::error('RunAdHocMatchingJob failed', [
-            'source_a_id' => $this->sourceAId,
-            'source_b_id' => $this->sourceBId,
+            'import_a_id' => $this->importAId,
+            'import_b_id' => $this->importBId,
             'error' => $e->getMessage(),
         ]);
     }
 
     private function detectPrimaryKey(Source $sourceA, Source $sourceB): array
     {
-        $codes = [$sourceA->code, $sourceB->code];
+        $codes = array_map('strtoupper', [$sourceA->code, $sourceB->code]);
 
         if (in_array('SMT', $codes, true)) {
             return ['a' => 'date|amount', 'b' => 'date|amount'];
@@ -84,13 +98,16 @@ class RunAdHocMatchingJob implements ShouldQueue
 
         if (in_array('WEB', $codes, true) && in_array('BNA', $codes, true)) {
             return [
-                'a' => $sourceA->code === 'WEB' ? 'secondary_reference' : 'num_autorisation',
-                'b' => $sourceB->code === 'WEB' ? 'secondary_reference' : 'num_autorisation',
+                'a' => 'secondary_reference',
+                'b' => 'num_autorisation',
             ];
         }
 
         if (in_array('ALPHA', $codes, true) && in_array('WEB', $codes, true)) {
-            return ['a' => 'reference', 'b' => 'reference'];
+            return [
+                'a' => ['reference', 'num_autorisation'],
+                'b' => ['reference', 'recu_paie'],
+            ];
         }
 
         return ['a' => 'num_autorisation', 'b' => 'num_autorisation'];
@@ -98,14 +115,10 @@ class RunAdHocMatchingJob implements ShouldQueue
 
     private function detectVerifyFields(Source $sourceA, Source $sourceB): array
     {
-        $codes = [$sourceA->code, $sourceB->code];
+        $codes = array_map('strtoupper', [$sourceA->code, $sourceB->code]);
 
         if (in_array('ALPHA', $codes, true) && in_array('WEB', $codes, true)) {
-            return [
-                ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
-                'amount',
-                'date',
-            ];
+            return ['amount', 'date'];
         }
 
         if (in_array('WEB', $codes, true) && in_array('BNA', $codes, true)) {

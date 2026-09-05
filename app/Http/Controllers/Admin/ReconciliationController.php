@@ -21,6 +21,7 @@ use App\Models\Source;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -32,6 +33,91 @@ class ReconciliationController extends Controller
 
         return view('admin.reconciliation.index', [
             'sources' => Source::query()->where('is_active', true)->orderBy('name')->get(),
+        ]);
+    }
+
+    public function unmatched(Request $request): View
+    {
+        $this->authorize('viewAny', MatchingResult::class);
+
+        $validated = $request->validate([
+            'import_a_id' => ['nullable', 'exists:imports,id'],
+            'import_b_id' => ['nullable', 'exists:imports,id'],
+        ]);
+
+        $importAId = $validated['import_a_id'] ?? null;
+        $importBId = $validated['import_b_id'] ?? null;
+
+        $sources = Source::query()->where('is_active', true)->orderBy('name')->get();
+
+        $snapshot = null;
+        $unmatchedA = collect();
+        $unmatchedB = collect();
+
+        if ($importAId !== null && $importBId !== null && $importAId !== $importBId) {
+            $snapshot = \App\Models\UnmatchedSnapshot::query()
+                ->where('import_a_id', $importAId)
+                ->where('import_b_id', $importBId)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($snapshot === null) {
+                $snapshot = \App\Models\UnmatchedSnapshot::query()->create([
+                    'import_a_id' => $importAId,
+                    'import_b_id' => $importBId,
+                    'status' => 'pending',
+                ]);
+
+                \App\Jobs\ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+            }
+
+            if ($snapshot->status === 'completed') {
+                $unmatchedA = collect($snapshot->result_a ?? []);
+                $unmatchedB = collect($snapshot->result_b ?? []);
+            }
+        }
+
+        return view('admin.reconciliation.unmatched', [
+            'sources' => $sources,
+            'importAId' => $importAId,
+            'importBId' => $importBId,
+            'snapshot' => $snapshot,
+            'unmatchedA' => $unmatchedA,
+            'unmatchedB' => $unmatchedB,
+        ]);
+    }
+
+    public function refreshUnmatched(Request $request): RedirectResponse
+    {
+        $this->authorize('viewAny', MatchingResult::class);
+
+        $validated = $request->validate([
+            'import_a_id' => ['required', 'exists:imports,id'],
+            'import_b_id' => ['required', 'exists:imports,id', 'different:import_a_id'],
+        ]);
+
+        $snapshot = \App\Models\UnmatchedSnapshot::query()
+            ->where('import_a_id', $validated['import_a_id'])
+            ->where('import_b_id', $validated['import_b_id'])
+            ->orderByDesc('id')
+            ->first();
+
+        if ($snapshot) {
+            $snapshot->update([
+                'status' => 'pending',
+                'result_a' => null,
+                'result_b' => null,
+                'error' => null,
+                'started_at' => null,
+                'completed_at' => null,
+            ]);
+
+            \App\Jobs\ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+        }
+
+        return redirect()->route('admin.reconciliation.unmatched', [
+            'import_a_id' => $validated['import_a_id'],
+            'import_b_id' => $validated['import_b_id'],
         ]);
     }
 
@@ -121,9 +207,11 @@ class ReconciliationController extends Controller
                 ]);
             }
 
-            NormalizedTransaction::query()
-                ->whereIn('id', [...$idsA, ...$idsB])
-                ->update(['matching_status' => MatchingStatus::Matched->value]);
+            foreach (collect([...$idsA, ...$idsB])->chunk(1000) as $chunk) {
+                NormalizedTransaction::query()
+                    ->whereIn('id', $chunk)
+                    ->update(['matching_status' => MatchingStatus::Matched->value]);
+            }
 
             return $matchingResult;
         });

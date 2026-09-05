@@ -1,0 +1,78 @@
+@startuml ReconciliationApp Modules
+
+skinparam componentStyle rectangle
+skinparam backgroundColor #FEFEFF
+skinparam handwritten false
+skinparam defaultTextAlignment center
+
+title Décomposition en modules — Application de rapprochement
+
+package "Présentation" {
+    [Interface Admin\n(Laravel Blade + Bootstrap)] as UI
+}
+
+package "Couche applicative" {
+    [Module d’import\net gestion des sources] as M1
+    [Module de normalisation\ndes transactions] as M2
+    [Module de règles\nde rapprochement] as M3
+    [Module de rapprochement\nautomatique] as M4
+    [Module de rapprochement\nmanuel] as M5
+    [Module de gestion\ndes exceptions] as M6
+    [Module d’affichage\ndes écarts] as M7
+    [Module de résultats\net reporting] as M8
+    [Module de sécurité\net audit] as M9
+    [Module d’administration] as M10
+}
+
+package "Couche métier" {
+    [Services de matching\nRuleMatcher] as S1
+    [Services d’import\nImportService] as S2
+    [Services de normalisation\nTransactionNormalizer] as S3
+    [Scoring et\névaluation] as S4
+}
+
+package "Couche données" {
+    [Base de données\nMySQL] as DB
+    [Jobs & Queue\n(Backgroud)] as Q
+    [Stockage\nfichiers/export] as FS
+}
+
+UI --> M1
+UI --> M2
+UI --> M3
+UI --> M4
+UI --> M5
+UI --> M6
+UI --> M7
+UI --> M8
+UI --> M10
+
+M1 --> S2
+M2 --> S3
+M3 --> S1
+M4 --> S1
+M5 --> S1
+M6 --> S4
+M7 --> S1
+M8 --> S1
+
+M9 --> M1
+M9 --> M2
+M9 --> M3
+M9 --> M4
+M9 --> M5
+M9 --> M6
+M9 --> M8
+
+S1 --> DB
+S2 --> DB
+S3 --> DB
+S4 --> DB
+
+M4 --> Q
+M8 --> Q
+Q --> DB
+
+M8 --> FS
+
+@enduml

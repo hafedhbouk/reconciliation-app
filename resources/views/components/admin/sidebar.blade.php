@@ -50,8 +50,15 @@
             @endcan
             @can('matching-results.create')
                 <li class="nav-item">
-                    <a href="{{ route('admin.reconciliation.index') }}" class="nav-link {{ request()->routeIs('admin.reconciliation.*') ? 'active' : '' }}">
+                    <a href="{{ route('admin.reconciliation.index') }}" class="nav-link {{ request()->routeIs('admin.reconciliation.index') ? 'active' : '' }}">
                         <i class="bi bi-hand-index-thumb me-2"></i>{{ __('Rapprochement manuel') }}
+                    </a>
+                </li>
+            @endcan
+            @can('matching-results.viewAny')
+                <li class="nav-item">
+                    <a href="{{ route('admin.reconciliation.unmatched') }}" class="nav-link {{ request()->routeIs('admin.reconciliation.unmatched') ? 'active' : '' }}">
+                        <i class="bi bi-funnel me-2"></i>{{ __('Écarts par source') }}
                     </a>
                 </li>
             @endcan

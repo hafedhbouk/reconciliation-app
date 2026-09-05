@@ -39,20 +39,34 @@
                 <form action="{{ route('admin.matching-rules.run-ad-hoc') }}" method="POST" class="row g-3 align-items-end">
                     @csrf
                     <div class="col-auto">
-                        <label for="source_a_id" class="form-label small fw-semibold">{{ __('Source A') }}</label>
-                        <select name="source_a_id" id="source_a_id" class="form-select form-select-sm" required>
+                        <label for="import_a_id" class="form-label small fw-semibold">{{ __('Fichier Source A') }}</label>
+                        <select name="import_a_id" id="import_a_id" class="form-select form-select-sm" required>
                             <option value="">{{ __('Sélectionner...') }}</option>
                             @foreach ($sources as $source)
-                                <option value="{{ $source->id }}">{{ $source->name }} ({{ $source->code }})</option>
+                                @php $imports = $source->imports()->where('status', 'completed')->orderByDesc('created_at')->get(); @endphp
+                                @if ($imports->isNotEmpty())
+                                    <optgroup label="{{ $source->name }} ({{ $source->code }})">
+                                        @foreach ($imports as $import)
+                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             @endforeach
                         </select>
                     </div>
                     <div class="col-auto">
-                        <label for="source_b_id" class="form-label small fw-semibold">{{ __('Source B') }}</label>
-                        <select name="source_b_id" id="source_b_id" class="form-select form-select-sm" required>
+                        <label for="import_b_id" class="form-label small fw-semibold">{{ __('Fichier Source B') }}</label>
+                        <select name="import_b_id" id="import_b_id" class="form-select form-select-sm" required>
                             <option value="">{{ __('Sélectionner...') }}</option>
                             @foreach ($sources as $source)
-                                <option value="{{ $source->id }}">{{ $source->name }} ({{ $source->code }})</option>
+                                @php $imports = $source->imports()->where('status', 'completed')->orderByDesc('created_at')->get(); @endphp
+                                @if ($imports->isNotEmpty())
+                                    <optgroup label="{{ $source->name }} ({{ $source->code }})">
+                                        @foreach ($imports as $import)
+                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             @endforeach
                         </select>
                     </div>
@@ -83,4 +97,26 @@
             </table>
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                $('#matching-rules-table').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    order: [[4, 'asc']],
+                    ajax: '{{ route('admin.matching-rules.data') }}',
+                    columns: [
+                        { data: 'name', name: 'name' },
+                        { data: 'source_a', name: 'sourceA.code' },
+                        { data: 'source_b', name: 'sourceB.code' },
+                        { data: 'cardinality_label', name: 'cardinality' },
+                        { data: 'priority', name: 'priority' },
+                        { data: 'is_active_label', name: 'is_active' },
+                        { data: 'actions', name: 'actions', orderable: false, searchable: false },
+                    ],
+                });
+            });
+        </script>
+    @endpush
 </x-app-layout>

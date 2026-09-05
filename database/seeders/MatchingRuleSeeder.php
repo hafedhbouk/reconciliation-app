@@ -16,12 +16,12 @@ use Illuminate\Database\Seeder;
  * - SMT : export passerelle SMT au format CSV
  *
  * Règles configurées et champs comparés :
- * - ALPHA - BNA : num_autorisation ↔ N° autorisation, vérif montant + date
- * - SMT - BNA : montant + date
- * - WEB - BNA : recu_paie ↔ N° autorisation, vérif montant + date
- * - ALPHA - WEB : reference ↔ reference, vérif num_autorisation + montant + date
- * - ALPHA - SMT : montant + date
- * - WEB - SMT : montant + date
+ * - ALPHA - BNA : NUM_AUTO ↔ N° autorisation, vérif montant + date
+ * - ALPHA - WEB : REFERENCE + NUM_AUTO ↔ référence + recu_paie, vérif montant + date
+ * - ALPHA - SMT : date|amount ↔ date|amount
+ * - SMT - BNA : date|amount ↔ date|amount
+ * - WEB - BNA : secondary_reference ↔ num_autorisation, vérif montant + date
+ * - WEB - SMT : date|amount ↔ date|amount
  *
  * Chaque règle utilise :
  * - primary_key : champ(s) de regroupement des candidats
@@ -68,12 +68,8 @@ class MatchingRuleSeeder extends Seeder
                 'b' => 'WEB',
                 'priority' => 40,
                 'excluded_b' => [],
-                'primary_key' => ['a' => 'reference', 'b' => 'reference'],
-                'verify_fields' => [
-                    ['a' => 'num_autorisation', 'b' => 'secondary_reference'],
-                    'amount',
-                    'date',
-                ],
+                'primary_key' => ['a' => ['reference', 'num_autorisation'], 'b' => ['reference', 'recu_paie']],
+                'verify_fields' => ['amount', 'date'],
             ],
             [
                 'name' => 'ALPHA ↔ SMT',

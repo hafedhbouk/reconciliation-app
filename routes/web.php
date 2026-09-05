@@ -76,6 +76,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
     Route::get('reconciliation/search', [ReconciliationController::class, 'search'])->name('reconciliation.search');
     Route::post('reconciliation', [ReconciliationController::class, 'store'])->name('reconciliation.store');
+    Route::get('reconciliation/unmatched', [ReconciliationController::class, 'unmatched'])->name('reconciliation.unmatched');
+    Route::post('reconciliation/unmatched/refresh', [ReconciliationController::class, 'refreshUnmatched'])->name('reconciliation.unmatched.refresh');
 
     Route::get('exceptions/data', [ExceptionController::class, 'data'])->name('exceptions.data');
     Route::get('exceptions/export/{format}', [ExceptionController::class, 'export'])->middleware('throttle:expensive-actions')->name('exceptions.export');

@@ -33,10 +33,13 @@ class StoreManualMatchRequest extends BaseFormRequest
 
             $allIds = $idsA->merge($idsB);
 
-            $unmatchedCount = NormalizedTransaction::query()
-                ->whereIn('id', $allIds)
-                ->where('matching_status', MatchingStatus::Unmatched->value)
-                ->count();
+            $unmatchedCount = 0;
+            foreach ($allIds->chunk(1000) as $chunk) {
+                $unmatchedCount += NormalizedTransaction::query()
+                    ->whereIn('id', $chunk)
+                    ->where('matching_status', MatchingStatus::Unmatched->value)
+                    ->count();
+            }
 
             if ($unmatchedCount !== $allIds->count()) {
                 $validator->errors()->add('normalized_transaction_ids_a', __('Une ou plusieurs transactions sélectionnées ne sont plus disponibles (déjà rapprochées entre-temps).'));

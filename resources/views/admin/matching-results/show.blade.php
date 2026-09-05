@@ -1,4 +1,4 @@
-{{-- Vue détail d'un résultat de rapprochement avec suppression possible --}}
+{{-- Vue détail d'un résultat de rapprochement : focus sur les écarts --}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">
@@ -41,49 +41,12 @@
         </div>
     </div>
 
-    <div class="row">
-        @foreach (['a' => __('Côté A'), 'b' => __('Côté B')] as $side => $label)
-            <div class="col-md-6">
-                <div class="card mb-3">
-                    <div class="card-header fw-semibold">{{ $label }}</div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead>
-                                <tr>
-                                    <th>{{ __('Source') }}</th>
-                                    <th>{{ __('Référence') }}</th>
-                                    <th>{{ __('Montant') }}</th>
-                                    <th>{{ __('Date') }}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($result->matchingDetails->where('side', $side) as $detail)
-                                    @php $nt = $detail->normalizedTransaction; @endphp
-                                    <tr>
-                                        <td>{{ $nt?->transaction?->source?->code }}</td>
-                                        <td>{{ $nt?->normalized_reference }}</td>
-                                        <td>{{ $nt?->normalized_amount_millimes }}</td>
-                                        <td>{{ $nt?->normalized_date?->format('d/m/Y') }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction.') }}</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        @endforeach
-    </div>
-
     @php
-        $unmatchedSourceA = $result->matchingRule->sourceA;
-        $unmatchedSourceB = $result->matchingRule->sourceB;
+        $unmatchedSourceA = $result->matchingRule?->sourceA;
+        $unmatchedSourceB = $result->matchingRule?->sourceB;
     @endphp
 
-    <div class="row mt-2">
+    <div class="row">
         <div class="col-md-6">
             <div class="card mb-3">
                 <div class="card-header fw-semibold">

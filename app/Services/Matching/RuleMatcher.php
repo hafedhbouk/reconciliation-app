@@ -73,7 +73,7 @@ class RuleMatcher
     {
     }
 
-    public function match(MatchingRule $rule, string $batchReference): MatchingRunSummary
+    public function match(MatchingRule $rule, string $batchReference, ?int $importIdA = null, ?int $importIdB = null): MatchingRunSummary
     {
         $criteria = $rule->criteria ?? [];
         $toleranceAmount = (int) ($criteria['tolerance_amount_millimes'] ?? 0);
@@ -84,8 +84,8 @@ class RuleMatcher
         $primaryKeyB = $criteria['primary_key']['b'] ?? 'reference';
         $verifyFields = $criteria['verify_fields'] ?? [];
 
-        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA);
-        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB);
+        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA, $importIdA);
+        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB, $importIdB);
 
         $matched = 0;
         $conflicts = 0;
@@ -114,24 +114,27 @@ class RuleMatcher
             };
         }
 
-        return new MatchingRunSummary(
+        $summary = new MatchingRunSummary(
             referencesConsidered: $keys->count(),
             matched: $matched,
             conflicts: $conflicts,
             noSignal: $noSignal,
             skipped: $skipped,
         );
+
+        return $summary;
     }
 
     /**
      * @return Collection<string,Collection<int,NormalizedTransaction>> keyed by the configured primary key
      */
-    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string $primaryKey): Collection
+    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null): Collection
     {
         $rows = NormalizedTransaction::query()
             ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
             ->where('transactions.source_id', $sourceId)
             ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
+            ->when($importId !== null, fn ($query) => $query->where('transactions.import_id', $importId))
             ->when($excludedStatusRaw !== [], fn ($query) => $query->where(function ($inner) use ($excludedStatusRaw) {
                 $inner->whereNull('transactions.raw_payload->status_raw')
                     ->orWhereNotIn('transactions.raw_payload->status_raw', $excludedStatusRaw);
@@ -139,16 +142,17 @@ class RuleMatcher
             ->select('normalized_transactions.*', 'transactions.raw_payload')
             ->get();
 
-        return $rows->groupBy(fn (NormalizedTransaction $nt) => $this->primaryKeyValue($nt, $primaryKey));
+        $grouped = $rows->groupBy(fn (NormalizedTransaction $nt) => $this->primaryKeyValue($nt, $primaryKey));
+
+        return $grouped;
     }
 
     /**
      * Resolve the configured primary key value for a normalized transaction.
-     * 'date|amount' is the composite SMT key; otherwise the field is read
-     * from normalized_reference (for 'reference') or from the transaction's
-     * raw_payload (for 'num_autorisation', 'secondary_reference', etc.).
+     * Supports simple keys ('reference', 'num_autorisation', 'date|amount')
+     * and composite keys (array of field names joined by '|').
      */
-    private function primaryKeyValue(NormalizedTransaction $nt, string $primaryKey): string
+    private function primaryKeyValue(NormalizedTransaction $nt, string|array $primaryKey): string
     {
         if ($primaryKey === 'date|amount') {
             return $nt->normalized_date->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
@@ -158,20 +162,37 @@ class RuleMatcher
             return (string) $nt->normalized_reference;
         }
 
-        // Read from raw_payload (transformed fields like num_autorisation,
-        // secondary_reference). The column is selected directly in
-        // loadCandidates(), so it's available as a raw attribute on the
-        // NormalizedTransaction model. It's a JSON string (not cast on this
-        // model), so decode it before reading a key.
+        if (is_array($primaryKey)) {
+            $payload = $this->rawPayload($nt);
+            $parts = [];
+
+            foreach ($primaryKey as $field) {
+                if ($field === 'date|amount') {
+                    $parts[] = $nt->normalized_date->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
+                } elseif ($field === 'reference') {
+                    $parts[] = (string) $nt->normalized_reference;
+                } else {
+                    $parts[] = (string) ($payload[$field] ?? '');
+                }
+            }
+
+            return implode('|', $parts);
+        }
+
+        $payload = $this->rawPayload($nt);
+
+        return (string) ($payload[$primaryKey] ?? '');
+    }
+
+    private function rawPayload(NormalizedTransaction $nt): array
+    {
         $payload = $nt->getAttribute('raw_payload');
 
         if (is_string($payload)) {
             $payload = json_decode($payload, true) ?? [];
         }
 
-        $payload = is_array($payload) ? $payload : [];
-
-        return (string) ($payload[$primaryKey] ?? '');
+        return is_array($payload) ? $payload : [];
     }
 
     /**
@@ -208,10 +229,15 @@ class RuleMatcher
 
         // Vérification défensive : un job concurrent peut avoir déjà
         // traité une partie de ce groupe pendant l'exécution.
-        $stillUnmatched = NormalizedTransaction::query()
-            ->whereIn('id', $allIds)
-            ->where('matching_status', MatchingStatus::Unmatched->value)
-            ->count();
+        // MySQL has a 65 535 placeholder limit per prepared statement, so
+        // large reference groups must be checked in chunks.
+        $stillUnmatched = 0;
+        foreach ($allIds->chunk(1000) as $chunk) {
+            $stillUnmatched += NormalizedTransaction::query()
+                ->whereIn('id', $chunk)
+                ->where('matching_status', MatchingStatus::Unmatched->value)
+                ->count();
+        }
 
         if ($stillUnmatched !== $allIds->count()) {
             return 'skipped';
@@ -306,13 +332,9 @@ class RuleMatcher
 
     private function payloadField(NormalizedTransaction $nt, string $field): mixed
     {
-        $payload = $nt->getAttribute('raw_payload');
+        $payload = $this->rawPayload($nt);
 
-        if (is_string($payload)) {
-            $payload = json_decode($payload, true) ?? [];
-        }
-
-        return is_array($payload) ? ($payload[$field] ?? null) : null;
+        return $payload[$field] ?? null;
     }
 
     /**
@@ -409,9 +431,13 @@ class RuleMatcher
             ? MatchingStatus::Conflict
             : MatchingStatus::Matched;
 
-        NormalizedTransaction::query()
-            ->whereIn('id', $groupA->pluck('id')->merge($groupB->pluck('id')))
-            ->update(['matching_status' => $newMatchingStatus->value]);
+        $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'));
+
+        foreach ($allIds->chunk(1000) as $chunk) {
+            NormalizedTransaction::query()
+                ->whereIn('id', $chunk)
+                ->update(['matching_status' => $newMatchingStatus->value]);
+        }
 
         if ($exceptionType !== null) {
             ExceptionRecord::create([

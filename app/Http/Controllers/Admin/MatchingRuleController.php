@@ -19,6 +19,7 @@ use App\Jobs\NotifyMatchingBatchCompleteJob;
 use App\Jobs\RunAdHocMatchingJob;
 use App\Jobs\RunMatchingRuleJob;
 use App\Jobs\SweepUnmatchedJob;
+use App\Models\Import;
 use App\Models\MatchingRule;
 use App\Models\Source;
 use Illuminate\Http\JsonResponse;
@@ -97,11 +98,14 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle de rapprochement supprimée avec succès.'));
     }
 
-    public function run(MatchingRule $matchingRule): RedirectResponse
+    public function run(MatchingRule $matchingRule, Request $request): RedirectResponse
     {
         $this->authorize('update', $matchingRule);
 
-        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id());
+        $importIdA = $request->input('import_a_id') ? (int) $request->input('import_a_id') : null;
+        $importIdB = $request->input('import_b_id') ? (int) $request->input('import_b_id') : null;
+
+        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id(), $importIdA, $importIdB);
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
     }
@@ -111,21 +115,25 @@ class MatchingRuleController extends Controller
         $this->authorize('update', MatchingRule::class);
 
         $request->validate([
-            'source_a_id' => 'required|exists:sources,id|different:source_b_id',
-            'source_b_id' => 'required|exists:sources,id|different:source_a_id',
+            'import_a_id' => 'required|exists:imports,id|different:import_b_id',
+            'import_b_id' => 'required|exists:imports,id|different:import_a_id',
         ]);
 
+        $importA = Import::query()->findOrFail($request->input('import_a_id'));
+        $importB = Import::query()->findOrFail($request->input('import_b_id'));
+
+        if ($importA->source_id === $importB->source_id) {
+            return redirect()->route('admin.matching-rules.index')->with('error', __('Veuillez sélectionner deux fichiers provenant de sources différentes.'));
+        }
+
         RunAdHocMatchingJob::dispatch(
-            (int) $request->input('source_a_id'),
-            (int) $request->input('source_b_id'),
+            $importA->id,
+            $importB->id,
             (string) Str::uuid(),
             auth()->id(),
         );
 
-        $sourceA = Source::query()->findOrFail($request->input('source_a_id'));
-        $sourceB = Source::query()->findOrFail($request->input('source_b_id'));
-
-        return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $sourceA->name, 'b' => $sourceB->name]));
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $importA->original_filename, 'b' => $importB->original_filename]));
     }
 
     public function runAll(): RedirectResponse
