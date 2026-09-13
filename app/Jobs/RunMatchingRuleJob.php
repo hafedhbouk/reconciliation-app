@@ -38,13 +38,17 @@ class RunMatchingRuleJob implements ShouldQueue
      * verification measured some rules taking 15-20 minutes, long enough that
      * the flash message on dispatch ("launched") is stale by completion time.
      */
-    public function __construct(public int $matchingRuleId, public string $batchReference, public ?int $notifyUserId = null, public ?int $importIdA = null, public ?int $importIdB = null)
-    {
-    }
+    public function __construct(public int $matchingRuleId, public string $batchReference, public ?int $notifyUserId = null, public ?int $importIdA = null, public ?int $importIdB = null) {}
 
     public function handle(RuleMatcher $matcher): void
     {
         $rule = MatchingRule::query()->findOrFail($this->matchingRuleId);
+
+        if ($this->importIdA !== null && $this->importIdB !== null) {
+            (new RunAdHocMatchingJob($this->importIdA, $this->importIdB, $this->batchReference, $this->notifyUserId))->handle($matcher);
+
+            return;
+        }
 
         $summary = $matcher->match($rule, $this->batchReference, $this->importIdA, $this->importIdB);
 

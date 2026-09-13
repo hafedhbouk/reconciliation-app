@@ -31,13 +31,16 @@ class SourceColumnMappingSeeder extends Seeder
     {
         $this->seedAlpha();
         $this->seedBna();
-        $this->seedWeb();
+        foreach (Source::query()->whereIn('code', ['WEB', 'STEG'])->get() as $source) {
+            $this->seedWeb($source);
+        }
         $this->seedSmt();
     }
 
     private function seedAlpha(): void
     {
         $source = Source::query()->where('code', 'ALPHA')->firstOrFail();
+        SourceColumnMapping::where('source_id', $source->id)->where('target_field', 'secondary_reference')->delete();
 
         // NUM_AUTO is the cross-source matching key (N° autorisation) — it
         // must be named num_autorisation internally, not reference.
@@ -57,7 +60,7 @@ class SourceColumnMappingSeeder extends Seeder
         $this->upsert($source, 'reference', 'REFERENCE', [
             ['key' => 'trim'],
             ['key' => 'zero_pad', 'config' => ['length' => 9]],
-        ], order: 1);
+        ], required: true, order: 1);
 
         $this->upsert($source, 'amount', 'MONTANT_ENCAISS', [
             ['key' => 'trim'],
@@ -74,6 +77,7 @@ class SourceColumnMappingSeeder extends Seeder
     private function seedBna(): void
     {
         $source = Source::query()->where('code', 'BNA')->firstOrFail();
+        SourceColumnMapping::where('source_id', $source->id)->where('target_field', 'reference')->delete();
 
         // N° autorisation is a fixed 6-digit code, but the xlsx sheet stores
         // it as a numeric cell -- Excel/PhpSpreadsheet silently drops
@@ -96,10 +100,8 @@ class SourceColumnMappingSeeder extends Seeder
         $this->upsert($source, 'status_raw', 'Type de la transaction', [['key' => 'trim']], order: 3);
     }
 
-    private function seedWeb(): void
+    private function seedWeb(Source $source): void
     {
-        $source = Source::query()->where('code', 'WEB')->firstOrFail();
-
         // Client correction (2026-07): WEB is STEG's online payment portal
         // export. The file now has separate "session" and "reference" columns
         // instead of the old fused "session,reference" column. reference
@@ -123,7 +125,7 @@ class SourceColumnMappingSeeder extends Seeder
             ['key' => 'trim'],
             ['key' => 'strip_prefix_chars', 'config' => ['chars' => ['B', 'b']]],
             ['key' => 'zero_pad', 'config' => ['length' => 6]],
-        ], order: 2);
+        ], required: true, order: 2);
 
         $this->upsert($source, 'amount', 'montant', [
             ['key' => 'trim'],
@@ -145,6 +147,7 @@ class SourceColumnMappingSeeder extends Seeder
     private function seedSmt(): void
     {
         $source = Source::query()->where('code', 'SMT')->firstOrFail();
+        SourceColumnMapping::where('source_id', $source->id)->whereNotIn('target_field', ['date', 'amount'])->delete();
 
         // Client correction (2026-07): per client spec, SMT keeps ONLY
         // date and amount — every other field (reference, secondary

@@ -22,10 +22,12 @@ use App\Enums\MatchingCardinality;
 use App\Enums\MatchingResultStatus;
 use App\Enums\MatchingStatus;
 use App\Models\ExceptionRecord;
+use App\Models\Import;
 use App\Models\MatchingDetail;
 use App\Models\MatchingResult;
 use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
+use App\Models\UnmatchedSnapshot;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -69,13 +71,18 @@ use Illuminate\Support\Facades\DB;
  */
 class RuleMatcher
 {
-    public function __construct(private ConfidenceScorer $scorer)
-    {
-    }
+    public function __construct(private ConfidenceScorer $scorer) {}
 
     public function match(MatchingRule $rule, string $batchReference, ?int $importIdA = null, ?int $importIdB = null): MatchingRunSummary
     {
         $criteria = $rule->criteria ?? [];
+        if ($criteria['file_comparison'] ?? false) {
+            if ($importIdA === null || $importIdB === null || $importIdA === $importIdB) {
+                throw new \InvalidArgumentException('Deux fichiers distincts sont nécessaires pour cette comparaison.');
+            }
+
+            return $this->matchFiles($rule, $batchReference, $importIdA, $importIdB);
+        }
         $toleranceAmount = (int) ($criteria['tolerance_amount_millimes'] ?? 0);
         $toleranceDays = (int) ($criteria['tolerance_days'] ?? 0);
         $excludedA = $criteria['excluded_status_raw']['a'] ?? [];
@@ -125,15 +132,136 @@ class RuleMatcher
         return $summary;
     }
 
+    /** Compare complete rows, consuming each occurrence once before examining conflicts. */
+    private function matchFiles(MatchingRule $rule, string $batchReference, int $importIdA, int $importIdB, bool $persistResults = true): MatchingRunSummary
+    {
+        $criteria = $rule->criteria;
+        $primaryA = $criteria['primary_key']['a'];
+        $primaryB = $criteria['primary_key']['b'];
+        $verifyFields = $criteria['verify_fields'] ?? [];
+        $a = $this->loadCandidates($rule->source_a_id, [], $primaryA, $importIdA, true);
+        $b = $this->loadCandidates($rule->source_b_id, [], $primaryB, $importIdB, true);
+
+        return DB::transaction(function () use ($a, $b, $rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults) {
+            $matched = 0;
+            $conflicts = 0;
+            $unmatchedA = collect();
+            $unmatchedB = collect();
+            $keys = $a->keys()->merge($b->keys())->unique();
+
+            foreach ($keys as $key) {
+                $groupA = $a->get($key, collect());
+                $groupB = $b->get($key, collect());
+                $fullA = $groupA->groupBy(fn ($nt) => $this->fileSignature($nt, 'a', $verifyFields));
+                $fullB = $groupB->groupBy(fn ($nt) => $this->fileSignature($nt, 'b', $verifyFields));
+                $remainingA = collect();
+                $remainingB = collect();
+
+                foreach ($fullA->keys()->merge($fullB->keys())->unique() as $signature) {
+                    $rowsA = $fullA->get($signature, collect());
+                    $rowsB = $fullB->get($signature, collect());
+                    $count = min($rowsA->count(), $rowsB->count());
+                    if ($count > 0) {
+                        if ($persistResults) {
+                            $this->persistOutcome($rowsA->take($count), $rowsB->take($count), $rule,
+                                MatchingResultStatus::Matched, 100.0, null, $batchReference);
+                        }
+                        $matched++;
+                    }
+                    $remainingA = $remainingA->merge($rowsA->slice($count)->values());
+                    $remainingB = $remainingB->merge($rowsB->slice($count)->values());
+                }
+
+                // Same identifier, but at least one compared field differs.
+                // Do not aggregate amounts: 10 + 20 is not the same row as 30.
+                if ($remainingA->isNotEmpty() && $remainingB->isNotEmpty()) {
+                    $amountsEqual = $remainingA->pluck('normalized_amount_millimes')->sort()->values()->all()
+                        === $remainingB->pluck('normalized_amount_millimes')->sort()->values()->all();
+                    $dates = fn ($rows) => $rows->map(fn ($nt) => $nt->normalized_date?->format('Y-m-d'))->sort()->values()->all();
+                    $datesEqual = $dates($remainingA) === $dates($remainingB);
+                    $type = match (true) {
+                        ! $this->verifyFieldsMatch($remainingA, $remainingB, $verifyFields) => ExceptionType::Conflict,
+                        $datesEqual && ! $amountsEqual => ExceptionType::AmountMismatch,
+                        $amountsEqual && ! $datesEqual => ExceptionType::DateMismatch,
+                        default => ExceptionType::Conflict,
+                    };
+                    if ($persistResults) {
+                        $this->persistOutcome($remainingA, $remainingB, $rule, MatchingResultStatus::Conflict, null, $type, $batchReference);
+                    }
+                    $conflicts++;
+                } else {
+                    $unmatchedA = $unmatchedA->merge($remainingA);
+                    $unmatchedB = $unmatchedB->merge($remainingB);
+                }
+            }
+
+            // This snapshot is relative to the two files, regardless of each
+            // row's status in earlier comparisons with other files.
+            UnmatchedSnapshot::updateOrCreate(
+                ['import_a_id' => $importIdA, 'import_b_id' => $importIdB],
+                [
+                    'status' => 'completed',
+                    'result_a' => $unmatchedA->map(fn ($nt) => $this->fileSnapshotRow($nt, $primaryA))->values()->all(),
+                    'result_b' => $unmatchedB->map(fn ($nt) => $this->fileSnapshotRow($nt, $primaryB))->values()->all(),
+                    'error' => null,
+                    'started_at' => now(),
+                    'completed_at' => now(),
+                ],
+            );
+
+            return new MatchingRunSummary($keys->count(), $matched, $conflicts, 0, 0, $unmatchedA->count(), $unmatchedB->count());
+        });
+    }
+
+    /** Refresh only the differences snapshot; do not create matches or change transaction statuses. */
+    public function refreshFileDifferences(Import $a, Import $b): MatchingRunSummary
+    {
+        $rule = new MatchingRule([
+            'source_a_id' => $a->source_id,
+            'source_b_id' => $b->source_id,
+            'criteria' => app(FileComparisonRules::class)->criteria($a->source, $b->source),
+        ]);
+
+        return $this->matchFiles($rule, '', $a->id, $b->id, false);
+    }
+
+    private function fileSignature(NormalizedTransaction $nt, string $side, array $verifyFields): string
+    {
+        $values = [$nt->normalized_date?->format('Y-m-d'), $nt->normalized_amount_millimes];
+        foreach ($verifyFields as $field) {
+            if (is_array($field)) {
+                $values[] = $this->fieldValue($nt, $field[$side]);
+            }
+        }
+        if (collect($values)->contains(fn ($value) => $value === null || trim((string) $value) === '')) {
+            return 'missing:'.$nt->id;
+        }
+
+        return json_encode($values, JSON_THROW_ON_ERROR);
+    }
+
+    private function fileSnapshotRow(NormalizedTransaction $nt, string|array $primaryKey): array
+    {
+        return [
+            'id' => $nt->id,
+            'source' => $nt->transaction->source->code,
+            'reference' => $nt->normalized_reference,
+            'amount_millimes' => $nt->normalized_amount_millimes,
+            'date' => $nt->normalized_date?->format('d/m/Y'),
+            'primary_key_value' => $this->primaryKeyValue($nt, $primaryKey),
+        ];
+    }
+
     /**
      * @return Collection<string,Collection<int,NormalizedTransaction>> keyed by the configured primary key
      */
-    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null): Collection
+    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false): Collection
     {
         $rows = NormalizedTransaction::query()
             ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
             ->where('transactions.source_id', $sourceId)
-            ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
+            ->when(! $allStatuses, fn ($query) => $query->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value))
+            ->when($allStatuses, fn ($query) => $query->with('transaction.source'))
             ->when($importId !== null, fn ($query) => $query->where('transactions.import_id', $importId))
             ->when($excludedStatusRaw !== [], fn ($query) => $query->where(function ($inner) use ($excludedStatusRaw) {
                 $inner->whereNull('transactions.raw_payload->status_raw')
@@ -142,7 +270,24 @@ class RuleMatcher
             ->select('normalized_transactions.*', 'transactions.raw_payload')
             ->get();
 
-        $grouped = $rows->groupBy(fn (NormalizedTransaction $nt) => $this->primaryKeyValue($nt, $primaryKey));
+        $grouped = $rows->groupBy(function (NormalizedTransaction $nt) use ($primaryKey, $allStatuses) {
+            if ($allStatuses) {
+                $fields = $primaryKey === 'date|amount' ? ['date', 'amount'] : (array) $primaryKey;
+                foreach ($fields as $field) {
+                    $value = $field === 'reference' ? $nt->transaction->external_reference : $this->fieldValue($nt, $field);
+                    if ($value === null || trim((string) $value) === '') {
+                        return 'missing:'.$nt->id;
+                    }
+                }
+
+                // Keep identifiers textual: Collection::unique() otherwise
+                // treats "000123456" and the numeric array key 123456 as equal,
+                // discarding one side's group from the file comparison.
+                return 'key:'.$this->primaryKeyValue($nt, $primaryKey);
+            }
+
+            return $this->primaryKeyValue($nt, $primaryKey);
+        });
 
         return $grouped;
     }
@@ -155,7 +300,7 @@ class RuleMatcher
     private function primaryKeyValue(NormalizedTransaction $nt, string|array $primaryKey): string
     {
         if ($primaryKey === 'date|amount') {
-            return $nt->normalized_date->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
+            return $nt->normalized_date?->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
         }
 
         if ($primaryKey === 'reference') {
@@ -196,8 +341,8 @@ class RuleMatcher
     }
 
     /**
-     * @param Collection<int,NormalizedTransaction> $groupA
-     * @param Collection<int,NormalizedTransaction> $groupB
+     * @param  Collection<int,NormalizedTransaction>  $groupA
+     * @param  Collection<int,NormalizedTransaction>  $groupB
      * @return string 'matched'|'conflict'|'no_signal'|'skipped'
      */
     private function evaluateGroup(
@@ -227,21 +372,21 @@ class RuleMatcher
         return DB::transaction(function () use ($groupA, $groupB, $rule, $amountOk, $dateOk, $amountExact, $dateExact, $batchReference) {
             $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'));
 
-        // Vérification défensive : un job concurrent peut avoir déjà
-        // traité une partie de ce groupe pendant l'exécution.
-        // MySQL has a 65 535 placeholder limit per prepared statement, so
-        // large reference groups must be checked in chunks.
-        $stillUnmatched = 0;
-        foreach ($allIds->chunk(1000) as $chunk) {
-            $stillUnmatched += NormalizedTransaction::query()
-                ->whereIn('id', $chunk)
-                ->where('matching_status', MatchingStatus::Unmatched->value)
-                ->count();
-        }
+            // Vérification défensive : un job concurrent peut avoir déjà
+            // traité une partie de ce groupe pendant l'exécution.
+            // MySQL has a 65 535 placeholder limit per prepared statement, so
+            // large reference groups must be checked in chunks.
+            $stillUnmatched = 0;
+            foreach ($allIds->chunk(1000) as $chunk) {
+                $stillUnmatched += NormalizedTransaction::query()
+                    ->whereIn('id', $chunk)
+                    ->where('matching_status', MatchingStatus::Unmatched->value)
+                    ->count();
+            }
 
-        if ($stillUnmatched !== $allIds->count()) {
-            return 'skipped';
-        }
+            if ($stillUnmatched !== $allIds->count()) {
+                return 'skipped';
+            }
 
             if ($amountOk && $dateOk) {
                 $status = ($amountExact && $dateExact) ? MatchingResultStatus::Matched : MatchingResultStatus::Partial;
@@ -269,9 +414,9 @@ class RuleMatcher
      *   - an array ['a' => fieldA, 'b' => fieldB] — fieldA on side A must
      *     equal fieldB on side B (e.g. num_autorisation ↔ secondary_reference)
      *
-     * @param Collection<int,NormalizedTransaction> $groupA
-     * @param Collection<int,NormalizedTransaction> $groupB
-     * @param array<int,mixed> $verifyFields
+     * @param  Collection<int,NormalizedTransaction>  $groupA
+     * @param  Collection<int,NormalizedTransaction>  $groupB
+     * @param  array<int,mixed>  $verifyFields
      */
     private function verifyFieldsMatch(Collection $groupA, Collection $groupB, array $verifyFields): bool
     {
@@ -325,7 +470,7 @@ class RuleMatcher
     {
         return match ($field) {
             'amount' => $nt->normalized_amount_millimes,
-            'date' => $nt->normalized_date->format('Y-m-d'),
+            'date' => $nt->normalized_date?->format('Y-m-d'),
             default => $this->payloadField($nt, $field),
         };
     }
@@ -338,8 +483,8 @@ class RuleMatcher
     }
 
     /**
-     * @param Collection<int,NormalizedTransaction> $groupA
-     * @param Collection<int,NormalizedTransaction> $groupB
+     * @param  Collection<int,NormalizedTransaction>  $groupA
+     * @param  Collection<int,NormalizedTransaction>  $groupB
      * @return array{0:bool,1:bool,2:bool,3:bool} [amountOk, amountExact, dateOk, dateExact]
      */
     private function computeToleranceSignals(Collection $groupA, Collection $groupB, int $toleranceAmount, int $toleranceDays): array
@@ -370,8 +515,8 @@ class RuleMatcher
      * by two or more genuinely distinct transactions on different dates --
      * see class docblock for the real ALPHA/BNA case this was built for.
      *
-     * @param Collection<int,NormalizedTransaction> $groupA
-     * @param Collection<int,NormalizedTransaction> $groupB
+     * @param  Collection<int,NormalizedTransaction>  $groupA
+     * @param  Collection<int,NormalizedTransaction>  $groupB
      */
     private function multisetsMatchExactly(Collection $groupA, Collection $groupB): bool
     {
@@ -388,8 +533,8 @@ class RuleMatcher
     }
 
     /**
-     * @param Collection<int,NormalizedTransaction> $groupA
-     * @param Collection<int,NormalizedTransaction> $groupB
+     * @param  Collection<int,NormalizedTransaction>  $groupA
+     * @param  Collection<int,NormalizedTransaction>  $groupB
      */
     private function persistOutcome(
         Collection $groupA,

@@ -68,7 +68,7 @@ class MatchingRuleSeeder extends Seeder
                 'b' => 'WEB',
                 'priority' => 40,
                 'excluded_b' => [],
-                'primary_key' => ['a' => ['reference', 'num_autorisation'], 'b' => ['reference', 'recu_paie']],
+                'primary_key' => ['a' => ['reference', 'num_autorisation'], 'b' => ['reference', 'secondary_reference']],
                 'verify_fields' => ['amount', 'date'],
             ],
             [

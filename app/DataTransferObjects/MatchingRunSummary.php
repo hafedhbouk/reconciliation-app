@@ -10,6 +10,7 @@ readonly class MatchingRunSummary
         public int $conflicts,
         public int $noSignal,
         public int $skipped = 0,
-    ) {
-    }
+        public int $unmatchedA = 0,
+        public int $unmatchedB = 0,
+    ) {}
 }

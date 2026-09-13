@@ -27,6 +27,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -102,6 +103,13 @@ class MatchingRuleController extends Controller
     {
         $this->authorize('update', $matchingRule);
 
+        $request->validate([
+            'import_a_id' => ['nullable', 'required_with:import_b_id', 'integer', 'different:import_b_id',
+                Rule::exists('imports', 'id')->where('source_id', $matchingRule->source_a_id)->where('status', 'completed')],
+            'import_b_id' => ['nullable', 'required_with:import_a_id', 'integer', 'different:import_a_id',
+                Rule::exists('imports', 'id')->where('source_id', $matchingRule->source_b_id)->where('status', 'completed')],
+        ]);
+
         $importIdA = $request->input('import_a_id') ? (int) $request->input('import_a_id') : null;
         $importIdB = $request->input('import_b_id') ? (int) $request->input('import_b_id') : null;
 
@@ -115,8 +123,8 @@ class MatchingRuleController extends Controller
         $this->authorize('update', MatchingRule::class);
 
         $request->validate([
-            'import_a_id' => 'required|exists:imports,id|different:import_b_id',
-            'import_b_id' => 'required|exists:imports,id|different:import_a_id',
+            'import_a_id' => ['required', 'integer', 'different:import_b_id', Rule::exists('imports', 'id')->where('status', 'completed')],
+            'import_b_id' => ['required', 'integer', 'different:import_a_id', Rule::exists('imports', 'id')->where('status', 'completed')],
         ]);
 
         $importA = Import::query()->findOrFail($request->input('import_a_id'));
@@ -152,7 +160,7 @@ class MatchingRuleController extends Controller
             ->map(fn (MatchingRule $rule) => new RunMatchingRuleJob($rule->id, $batchReference))
             ->all();
 
-        $jobs = [...$ruleJobs, new DetectDuplicatesJob(), new SweepUnmatchedJob()];
+        $jobs = [...$ruleJobs, new DetectDuplicatesJob, new SweepUnmatchedJob];
 
         if (auth()->id() !== null) {
             $jobs[] = new NotifyMatchingBatchCompleteJob($batchReference, auth()->id());

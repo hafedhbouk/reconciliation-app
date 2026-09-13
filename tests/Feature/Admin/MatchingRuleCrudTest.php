@@ -1,7 +1,10 @@
 <?php
 
+use App\Jobs\RunMatchingRuleJob;
+use App\Models\Import;
 use App\Models\MatchingRule;
 use App\Models\Source;
+use Illuminate\Support\Facades\Queue;
 
 test('admin can list matching rules', function () {
     actingAsAdmin();
@@ -86,4 +89,34 @@ test('plain user is forbidden from accessing matching rules', function () {
     actingAsPlainUser();
 
     $this->get(route('admin.matching-rules.index'))->assertForbidden();
+});
+
+test('file matching requires two completed imports from the rule sources', function () {
+    actingAsAdmin();
+    Queue::fake();
+    $rule = MatchingRule::factory()->create();
+    $a = Import::factory()->create(['source_id' => $rule->source_a_id, 'status' => 'completed']);
+    $b = Import::factory()->create(['source_id' => $rule->source_b_id, 'status' => 'completed']);
+
+    $this->post(route('admin.matching-rules.run', $rule), ['import_a_id' => $a->id])
+        ->assertSessionHasErrors('import_b_id');
+    $this->post(route('admin.matching-rules.run', $rule), ['import_a_id' => $b->id, 'import_b_id' => $a->id])
+        ->assertSessionHasErrors(['import_a_id', 'import_b_id']);
+    Queue::assertNothingPushed();
+
+    $this->post(route('admin.matching-rules.run', $rule), ['import_a_id' => $a->id, 'import_b_id' => $b->id])
+        ->assertRedirect(route('admin.matching-rules.index'));
+    Queue::assertPushed(RunMatchingRuleJob::class,
+        fn ($job) => $job->importIdA === $a->id && $job->importIdB === $b->id);
+});
+
+test('ad hoc matching rejects imports that have not completed', function () {
+    actingAsAdmin();
+    Queue::fake();
+    $a = Import::factory()->create(['status' => 'pending']);
+    $b = Import::factory()->create(['status' => 'completed']);
+
+    $this->post(route('admin.matching-rules.run-ad-hoc'), ['import_a_id' => $a->id, 'import_b_id' => $b->id])
+        ->assertSessionHasErrors('import_a_id');
+    Queue::assertNothingPushed();
 });

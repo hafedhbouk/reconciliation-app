@@ -128,7 +128,7 @@ définit :
   rapprochées — l'ordre a donc un impact sur le résultat),
 - son **statut** actif/inactif.
 
-Pour chaque groupe de transactions partageant une référence, le moteur
+Lors du lancement global, pour chaque groupe de transactions partageant une référence, le moteur
 applique une logique de tolérance en trois cas :
 - **correspondance exacte ou avec écart montant/date toléré** → un
   résultat de rapprochement (*matched*) est créé ;
@@ -163,6 +163,43 @@ résumé du batch.
 
 > Ces actions sont limitées en fréquence (*rate limiting*) car elles
 > peuvent être coûteuses sur un gros volume de données.
+
+### 5.3 Comparer deux fichiers importés
+
+Dans **Règles de rapprochement**, sélectionnez les fichiers A et B, puis
+lancez le rapprochement. Les deux fichiers sont comparés indépendamment
+des rapprochements déjà effectués avec d'autres fichiers. Le bouton
+**Lancer** d'une règle utilise les derniers imports terminés de ses deux sources.
+
+| Combinaison | Identifiant commun | Champs vérifiés pour un rapprochement exact |
+|---|---|---|
+| Alpha–BNA | `NUM_AUTO` ↔ `N° autorisation` | `DAT_ENC` ↔ `Date` ; `MONTANT_ENCAISS` ↔ `Montant` |
+| Alpha–WEB/STEG | `REFERENCE` ↔ `reference` | `NUM_AUTO` ↔ `recu_paie` ; `DAT_ENC` ↔ `date_paiement` ; `MONTANT_ENCAISS` ↔ `montant` |
+| Alpha–SMT | Date + montant | `DAT_ENC`, `MONTANT_ENCAISS` ↔ `New Deposit date`, `Montant` |
+| SMT–BNA | Date + montant | `New Deposit date`, `Montant` ↔ `Date`, `Montant` |
+| WEB/STEG–SMT | Date + montant | `date_paiement`, `montant` ↔ `New Deposit date`, `Montant` |
+| WEB/STEG–BNA | `recu_paie` ↔ `N° autorisation` | `date_paiement` ↔ `Date` ; `montant` ↔ `Montant` |
+
+Pour Alpha–BNA, `REFERENCE` est informative : aucun champ équivalent
+n'est fourni côté BNA. Les dates sont comparées au jour et les montants
+en millimes, après les transformations configurées à l'import.
+
+- **Rapproché** : tous les champs attendus correspondent, ligne par ligne.
+- **Conflit** : l'identifiant existe des deux côtés, mais le reçu, la date
+  ou le montant diffère. Une différence simultanée de date et de montant
+  est aussi un conflit. Les lignes exactement identiques sont retirées
+  avant d'examiner les lignes restantes d'un même identifiant.
+- **Non rapproché** : aucune ligne correspondante ne reste de l'autre
+  côté. Les occurrences en surplus d'un doublon restent visibles.
+
+Pour SMT, la seule clé commune est date + montant : si l'un des deux
+diffère, les lignes sont non rapprochées, sans conflit présumé.
+
+Les conflits apparaissent dans **Résultats de rapprochement** et
+**Exceptions**. Les lignes présentes d'un seul côté sont consultables dans
+**Transactions non rapprochées par fichier importé**, avec les mêmes
+fichiers A et B. **Relancer la comparaison** recalcule cette liste sans
+créer de nouveaux rapprochements ni modifier les statuts des transactions.
 
 ## 6. Consulter les résultats de rapprochement
 
