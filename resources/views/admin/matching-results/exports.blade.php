@@ -10,6 +10,7 @@
                     <tr>
                         <th>{{ __('ID') }}</th>
                         <th>{{ __('Format') }}</th>
+                        <th>{{ __('Type') }}</th>
                         <th>{{ __('Statut') }}</th>
                         <th>{{ __('Filtres') }}</th>
                         <th>{{ __('Lancé le') }}</th>
@@ -38,6 +39,13 @@
                                     @default
                                         <span class="badge bg-secondary">{{ __('En attente') }}</span>
                                 @endswitch
+                            </td>
+                            <td>
+                                @if (($export->filters['type'] ?? null) === 'unmatched')
+                                    <span class="badge bg-warning text-dark">{{ __('Différences') }}</span>
+                                @else
+                                    <span class="badge bg-primary">{{ __('Rapprochements') }}</span>
+                                @endif
                             </td>
                             <td>
                                 @if ($export->filters)
@@ -70,7 +78,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-secondary py-4">{{ __('Aucun export pour le moment.') }}</td>
+                            <td colspan="8" class="text-center text-secondary py-4">{{ __('Aucun export pour le moment.') }}</td>
                         </tr>
                     @endforelse
                 </tbody>

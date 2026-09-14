@@ -3,6 +3,10 @@
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Transactions non rapprochées par fichier importé') }}</h2>
     </x-slot>
 
+    @if (session('export_error'))
+        <div class="alert alert-warning">{{ session('export_error') }}</div>
+    @endif
+
     <form method="GET" action="{{ route('admin.reconciliation.unmatched') }}" class="card mb-3">
         <div class="card-body">
             <div class="row g-3 align-items-end">
@@ -102,6 +106,24 @@
         @endif
 
         @if ($snapshot && $snapshot->status === 'completed')
+            <div class="mb-3">
+                <form method="POST" action="{{ route('admin.reconciliation.unmatched.export-async', $snapshot) }}" class="d-flex align-items-center gap-2">
+                    @csrf
+                    <label for="unmatched_export_format" class="visually-hidden">{{ __('Format') }}</label>
+                    <select name="format" id="unmatched_export_format" class="form-select form-select-sm w-auto">
+                        <option value="xlsx">Excel (XLSX)</option>
+                        <option value="csv">CSV</option>
+                        <option value="pdf">PDF</option>
+                    </select>
+                    <button type="submit" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-download me-1"></i>{{ __('Lancer l’export') }}
+                    </button>
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ route('admin.matching-results.exports') }}">
+                        <i class="bi bi-folder2-open me-1"></i>{{ __('Mes exports') }}
+                    </a>
+                </form>
+                <small class="text-secondary">{{ __('Les exports regroupent les différences des deux fichiers, toutes pages confondues. Excel et PDF : 1 000 lignes maximum ; CSV : toutes les lignes. Montants en millimes.') }}</small>
+            </div>
             @if ($snapshot->file_totals)
                 <div class="row mb-3">
                     @foreach (['a' => $sourceAName, 'b' => $sourceBName] as $side => $name)

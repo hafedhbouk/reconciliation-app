@@ -425,3 +425,14 @@ plutôt que de la supprimer — l'historique reste ainsi traçable.
 Votre rôle ne dispose pas des permissions correspondantes (voir
 [Rôles et permissions](#2-rôles-et-permissions)). Demandez à un
 administrateur de vérifier votre rôle si besoin.
+# Exporter les différences entre deux fichiers
+
+Sur la page **Transactions non rapprochées par fichier importé**, sélectionner
+deux fichiers et attendre la fin du calcul. Les boutons **Exporter Excel**,
+**Exporter CSV** et **Exporter PDF** téléchargent les lignes exclusives des
+deux côtés, toutes pages confondues. La colonne « Côté exclusif » identifie A ou B ;
+les fichiers comparés et la date du calcul sont inclus. Les montants sont en millimes.
+
+Excel et PDF sont limités à 1 000 lignes au total pour maîtriser la mémoire.
+Au-delà, utiliser CSV pour obtenir toutes les lignes : aucun export n'est tronqué.
+Après une renormalisation, relancer la comparaison avant l'export.

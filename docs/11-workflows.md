@@ -316,7 +316,7 @@ sequenceDiagram
 
 ### Description fonctionnelle
 
-L'utilisateur exporte les résultats de recherche, matching ou exceptions en CSV, XLSX ou PDF.
+L'utilisateur exporte les résultats de recherche, matching, différences ou exceptions en CSV, XLSX ou PDF.
 
 ### Fichiers concernés
 
@@ -326,6 +326,7 @@ L'utilisateur exporte les résultats de recherche, matching ou exceptions en CSV
 | Export synchrone | `app/Http/Controllers/Admin/MatchingResultController.php` | `export()` |
 | Export synchrone | `app/Http/Controllers/Admin/ExceptionController.php` | `export()` |
 | Export asynchrone | `app/Http/Controllers/Admin/MatchingResultController.php` | `exportAsync()` |
+| Export asynchrone des différences | `app/Http/Controllers/Admin/ReconciliationController.php` | `exportAsync()` |
 | Job export | `app/Jobs/GenerateMatchingExportJob.php` | `handle()` |
 | Classe export | `app/Exports/GenericTableExport.php` | - |
 

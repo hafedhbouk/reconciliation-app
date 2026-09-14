@@ -15,7 +15,9 @@ use App\Enums\MatchingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreManualMatchRequest;
 use App\Jobs\ComputeUnmatchedJob;
+use App\Jobs\GenerateMatchingExportJob;
 use App\Models\MatchingDetail;
+use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
@@ -29,6 +31,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 
 class ReconciliationController extends Controller
 {
@@ -125,6 +128,34 @@ class ReconciliationController extends Controller
             'import_a_id' => $validated['import_a_id'],
             'import_b_id' => $validated['import_b_id'],
         ]);
+    }
+
+    public function exportAsync(Request $request, UnmatchedSnapshot $snapshot): RedirectResponse
+    {
+        $this->authorize('viewAny', MatchingResult::class);
+        $request->validate(['format' => 'required|in:csv,xlsx,pdf']);
+        abort_unless($snapshot->importA && $snapshot->importB, 404);
+        abort_unless($snapshot->status === 'completed', 409, __('Relancez la comparaison avant de l’exporter.'));
+        $rows = app(SnapshotRows::class);
+        $rows->ensureStored($snapshot);
+        if ($request->input('format') !== 'csv'
+            && DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)->count() > 1000) {
+            return redirect()->route('admin.reconciliation.unmatched', [
+                'import_a_id' => $snapshot->import_a_id, 'import_b_id' => $snapshot->import_b_id,
+            ])->with('export_error', __('Excel et PDF sont limités à 1 000 lignes. Utilisez CSV pour exporter toutes les différences.'));
+        }
+
+        $export = MatchingExport::query()->create([
+            'user_id' => auth()->id(),
+            'format' => $request->input('format'),
+            'status' => 'pending',
+            'filters' => ['type' => 'unmatched', 'snapshot_id' => $snapshot->id],
+            'download_token' => Str::random(64),
+        ]);
+
+        GenerateMatchingExportJob::dispatch($export);
+
+        return redirect()->route('admin.matching-results.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
     }
 
     /** Hard cap on how many rows a single "select all" can pull in at once. */

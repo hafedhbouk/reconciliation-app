@@ -16,12 +16,17 @@ namespace App\Jobs;
  * - pdf : idem, limité aux volumes raisonnables
  */
 use App\Exports\GenericTableExport;
+use App\Exports\UnmatchedExport;
+use App\Exceptions\UnmatchedExportUnavailableException;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
+use App\Models\UnmatchedSnapshot;
+use App\Services\Matching\SnapshotRows;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
@@ -60,6 +65,12 @@ class GenerateMatchingExportJob implements ShouldQueue
 
         $format = $this->matchingExport->format;
         $filters = $this->matchingExport->filters ?? [];
+        if (($filters['type'] ?? null) === 'unmatched') {
+            $this->handleUnmatched($format, (int) ($filters['snapshot_id'] ?? 0));
+
+            return;
+        }
+
         $extension = match ($format) {
             'csv' => 'csv',
             'xlsx' => 'xlsx',
@@ -140,7 +151,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                 'pdf' => ExcelFormat::DOMPDF,
             };
 
-            Excel::store($export, "{$directory}/{$fileName}", $disk);
+            Excel::store($export, "{$directory}/{$fileName}", $disk, $writerType);
 
             $this->matchingExport->update([
                 'status' => 'completed',
@@ -163,5 +174,55 @@ class GenerateMatchingExportJob implements ShouldQueue
             'status' => 'failed',
             'error_message' => $e->getMessage(),
         ]);
+    }
+
+    private function handleUnmatched(string $format, int $snapshotId): void
+    {
+        $snapshot = UnmatchedSnapshot::query()->with(['importA', 'importB'])->findOrFail($snapshotId);
+        if ($snapshot->status !== 'completed' || ! $snapshot->importA || ! $snapshot->importB) {
+            throw new UnmatchedExportUnavailableException('La comparaison des différences n’est plus disponible.');
+        }
+
+        app(SnapshotRows::class)->ensureStored($snapshot);
+        $query = DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)
+            ->orderBy('side')->orderBy('normalized_transaction_id');
+        $header = ['Côté exclusif', 'Fichier A', 'Fichier B', 'Calculé le', 'Source', 'Référence', 'Montant (millimes)', 'Date'];
+        $map = function ($record) use ($snapshot): array {
+            $row = json_decode($record->data, true, 512, JSON_THROW_ON_ERROR);
+
+            return [strtoupper($record->side), $snapshot->importA->original_filename,
+                $snapshot->importB->original_filename, $snapshot->completed_at?->format('d/m/Y H:i:s'),
+                $row['source'] ?? '', $row['reference'] ?? $row['primary_key_value'] ?? '',
+                (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? ''];
+        };
+        $rows = $query->get()->map($map)->map(function (array $values): array {
+            return array_map(function ($value, $index) {
+                $value = (string) $value;
+
+                if ($index === 6 && preg_match('/^-?\d+$/', $value)) {
+                    return $value;
+                }
+
+                return preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', $value) ? "'".$value : $value;
+            }, $values, array_keys($values));
+        })->all();
+        $fileName = 'differences-'.$snapshot->id.'-'.$this->matchingExport->id.'.'.$format;
+
+        try {
+            $writerType = match ($format) {
+                'csv' => ExcelFormat::CSV,
+                'xlsx' => ExcelFormat::XLSX,
+                'pdf' => ExcelFormat::DOMPDF,
+            };
+            Excel::store(new UnmatchedExport([$header, ...$rows]), "exports/reconciliation/{$fileName}", 'local', $writerType);
+            $this->matchingExport->update([
+                'status' => 'completed',
+                'file_path' => "exports/reconciliation/{$fileName}",
+                'completed_at' => now(),
+            ]);
+        } catch (Throwable $e) {
+            $this->matchingExport->update(['status' => 'failed', 'error_message' => $e->getMessage()]);
+            throw $e;
+        }
     }
 }

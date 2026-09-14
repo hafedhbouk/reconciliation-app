@@ -11,7 +11,8 @@ namespace App\Exports;
  * Ce design évite la duplication entre SearchController,
  * ExceptionController et GenerateMatchingExportJob.
  */
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -32,12 +33,12 @@ class GenericTableExport implements FromQuery, WithHeadings, WithMapping
      * @param  \Closure(mixed):array<int,mixed>  $mapRow
      */
     public function __construct(
-        private Builder $query,
+        private EloquentBuilder|QueryBuilder $query,
         private array $headings,
         private \Closure $mapRow,
     ) {}
 
-    public function query(): Builder
+    public function query(): EloquentBuilder|QueryBuilder
     {
         return $this->query;
     }

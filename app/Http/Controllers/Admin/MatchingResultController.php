@@ -247,7 +247,9 @@ class MatchingResultController extends Controller
             abort(404);
         }
 
-        return response()->download($path, "matching-results.{$export->format}");
+        $prefix = ($export->filters['type'] ?? null) === 'unmatched' ? 'differences' : 'matching-results';
+
+        return response()->download($path, "{$prefix}.{$export->format}");
     }
 
     /**

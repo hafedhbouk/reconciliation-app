@@ -119,6 +119,7 @@ Ces endpoints alimentent les tableaux DataTables côté client avec traitement s
 | `GET` | `/admin/exceptions/export/{format}` | `admin.exceptions.export` | `ExceptionController@export` | csv/xlsx/pdf | admin + throttle |
 | `GET` | `/admin/matching-results/export/{format}` | `admin.matching-results.export` | `MatchingResultController@export` | csv/xlsx/pdf | admin + throttle |
 | `POST` | `/admin/matching-results/export-async` | `admin.matching-results.export-async` | `MatchingResultController@exportAsync` | csv/xlsx/pdf | admin + throttle |
+| `POST` | `/admin/reconciliation/unmatched/{snapshot}/export-async` | `admin.reconciliation.unmatched.export-async` | `ReconciliationController@exportAsync` | csv/xlsx/pdf | admin + throttle |
 | `GET` | `/admin/matching-results/exports` | `admin.matching-results.exports` | `MatchingResultController@exports` | html | admin |
 | `GET` | `/admin/matching-results/exports/{token}/download` | `admin.matching-results.exports.download` | `MatchingResultController@downloadExport` | fichier | admin |
 
