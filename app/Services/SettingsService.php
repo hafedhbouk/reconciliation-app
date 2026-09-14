@@ -7,9 +7,7 @@ use Illuminate\Support\Facades\Cache;
 
 class SettingsService
 {
-    public function __construct(private SettingsRepositoryInterface $settings)
-    {
-    }
+    public function __construct(private SettingsRepositoryInterface $settings) {}
 
     public function get(string $group, string $key, mixed $default = null): mixed
     {

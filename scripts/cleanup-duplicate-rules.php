@@ -1,12 +1,15 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+use App\Models\MatchingRule;
+use Illuminate\Contracts\Console\Kernel;
 
-$app = require __DIR__ . '/../bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+require __DIR__.'/../vendor/autoload.php';
+
+$app = require __DIR__.'/../bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
-$duplicates = App\Models\MatchingRule::query()
+$duplicates = MatchingRule::query()
     ->whereIn('name', ['ALPHA - BNA', 'SMT - BNA', 'WEB - BNA', 'ALPHA - WEB', 'ALPHA - SMT', 'WEB - SMT'])
     ->get();
 
@@ -17,7 +20,7 @@ foreach ($duplicates as $rule) {
         $result->delete();
     }
     $rule->delete();
-    echo "Deleted duplicate rule: " . $rule->name . " (ID: " . $rule->id . ")\n";
+    echo 'Deleted duplicate rule: '.$rule->name.' (ID: '.$rule->id.")\n";
 }
 
-echo "Done. Remaining rules: " . App\Models\MatchingRule::count() . "\n";
+echo 'Done. Remaining rules: '.MatchingRule::count()."\n";

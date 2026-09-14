@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Import;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
 
@@ -59,7 +60,7 @@ test('clearing a source_column removes the existing mapping', function () {
 test('saving a mapping redirects to the import when import_id is present', function () {
     actingAsAdmin();
     $source = Source::factory()->create();
-    $import = App\Models\Import::factory()->create(['source_id' => $source->id]);
+    $import = Import::factory()->create(['source_id' => $source->id]);
 
     $response = $this->put(route('admin.sources.mappings.update', $source), [
         'import_id' => $import->id,

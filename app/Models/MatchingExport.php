@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class MatchingExport extends Model
 {
     /** @use HasFactory<MatchingExportFactory> */
-    use HasFactory, SoftDeletes, HasUserstamps, Auditable;
+    use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
         'user_id',

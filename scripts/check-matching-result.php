@@ -1,13 +1,17 @@
 <?php
 
-require __DIR__ . '/../vendor/autoload.php';
+use App\Models\MatchingResult;
+use App\Models\NormalizedTransaction;
+use Illuminate\Contracts\Console\Kernel;
 
-$app = require __DIR__ . '/../bootstrap/app.php';
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+require __DIR__.'/../vendor/autoload.php';
+
+$app = require __DIR__.'/../bootstrap/app.php';
+$kernel = $app->make(Kernel::class);
 $kernel->bootstrap();
 
 // Simulate the controller logic for one matching result
-$result = App\Models\MatchingResult::with([
+$result = MatchingResult::with([
     'matchingRule.sourceA',
     'matchingRule.sourceB',
     'matchedByUser',
@@ -15,7 +19,7 @@ $result = App\Models\MatchingResult::with([
     'exceptions',
 ])->whereNotNull('matching_rule_id')->first();
 
-if (!$result) {
+if (! $result) {
     echo "No matching results with rule found.\n";
     exit(1);
 }
@@ -29,7 +33,7 @@ $matchedIds = $result->matchingDetails
     ->unique()
     ->values();
 
-$unmatchedA = App\Models\NormalizedTransaction::query()
+$unmatchedA = NormalizedTransaction::query()
     ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
     ->where('transactions.source_id', $sourceAId)
     ->where('normalized_transactions.matching_status', 'unmatched')
@@ -37,7 +41,7 @@ $unmatchedA = App\Models\NormalizedTransaction::query()
     ->select('normalized_transactions.*', 'transactions.raw_payload')
     ->count();
 
-$unmatchedB = App\Models\NormalizedTransaction::query()
+$unmatchedB = NormalizedTransaction::query()
     ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
     ->where('transactions.source_id', $sourceBId)
     ->where('normalized_transactions.matching_status', 'unmatched')
@@ -45,13 +49,13 @@ $unmatchedB = App\Models\NormalizedTransaction::query()
     ->select('normalized_transactions.*', 'transactions.raw_payload')
     ->count();
 
-echo "Result ID: " . $result->id . "\n";
-echo "Rule: " . ($result->matchingRule?->name ?? 'manual') . "\n";
-echo "Status: " . $result->status->value . "\n";
+echo 'Result ID: '.$result->id."\n";
+echo 'Rule: '.($result->matchingRule?->name ?? 'manual')."\n";
+echo 'Status: '.$result->status->value."\n";
 echo "Source A ID: $sourceAId\n";
 echo "Source B ID: $sourceBId\n";
-echo "Matched IDs count: " . $matchedIds->count() . "\n";
+echo 'Matched IDs count: '.$matchedIds->count()."\n";
 echo "Unmatched A count: $unmatchedA\n";
 echo "Unmatched B count: $unmatchedB\n";
-echo "Matched details count: " . $result->matchingDetails->count() . "\n";
-echo "Exceptions count: " . $result->exceptions->count() . "\n";
+echo 'Matched details count: '.$result->matchingDetails->count()."\n";
+echo 'Exceptions count: '.$result->exceptions->count()."\n";

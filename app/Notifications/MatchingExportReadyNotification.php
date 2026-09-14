@@ -15,16 +15,14 @@ use Illuminate\Notifications\Notification;
 class MatchingExportReadyNotification extends Notification
 {
     /**
-     * @param MatchingExport $export
-     * @param string $downloadUrl URL de téléchargement sécurisé via token
-     * @param string|null $errorMessage null si succès, message d'erreur sinon
+     * @param  string  $downloadUrl  URL de téléchargement sécurisé via token
+     * @param  string|null  $errorMessage  null si succès, message d'erreur sinon
      */
     public function __construct(
         private MatchingExport $export,
         private string $downloadUrl,
         private ?string $errorMessage = null,
-    ) {
-    }
+    ) {}
 
     public function via(object $notifiable): array
     {

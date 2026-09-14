@@ -5,7 +5,9 @@ namespace App\Providers;
 use App\Listeners\LogFailedLogin;
 use App\Listeners\LogSuccessfulLogin;
 use App\Listeners\LogSuccessfulLogout;
+use App\Models\MatchingExport;
 use App\Policies\MatchingExportPolicy;
+use App\Policies\RolePolicy;
 use App\Repositories\EloquentSettingsRepository;
 use App\Repositories\SettingsRepositoryInterface;
 use App\Services\Import\TransformRegistry;
@@ -49,9 +51,9 @@ class AppServiceProvider extends ServiceProvider
             return $user->hasRole('super-admin') ? true : null;
         });
 
-        Gate::policy(Role::class, \App\Policies\RolePolicy::class);
-        Gate::policy(Permission::class, \App\Policies\RolePolicy::class);
-        Gate::policy(\App\Models\MatchingExport::class, MatchingExportPolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Permission::class, RolePolicy::class);
+        Gate::policy(MatchingExport::class, MatchingExportPolicy::class);
 
         Event::listen(Login::class, LogSuccessfulLogin::class);
         Event::listen(Logout::class, LogSuccessfulLogout::class);

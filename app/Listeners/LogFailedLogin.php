@@ -7,9 +7,7 @@ use Illuminate\Auth\Events\Failed;
 
 class LogFailedLogin
 {
-    public function __construct(private AuditLogService $auditLogService)
-    {
-    }
+    public function __construct(private AuditLogService $auditLogService) {}
 
     public function handle(Failed $event): void
     {

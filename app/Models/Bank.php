@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Bank extends Model
 {
-    use HasFactory, SoftDeletes, HasUserstamps, Auditable;
+    use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
         'code',

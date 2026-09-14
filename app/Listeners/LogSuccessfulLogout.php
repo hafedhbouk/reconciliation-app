@@ -7,9 +7,7 @@ use Illuminate\Auth\Events\Logout;
 
 class LogSuccessfulLogout
 {
-    public function __construct(private AuditLogService $auditLogService)
-    {
-    }
+    public function __construct(private AuditLogService $auditLogService) {}
 
     public function handle(Logout $event): void
     {

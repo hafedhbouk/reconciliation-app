@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreRoleRequest;
 use App\Http\Requests\Admin\UpdateRoleRequest;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -61,7 +62,7 @@ class RoleController extends Controller
         return redirect()->route('admin.roles.index')->with('status', __('Rôle supprimé avec succès.'));
     }
 
-    private function groupedPermissions(): \Illuminate\Support\Collection
+    private function groupedPermissions(): Collection
     {
         return Permission::query()->orderBy('name')->get()->groupBy(function (Permission $permission) {
             return explode('.', $permission->name)[0];

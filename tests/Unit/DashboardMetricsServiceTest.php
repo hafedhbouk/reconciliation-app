@@ -12,7 +12,7 @@ use App\Models\Transaction;
 use App\Services\DashboardMetricsService;
 
 beforeEach(function () {
-    $this->service = new DashboardMetricsService();
+    $this->service = new DashboardMetricsService;
 });
 
 test('importStats groups by status and sums success/error rows', function () {

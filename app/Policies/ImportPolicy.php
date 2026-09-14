@@ -8,7 +8,6 @@ namespace App\Policies;
  * Vérifie les permissions préfixées par "imports"
  * (ex: imports.viewAny, imports.delete) via BasePolicy.
  */
-
 class ImportPolicy extends BasePolicy
 {
     protected string $resource = 'imports';

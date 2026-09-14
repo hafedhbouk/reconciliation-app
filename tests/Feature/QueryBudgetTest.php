@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\NormalizedTransaction;
+use App\Models\Source;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -11,9 +14,9 @@ use Illuminate\Support\Facades\DB;
  */
 test('the search datatables endpoint stays within a bounded query budget', function () {
     actingAsAdmin();
-    $source = \App\Models\Source::factory()->create();
-    \App\Models\NormalizedTransaction::factory()->count(10)->create([
-        'transaction_id' => fn () => \App\Models\Transaction::factory()->create(['source_id' => $source->id])->id,
+    $source = Source::factory()->create();
+    NormalizedTransaction::factory()->count(10)->create([
+        'transaction_id' => fn () => Transaction::factory()->create(['source_id' => $source->id])->id,
     ]);
 
     $queryCount = 0;
@@ -28,7 +31,7 @@ test('the search datatables endpoint stays within a bounded query budget', funct
 
 test('the dashboard stays within a bounded query budget', function () {
     actingAsAdmin();
-    \App\Models\Transaction::factory()->count(5)->create();
+    Transaction::factory()->count(5)->create();
 
     $queryCount = 0;
     DB::listen(function () use (&$queryCount) {

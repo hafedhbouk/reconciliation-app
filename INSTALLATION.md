@@ -8,7 +8,7 @@ Laravel 12 / PHP 8.3 / MySQL 8.
 
 Avant de commencer, assurez-vous de disposer des éléments suivants :
 
-- **PHP 8.2+** (8.3 recommandé) avec les extensions suivantes activées :
+- **PHP 8.3+ (64 bits)** avec les extensions suivantes activées :
   `bcmath`, `curl`, `fileinfo`, `gd`, `intl`, `mbstring`, `pdo_mysql`, `zip`,
   `openssl`, `sodium`
 - **Composer 2**

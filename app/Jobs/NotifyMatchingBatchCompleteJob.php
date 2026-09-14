@@ -36,9 +36,7 @@ class NotifyMatchingBatchCompleteJob implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public string $batchReference, public int $notifyUserId)
-    {
-    }
+    public function __construct(public string $batchReference, public int $notifyUserId) {}
 
     public function handle(): void
     {

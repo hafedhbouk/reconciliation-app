@@ -1,5 +1,10 @@
 <?php
 
+use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,8 +16,8 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature', 'Unit');
 
 /*
@@ -40,54 +45,54 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function actingAsAdmin(): \App\Models\User
+function actingAsAdmin(): User
 {
-    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+    test()->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     $user->assignRole('admin');
     test()->actingAs($user);
 
     return $user;
 }
 
-function actingAsPlainUser(): \App\Models\User
+function actingAsPlainUser(): User
 {
-    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+    test()->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     test()->actingAs($user);
 
     return $user;
 }
 
-function actingAsDirector(): \App\Models\User
+function actingAsDirector(): User
 {
-    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+    test()->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     $user->assignRole('directeur');
     test()->actingAs($user);
 
     return $user;
 }
 
-function actingAsDepartmentHead(): \App\Models\User
+function actingAsDepartmentHead(): User
 {
-    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+    test()->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     $user->assignRole('chef-departement');
     test()->actingAs($user);
 
     return $user;
 }
 
-function actingAsExecutionAgent(): \App\Models\User
+function actingAsExecutionAgent(): User
 {
-    test()->seed(\Database\Seeders\RolePermissionSeeder::class);
+    test()->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     $user->assignRole('agent-execution');
     test()->actingAs($user);
 

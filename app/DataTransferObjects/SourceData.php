@@ -12,8 +12,7 @@ readonly class SourceData
         public ?int $defaultCurrencyId = null,
         public bool $isActive = true,
         public ?string $description = null,
-    ) {
-    }
+    ) {}
 
     public static function fromArray(array $data): self
     {

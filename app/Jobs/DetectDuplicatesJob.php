@@ -29,9 +29,7 @@ class DetectDuplicatesJob implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public ?int $sourceId = null, public ?int $notifyUserId = null)
-    {
-    }
+    public function __construct(public ?int $sourceId = null, public ?int $notifyUserId = null) {}
 
     public function handle(DuplicateDetector $detector): void
     {

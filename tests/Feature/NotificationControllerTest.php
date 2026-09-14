@@ -1,8 +1,8 @@
 <?php
 
+use App\Models\Import;
 use App\Models\User;
 use App\Notifications\ImportProcessedNotification;
-use App\Models\Import;
 
 test('the notifications index page renders and lists the user own notifications', function () {
     $user = User::factory()->create();

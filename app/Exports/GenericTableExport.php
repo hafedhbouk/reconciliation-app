@@ -28,15 +28,14 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 class GenericTableExport implements FromQuery, WithHeadings, WithMapping
 {
     /**
-     * @param array<int,string> $headings
-     * @param \Closure(mixed):array<int,mixed> $mapRow
+     * @param  array<int,string>  $headings
+     * @param  \Closure(mixed):array<int,mixed>  $mapRow
      */
     public function __construct(
         private Builder $query,
         private array $headings,
         private \Closure $mapRow,
-    ) {
-    }
+    ) {}
 
     public function query(): Builder
     {

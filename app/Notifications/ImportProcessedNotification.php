@@ -14,9 +14,7 @@ use Illuminate\Notifications\Notification;
 
 class ImportProcessedNotification extends Notification
 {
-    public function __construct(private Import $import)
-    {
-    }
+    public function __construct(private Import $import) {}
 
     public function via(object $notifiable): array
     {

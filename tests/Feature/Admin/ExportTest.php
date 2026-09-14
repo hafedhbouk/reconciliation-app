@@ -1,6 +1,8 @@
 <?php
 
 use App\Exports\GenericTableExport;
+use App\Models\ExceptionRecord;
+use App\Models\MatchingResult;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\Transaction;
@@ -64,7 +66,7 @@ test('pdf and xlsx exports are capped at 1000 rows, csv is not', function () {
 test('exceptions export downloads csv, xlsx and pdf', function () {
     Excel::fake();
     actingAsAdmin();
-    \App\Models\ExceptionRecord::factory()->create();
+    ExceptionRecord::factory()->create();
 
     foreach (['csv', 'xlsx', 'pdf'] as $format) {
         $this->get(route('admin.exceptions.export', $format))->assertOk();
@@ -75,7 +77,7 @@ test('exceptions export downloads csv, xlsx and pdf', function () {
 test('matching-results export downloads csv, xlsx and pdf', function () {
     Excel::fake();
     actingAsAdmin();
-    \App\Models\MatchingResult::factory()->create();
+    MatchingResult::factory()->create();
 
     foreach (['csv', 'xlsx', 'pdf'] as $format) {
         $this->get(route('admin.matching-results.export', $format))->assertOk();

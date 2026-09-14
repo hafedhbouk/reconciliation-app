@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreBankRequest;
 use App\Http\Requests\Admin\UpdateBankRequest;
 use App\Models\Bank;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class BankController extends Controller
@@ -27,7 +28,7 @@ class BankController extends Controller
         return view('admin.banks.create');
     }
 
-    public function store(StoreBankRequest $request): \Illuminate\Http\RedirectResponse
+    public function store(StoreBankRequest $request): RedirectResponse
     {
         Bank::query()->create($request->validated());
 
@@ -39,14 +40,14 @@ class BankController extends Controller
         return view('admin.banks.edit', compact('bank'));
     }
 
-    public function update(UpdateBankRequest $request, Bank $bank): \Illuminate\Http\RedirectResponse
+    public function update(UpdateBankRequest $request, Bank $bank): RedirectResponse
     {
         $bank->update($request->validated());
 
         return redirect()->route('admin.banks.index')->with('status', __('Banque mise à jour avec succès.'));
     }
 
-    public function destroy(Bank $bank): \Illuminate\Http\RedirectResponse
+    public function destroy(Bank $bank): RedirectResponse
     {
         $bank->delete();
 

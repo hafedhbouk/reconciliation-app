@@ -8,6 +8,9 @@ use App\Models\Source;
 use App\Models\SourceColumnMapping;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Import\MappingEngine;
+use App\Services\Import\Readers\ImportRowReaderFactory;
+use App\Services\Import\TransactionNormalizer;
 use Illuminate\Support\Facades\Storage;
 
 function seedAlphaLikeMapping(Source $source): void
@@ -69,9 +72,9 @@ test('it processes a small CSV file end to end with per-row error isolation', fu
     ]);
 
     app(ProcessImportJob::class, ['importId' => $import->id])->handle(
-        app(App\Services\Import\Readers\ImportRowReaderFactory::class),
-        app(App\Services\Import\MappingEngine::class),
-        app(App\Services\Import\TransactionNormalizer::class),
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
     );
 
     $import->refresh();
@@ -124,9 +127,9 @@ test('it marks the import completed when every row succeeds', function () {
     ]);
 
     app(ProcessImportJob::class, ['importId' => $import->id])->handle(
-        app(App\Services\Import\Readers\ImportRowReaderFactory::class),
-        app(App\Services\Import\MappingEngine::class),
-        app(App\Services\Import\TransactionNormalizer::class),
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
     );
 
     expect($import->refresh()->status->value)->toBe('completed');
@@ -156,9 +159,9 @@ test('it fails the import outright when required headers are missing', function 
     ]);
 
     app(ProcessImportJob::class, ['importId' => $import->id])->handle(
-        app(App\Services\Import\Readers\ImportRowReaderFactory::class),
-        app(App\Services\Import\MappingEngine::class),
-        app(App\Services\Import\TransactionNormalizer::class),
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
     );
 
     expect($import->refresh()->status->value)->toBe('failed');

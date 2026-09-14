@@ -10,9 +10,7 @@ use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
  */
 final class RowRangeReadFilter implements IReadFilter
 {
-    public function __construct(private readonly int $startRow, private readonly int $endRow)
-    {
-    }
+    public function __construct(private readonly int $startRow, private readonly int $endRow) {}
 
     /**
      * Untyped to match PhpOffice\PhpSpreadsheet\Reader\IReadFilter's own

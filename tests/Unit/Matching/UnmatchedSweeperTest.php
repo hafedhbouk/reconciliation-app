@@ -20,7 +20,7 @@ function makeSweepTx(Source $source, MatchingStatus $status): NormalizedTransact
 }
 
 beforeEach(function () {
-    $this->sweeper = new UnmatchedSweeper();
+    $this->sweeper = new UnmatchedSweeper;
 });
 
 test('an unmatched row with no exception gets exactly one unmatched exception', function () {

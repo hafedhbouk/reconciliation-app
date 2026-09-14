@@ -93,6 +93,7 @@ jobs:
   # Job 3: Tests
   tests:
     name: Tests
+    needs: frontend
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -115,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: ['8.2', '8.3']
+        php-version: ['8.3']
 
     steps:
       - name: Checkout code
@@ -145,6 +146,12 @@ jobs:
 
       - name: Copy .env file
         run: cp .env.example .env
+
+      - name: Download frontend assets for view tests
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build
 
       - name: Generate app key
         run: php artisan key:generate

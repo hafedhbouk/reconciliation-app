@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Bank;
+use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 
 test('admin role can access admin resources', function () {
     actingAsAdmin();
@@ -9,9 +11,9 @@ test('admin role can access admin resources', function () {
 });
 
 test('super-admin bypasses permission checks entirely', function () {
-    $this->seed(\Database\Seeders\RolePermissionSeeder::class);
+    $this->seed(RolePermissionSeeder::class);
 
-    $user = \App\Models\User::factory()->create();
+    $user = User::factory()->create();
     $user->assignRole('super-admin');
     $this->actingAs($user);
 

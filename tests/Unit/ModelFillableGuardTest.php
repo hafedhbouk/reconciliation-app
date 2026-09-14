@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Model;
+
 /**
  * Regression guard for the Phase 5 security audit's "no mass-assignment
  * gap" finding: every model under app/Models/ (not app/Models/Concerns/,
@@ -16,7 +18,7 @@ test('every model declares a non-empty fillable array and never an empty guarded
         expect(class_exists($class))->toBeTrue("Expected {$class} to exist.");
 
         $reflection = new ReflectionClass($class);
-        expect($reflection->isSubclassOf(\Illuminate\Database\Eloquent\Model::class))->toBeTrue();
+        expect($reflection->isSubclassOf(Model::class))->toBeTrue();
 
         $model = $reflection->newInstanceWithoutConstructor();
 

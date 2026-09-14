@@ -10,8 +10,7 @@ readonly class BankData
         public ?string $swiftCode = null,
         public bool $isActive = true,
         public ?string $notes = null,
-    ) {
-    }
+    ) {}
 
     public static function fromArray(array $data): self
     {

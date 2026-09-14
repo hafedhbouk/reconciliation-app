@@ -17,8 +17,9 @@ namespace App\Jobs;
  */
 use App\Exports\GenericTableExport;
 use App\Models\MatchingExport;
-use Illuminate\Foundation\Bus\Dispatchable;
+use App\Models\MatchingResult;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Maatwebsite\Excel\Excel as ExcelFormat;
@@ -49,8 +50,7 @@ class GenerateMatchingExportJob implements ShouldQueue
 
     public function __construct(
         public MatchingExport $matchingExport,
-    ) {
-    }
+    ) {}
 
     public function handle(): void
     {
@@ -71,7 +71,7 @@ class GenerateMatchingExportJob implements ShouldQueue
         $disk = 'local';
         $directory = 'exports/matching-results';
 
-        $query = \App\Models\MatchingResult::query()
+        $query = MatchingResult::query()
             ->with([
                 'matchingRule',
                 'matchedByUser',
@@ -99,7 +99,7 @@ class GenerateMatchingExportJob implements ShouldQueue
             $query->where('status', $filters['status']);
         }
 
-        $sideColumns = fn (\App\Models\MatchingResult $result, string $side) => $result->matchingDetails
+        $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
             ->where('side', $side)
             ->map(fn ($detail) => $detail->normalizedTransaction)
             ->filter();
@@ -111,7 +111,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                 __('Source A'), __('Référence A'), __('Montant A'), __('Date A'),
                 __('Source B'), __('Référence B'), __('Montant B'), __('Date B'),
             ],
-            function (\App\Models\MatchingResult $result) use ($sideColumns) {
+            function (MatchingResult $result) use ($sideColumns) {
                 $sideA = $sideColumns($result, 'a');
                 $sideB = $sideColumns($result, 'b');
 

@@ -20,56 +20,54 @@ use Illuminate\Support\Collection;
 
 class MappingEngine
 {
-    public function __construct(private TransformRegistry $registry)
-    {
-    }
+    public function __construct(private TransformRegistry $registry) {}
 
     /**
-     * @param array<string,mixed> $rawRow
-     * @param Collection<int,SourceColumnMapping> $mappings
+     * @param  array<string,mixed>  $rawRow
+     * @param  Collection<int,SourceColumnMapping>  $mappings
      * @return array<string,mixed> keyed by MappingTargetField value
      *
      * @throws MissingRequiredFieldException
      * @throws RowTransformException
      */
-     public function transformRow(array $rawRow, Collection $mappings): array
-     {
-         $out = [];
+    public function transformRow(array $rawRow, Collection $mappings): array
+    {
+        $out = [];
 
-         foreach ($mappings as $mapping) {
-             $value = $rawRow[$mapping->source_column] ?? null;
+        foreach ($mappings as $mapping) {
+            $value = $rawRow[$mapping->source_column] ?? null;
 
-             // Si la colonne source est absente ou vide, on respecte la
-             // contrainte "obligatoire" avant de passer aux transforms.
-             if ($value === null || $value === '') {
-                 if ($mapping->is_required) {
-                     throw new MissingRequiredFieldException($mapping->target_field, $mapping->source_column);
-                 }
+            // Si la colonne source est absente ou vide, on respecte la
+            // contrainte "obligatoire" avant de passer aux transforms.
+            if ($value === null || $value === '') {
+                if ($mapping->is_required) {
+                    throw new MissingRequiredFieldException($mapping->target_field, $mapping->source_column);
+                }
 
-                 $out[$mapping->target_field] = null;
+                $out[$mapping->target_field] = null;
 
-                 continue;
-             }
+                continue;
+            }
 
-             // Appliquer chaque transform dans l'ordre défini par
-             // sort_order (ex: Trim -> StripPrefix -> ZeroPad).
-             foreach ((array) $mapping->transform as $step) {
-                 try {
-                     $value = $this->registry->make($step['key'])->apply($value, $step['config'] ?? [], $rawRow);
-                 } catch (TransformException $e) {
-                     throw new RowTransformException($mapping->target_field, $e->getMessage(), previous: $e);
-                 }
-             }
+            // Appliquer chaque transform dans l'ordre défini par
+            // sort_order (ex: Trim -> StripPrefix -> ZeroPad).
+            foreach ((array) $mapping->transform as $step) {
+                try {
+                    $value = $this->registry->make($step['key'])->apply($value, $step['config'] ?? [], $rawRow);
+                } catch (TransformException $e) {
+                    throw new RowTransformException($mapping->target_field, $e->getMessage(), previous: $e);
+                }
+            }
 
-             $out[$mapping->target_field] = $value;
-         }
+            $out[$mapping->target_field] = $value;
+        }
 
-         return $out;
-     }
+        return $out;
+    }
 
     /**
-     * @param array<int,string> $fileHeaders
-     * @param Collection<int,SourceColumnMapping> $requiredMappings
+     * @param  array<int,string>  $fileHeaders
+     * @param  Collection<int,SourceColumnMapping>  $requiredMappings
      * @return array<int,string> missing required source_column values, empty = OK
      */
     public function validateHeaders(array $fileHeaders, Collection $requiredMappings): array

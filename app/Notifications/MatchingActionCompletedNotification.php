@@ -13,9 +13,7 @@ use Illuminate\Notifications\Notification;
 class MatchingActionCompletedNotification extends Notification
 {
     /** @param array<int,string> $summaryLines */
-    public function __construct(private string $title, private array $summaryLines)
-    {
-    }
+    public function __construct(private string $title, private array $summaryLines) {}
 
     public function via(object $notifiable): array
     {

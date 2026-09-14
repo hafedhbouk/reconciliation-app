@@ -26,7 +26,7 @@ class RightCharsTransform implements TransformPrimitive
      * For WEB/STEG fused session+reference column: the reference is the
      * 9 digits at the right of that column.
      *
-     * @param array{length?: int} $config
+     * @param  array{length?: int}  $config
      */
     public function apply(mixed $value, array $config, array $rawRow): mixed
     {

@@ -13,6 +13,12 @@ use App\Models\SourceColumnMapping;
 use App\Models\User;
 use App\Notifications\ImportProcessedNotification;
 use App\Notifications\MatchingActionCompletedNotification;
+use App\Services\Import\MappingEngine;
+use App\Services\Import\Readers\ImportRowReaderFactory;
+use App\Services\Import\TransactionNormalizer;
+use App\Services\Matching\DuplicateDetector;
+use App\Services\Matching\RuleMatcher;
+use App\Services\Matching\UnmatchedSweeper;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 
@@ -59,9 +65,9 @@ test('a completed import notifies the user who triggered it', function () {
     ]);
 
     app(ProcessImportJob::class, ['importId' => $import->id])->handle(
-        app(App\Services\Import\Readers\ImportRowReaderFactory::class),
-        app(App\Services\Import\MappingEngine::class),
-        app(App\Services\Import\TransactionNormalizer::class),
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
     );
 
     Notification::assertSentTo($user, ImportProcessedNotification::class, function ($notification) use ($import, $user) {
@@ -99,9 +105,9 @@ test('a header-validation failure also notifies the user, with no imported_by se
     ]);
 
     app(ProcessImportJob::class, ['importId' => $import->id])->handle(
-        app(App\Services\Import\Readers\ImportRowReaderFactory::class),
-        app(App\Services\Import\MappingEngine::class),
-        app(App\Services\Import\TransactionNormalizer::class),
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
     );
 
     expect($import->refresh()->status->value)->toBe('failed');
@@ -117,7 +123,7 @@ test('RunMatchingRuleJob notifies the given user with a rule-run summary', funct
         'matchingRuleId' => $rule->id,
         'batchReference' => 'batch-1',
         'notifyUserId' => $user->id,
-    ])->handle(app(App\Services\Matching\RuleMatcher::class));
+    ])->handle(app(RuleMatcher::class));
 
     Notification::assertSentTo($user, MatchingActionCompletedNotification::class, function ($notification) use ($user) {
         return str_contains($notification->toDatabase($user)['title'], 'ALPHA');
@@ -132,7 +138,7 @@ test('RunMatchingRuleJob sends no notification when notifyUserId is null', funct
         'matchingRuleId' => $rule->id,
         'batchReference' => 'batch-1',
         'notifyUserId' => null,
-    ])->handle(app(App\Services\Matching\RuleMatcher::class));
+    ])->handle(app(RuleMatcher::class));
 
     Notification::assertNothingSent();
 });
@@ -142,7 +148,7 @@ test('DetectDuplicatesJob notifies the given user with a scan summary', function
     $user = User::factory()->create();
 
     app(DetectDuplicatesJob::class, ['sourceId' => null, 'notifyUserId' => $user->id])
-        ->handle(app(App\Services\Matching\DuplicateDetector::class));
+        ->handle(app(DuplicateDetector::class));
 
     Notification::assertSentTo($user, MatchingActionCompletedNotification::class);
 });
@@ -152,7 +158,7 @@ test('SweepUnmatchedJob notifies the given user with a sweep summary', function 
     $user = User::factory()->create();
 
     app(SweepUnmatchedJob::class, ['sourceId' => null, 'notifyUserId' => $user->id])
-        ->handle(app(App\Services\Matching\UnmatchedSweeper::class));
+        ->handle(app(UnmatchedSweeper::class));
 
     Notification::assertSentTo($user, MatchingActionCompletedNotification::class);
 });

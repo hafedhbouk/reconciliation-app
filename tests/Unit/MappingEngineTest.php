@@ -18,7 +18,7 @@ function makeSourceColumnMapping(string $targetField, string $sourceColumn, arra
 }
 
 test('it transforms a raw row into a keyed array using the mapping chain', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
 
     $mappings = new Collection([
         makeSourceColumnMapping('reference', 'NUM_AUTO', [
@@ -46,7 +46,7 @@ test('it transforms a raw row into a keyed array using the mapping chain', funct
 });
 
 test('it passes through a value untouched when no transform steps are configured', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $mappings = new Collection([makeSourceColumnMapping('status_raw', 'valid_oper')]);
 
     $result = $engine->transformRow(['valid_oper' => '1'], $mappings);
@@ -55,7 +55,7 @@ test('it passes through a value untouched when no transform steps are configured
 });
 
 test('it sets an optional missing field to null instead of failing', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $mappings = new Collection([makeSourceColumnMapping('canal', 'CANAL')]);
 
     $result = $engine->transformRow([], $mappings);
@@ -64,14 +64,14 @@ test('it sets an optional missing field to null instead of failing', function ()
 });
 
 test('it throws MissingRequiredFieldException when a required column is absent', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $mappings = new Collection([makeSourceColumnMapping('reference', 'REFERENCE', required: true)]);
 
     $engine->transformRow([], $mappings);
 })->throws(MissingRequiredFieldException::class);
 
 test('it wraps a primitive failure in RowTransformException naming the target field', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $mappings = new Collection([
         makeSourceColumnMapping('date', 'DAT_ENC', [['key' => 'date_parse', 'config' => ['format' => 'd/m/Y']]], required: true),
     ]);
@@ -86,7 +86,7 @@ test('it wraps a primitive failure in RowTransformException naming the target fi
 });
 
 test('validateHeaders returns missing required source columns', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $required = new Collection([
         makeSourceColumnMapping('reference', 'N° autorisation', required: true),
         makeSourceColumnMapping('amount', 'Montant (TND)', required: true),
@@ -98,7 +98,7 @@ test('validateHeaders returns missing required source columns', function () {
 });
 
 test('validateHeaders returns an empty array when all required columns are present', function () {
-    $engine = new MappingEngine(new TransformRegistry());
+    $engine = new MappingEngine(new TransformRegistry);
     $required = new Collection([makeSourceColumnMapping('reference', 'N° autorisation', required: true)]);
 
     $missing = $engine->validateHeaders(['N° autorisation', 'Date'], $required);
