@@ -29,9 +29,14 @@ Pour l'installation technique, voir [`INSTALLATION.md`](INSTALLATION.md).
 Rendez-vous sur l'URL de l'application et connectez-vous avec l'adresse
 e-mail et le mot de passe fournis par votre administrateur.
 
-Un compte super-admin est créé à l'installation :
+Sur une base neuve, l'exécution des seeders (`php artisan migrate --seed`)
+crée le compte super-admin suivant :
 `admin@reconciliation.local` / `password` — à changer immédiatement s'il
 est encore utilisé.
+
+Cloner le dépôt ou exécuter uniquement les migrations ne crée pas ce compte.
+Ces identifiants ne s'appliquent pas à un compte dont le mot de passe a déjà
+été changé. Relancer les seeders conserve désormais le mot de passe existant.
 
 Après connexion, vous arrivez sur le **Tableau de bord**. Le menu de
 gauche n'affiche que les sections auxquelles votre rôle donne accès.

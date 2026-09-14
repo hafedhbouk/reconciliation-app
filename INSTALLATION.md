@@ -87,6 +87,26 @@ Cette étape crée le schéma complet et alimente la base avec :
   SMT actives, STEG inactive/non vérifiée), mappings de colonnes par
   source, règles de rapprochement, paramètres par défaut.
 
+Le clonage seul et `php artisan migrate` sans `--seed` ne créent pas le
+compte administrateur. `composer setup` inclut désormais les seeders.
+Sur une installation existante, le seeder administrateur conserve le mot
+de passe déjà enregistré : `password` est uniquement le mot de passe initial.
+
+Si la connexion échoue après un clonage, vérifiez d'abord que `.env` pointe
+vers la base prévue puis exécutez :
+
+```bash
+php artisan config:clear
+php artisan migrate
+php artisan db:seed --class=RolePermissionSeeder
+php artisan db:seed --class=AdminUserSeeder
+```
+
+Ces deux seeders ciblés initialisent les rôles et le compte administrateur.
+Si le compte existe déjà avec un autre mot de passe, utilisez la procédure
+de réinitialisation du mot de passe. Le message d'authentification ne permet
+pas de distinguer un compte absent d'un mot de passe incorrect.
+
 ## 6. Installer et compiler les assets front-end
 
 ```bash
