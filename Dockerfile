@@ -62,10 +62,6 @@ RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --no-a
 # Stage 3: Production image
 FROM php-base AS production
 
-# Configure PHP for production
-COPY docker/php/php.ini-production /usr/local/etc/php/php.ini
-COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
-
 # Create non-root user
 RUN addgroup -g 1000 -S www && \
     adduser -u 1000 -S www -G www
@@ -89,6 +85,10 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN composer dump-autoload --no-dev --optimize --no-scripts \
     && composer check-platform-reqs --no-dev \
     && php artisan package:discover --ansi
+
+# Apply runtime restrictions only after Composer has finished building.
+COPY docker/php/php.ini-production /usr/local/etc/php/php.ini
+COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 # Copy Docker entrypoint and scripts
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
