@@ -223,4 +223,4 @@ jobs:
 
       - name: Test Docker image
         run: |
-          docker run --rm reconciliation-app:test php artisan --version
+          docker run --rm --entrypoint php reconciliation-app:test artisan --version

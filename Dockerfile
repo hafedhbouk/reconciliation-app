@@ -18,18 +18,8 @@ COPY resources/ ./resources/
 # Build frontend assets
 RUN npm run build
 
-# Stage 2: Build PHP dependencies
-FROM composer:2 AS vendor-build
-WORKDIR /app
-
-# Copy composer files
-COPY composer.json composer.lock* ./
-
-# Install production dependencies (no dev)
-RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --optimize-autoloader
-
-# Stage 3: Production image
-FROM php:8.3-fpm-alpine AS production
+# Shared PHP platform for dependency installation and production
+FROM php:8.3-fpm-alpine AS php-base
 
 # Install system dependencies
 RUN apk add --no-cache \
@@ -38,6 +28,7 @@ RUN apk add --no-cache \
     mysql-client \
     libpng-dev \
     libzip-dev \
+    icu-dev \
     zip \
     unzip \
     curl \
@@ -61,6 +52,16 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         xml \
         opcache
 
+# Stage 2: Build PHP dependencies with the actual runtime extensions
+FROM php-base AS vendor-build
+WORKDIR /app
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist --no-autoloader
+
+# Stage 3: Production image
+FROM php-base AS production
+
 # Configure PHP for production
 COPY docker/php/php.ini-production /usr/local/etc/php/php.ini
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
@@ -83,6 +84,11 @@ COPY --chown=www:www . .
 
 # Install composer for runtime scripts
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+# Application classes must be present when generating the optimized autoloader.
+RUN composer dump-autoload --no-dev --optimize --no-scripts \
+    && composer check-platform-reqs --no-dev \
+    && php artisan package:discover --ansi
 
 # Copy Docker entrypoint and scripts
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
