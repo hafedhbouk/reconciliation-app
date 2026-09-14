@@ -157,10 +157,28 @@ seeder :
 php artisan test
 ```
 
-La suite compte 223 tests Pest couvrant les CRUD/policies, le moteur de
+La suite compte 349 tests Pest couvrant les CRUD/policies, le moteur de
 mapping/transformation, le moteur de rapprochement, les exports, les
 notifications, les en-têtes de sécurité, le rate limiting et la politique
 de mots de passe.
+
+Pour les évolutions du suivi des imports et des différences, exécutez les
+migrations avec `php artisan migrate`. Le compte MySQL utilisé par l'application
+doit disposer du droit `CREATE TEMPORARY TABLES` sur sa base : les comparaisons
+indexent temporairement leurs clés pour lire les transactions par pages.
+
+Deux scripts permettent une vérification complémentaire :
+
+```bash
+php scripts/verify-matching-concurrency.php
+php scripts/benchmark-file-differences.php 5 6
+```
+
+Le premier crée une base MySQL temporaire distincte, teste les traitements
+simultanés et la supprime ensuite ; il nécessite les droits de création et de
+suppression de cette base de test. Le second compare les imports dont les
+identifiants sont passés en arguments, mesure la durée et la mémoire PHP,
+puis annule toutes ses écritures. Il ne valide aucun résultat métier.
 
 ## 10. Résolution de problèmes courants
 

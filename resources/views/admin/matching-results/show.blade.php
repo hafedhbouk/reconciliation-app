@@ -13,6 +13,10 @@
         </div>
     </x-slot>
 
+    @if ($result->comparisonRun?->invalidated_at)
+        <div class="alert alert-warning">{{ __('Ces fichiers ont été renormalisés depuis cette exécution. Relancer le rapprochement pour vérifier les résultats actuels.') }}</div>
+    @endif
+
     <div class="card mb-3">
         <div class="card-body">
             <dl class="row mb-0">
@@ -32,6 +36,11 @@
 
                 <dt class="col-sm-2">{{ __('Lot') }}</dt>
                 <dd class="col-sm-4">{{ $result->batch_reference ?? '—' }}</dd>
+
+                @if ($run = $result->comparisonRun)
+                    <dt class="col-sm-2">{{ __('Fichiers comparés') }}</dt>
+                    <dd class="col-sm-10">#{{ $run->import_a_id }} {{ $run->importA?->original_filename }} ↔ #{{ $run->import_b_id }} {{ $run->importB?->original_filename }}</dd>
+                @endif
 
                 @if ($result->notes)
                     <dt class="col-sm-2">{{ __('Notes') }}</dt>
@@ -78,6 +87,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="card-footer">{{ $unmatchedA->links() }}</div>
             </div>
         </div>
 
@@ -112,6 +122,7 @@
                         </tbody>
                     </table>
                 </div>
+                <div class="card-footer">{{ $unmatchedB->links() }}</div>
             </div>
         </div>
     </div>

@@ -3,6 +3,7 @@
 use App\Jobs\ComputeUnmatchedJob;
 use App\Jobs\RunAdHocMatchingJob;
 use App\Jobs\RunMatchingRuleJob;
+use App\Models\ComparisonRun;
 use App\Models\ExceptionRecord;
 use App\Models\Import;
 use App\Models\MatchingResult;
@@ -53,6 +54,90 @@ function runFileComparison(Import $a, Import $b, bool $reverse = false): Unmatch
 
     return UnmatchedSnapshot::where('import_a_id', $a->id)->where('import_b_id', $b->id)->sole();
 }
+
+test('streamed key groups cross page boundaries and balance all categories in integer millimes', function () {
+    config(['matching.file_page_size' => 2]);
+    $a = fileComparisonImport('ALPHA');
+    $b = fileComparisonImport('BNA');
+    for ($i = 0; $i < 3; $i++) {
+        fileComparisonRow($a, amount: 10000);
+        fileComparisonRow($b, amount: 10000);
+    }
+    fileComparisonRow($a, authorization: '000001', amount: 2000);
+    fileComparisonRow($b, authorization: '000001', amount: 3000);
+    fileComparisonRow($a, authorization: '999999', amount: 4000);
+    $snapshot = runFileComparison($a, $b);
+    $totals = $snapshot->file_totals;
+    expect($totals['a']['total'])->toBe(['rows' => 5, 'amount_millimes' => 36000]);
+    expect($totals['a']['matched'])->toBe(['rows' => 3, 'amount_millimes' => 30000]);
+    expect($totals['a']['conflict'])->toBe(['rows' => 1, 'amount_millimes' => 2000]);
+    expect($totals['a']['exclusive'])->toBe(['rows' => 1, 'amount_millimes' => 4000]);
+    expect($totals['a']['balanced'])->toBeTrue();
+    expect($totals['b']['balanced'])->toBeTrue();
+    expect(DB::table('unmatched_snapshots')->value('result_a'))->toBeNull();
+});
+
+test('replaying the same file job does not duplicate results or empty runs', function (bool $exact) {
+    $a = fileComparisonImport('ALPHA');
+    $b = fileComparisonImport('BNA');
+    fileComparisonRow($a);
+    fileComparisonRow($b, authorization: $exact ? '001234' : '999999');
+    runFileComparison($a, $b);
+    runFileComparison($a, $b);
+    expect(ComparisonRun::count())->toBe(1);
+    expect(MatchingResult::count())->toBe($exact ? 1 : 0);
+    expect(ComparisonRun::sole()->summary['unmatchedA'])->toBe($exact ? 0 : 1);
+})->with([true, false]);
+
+test('comparison statuses remain independent and aggregate conflicts regardless of execution order', function (bool $conflictFirst) {
+    $a = fileComparisonImport('ALPHA');
+    $b = fileComparisonImport('BNA');
+    $web = fileComparisonImport('WEB');
+    $row = fileComparisonRow($a);
+    fileComparisonRow($b);
+    fileComparisonRow($web, amount: 17000);
+    foreach ($conflictFirst ? [$web, $b] : [$b, $web] as $other) {
+        runFileComparison($a, $other);
+    }
+    expect($row->fresh()->matching_status->value)->toBe('conflict');
+    expect(ComparisonRun::count())->toBe(2);
+    $matched = MatchingResult::where('status', 'matched')->sole();
+    $conflict = MatchingResult::where('status', 'conflict')->sole();
+    expect($matched->comparisonRun->import_b_id)->toBe($b->id);
+    expect($conflict->comparisonRun->import_b_id)->toBe($web->id);
+})->with([true, false]);
+
+test('result details show this runs exclusives even when they matched another file', function () {
+    actingAsAdmin();
+    $a = fileComparisonImport('ALPHA');
+    $b = fileComparisonImport('BNA');
+    fileComparisonRow($a);
+    fileComparisonRow($b);
+    $only = fileComparisonRow($a, reference: '777777777', authorization: '777777', status: 'matched');
+    runFileComparison($a, $b);
+    $this->get(route('admin.matching-results.show', MatchingResult::sole()))->assertOk()
+        ->assertViewHas('unmatchedA', fn ($rows) => $rows->pluck('id')->all() === [$only->id]);
+});
+
+test('a failed file run rolls back its results summary and statuses', function () {
+    $a = fileComparisonImport('ALPHA');
+    $b = fileComparisonImport('BNA');
+    $row = fileComparisonRow($a);
+    fileComparisonRow($b);
+    fileComparisonRow($a, authorization: '222222');
+    fileComparisonRow($b, authorization: '222222', amount: 17000);
+    $created = 0;
+    MatchingResult::creating(function () use (&$created) {
+        if (++$created === 2) {
+            throw new RuntimeException('simulated failure');
+        }
+    });
+    expect(fn () => runFileComparison($a, $b))->toThrow(RuntimeException::class, 'simulated failure');
+    expect(MatchingResult::count())->toBe(0);
+    expect(ComparisonRun::count())->toBe(0);
+    expect(UnmatchedSnapshot::count())->toBe(0);
+    expect($row->fresh()->matching_status->value)->toBe('unmatched');
+});
 
 test('all source pairs compare complete rows in either direction and isolate the selected files', function (string $codeA, string $codeB, bool $reverse) {
     $a = fileComparisonImport($codeA);

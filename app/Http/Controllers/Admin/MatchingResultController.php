@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\MatchingStatus;
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
 use App\Jobs\GenerateMatchingExportJob;
@@ -9,10 +10,13 @@ use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
-use App\Enums\MatchingStatus;
+use App\Services\Matching\TransactionStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -91,7 +95,7 @@ class MatchingResultController extends Controller
             ->toJson();
     }
 
-    public function show(MatchingResult $matchingResult): View
+    public function show(MatchingResult $matchingResult, Request $request): View
     {
         $matchingResult->load([
             'matchingRule.sourceA',
@@ -99,32 +103,31 @@ class MatchingResultController extends Controller
             'matchedByUser',
             'matchingDetails.normalizedTransaction.transaction.source',
             'exceptions',
+            'comparisonRun.importA',
+            'comparisonRun.importB',
         ]);
 
-        $sourceAId = $matchingResult->matchingRule->source_a_id;
-        $sourceBId = $matchingResult->matchingRule->source_b_id;
+        if ($run = $matchingResult->comparisonRun) {
+            // Exclusives belong to this execution, not to the global row status.
+            $load = function ($ids, $side) use ($request) {
+                $ids ??= [];
+                $page = max(1, (int) $request->query('page_'.$side, 1));
+                $rows = NormalizedTransaction::query()->with('transaction.source')
+                    ->whereIn('id', array_slice($ids, ($page - 1) * 50, 50))->get();
 
-        $matchedIds = $matchingResult->matchingDetails
-            ->pluck('normalized_transaction_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        $unmatchedA = NormalizedTransaction::query()
-            ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
-            ->where('transactions.source_id', $sourceAId)
-            ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
-            ->when($matchedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('normalized_transactions.id', $matchedIds))
-            ->select('normalized_transactions.*', 'transactions.raw_payload')
-            ->get();
-
-        $unmatchedB = NormalizedTransaction::query()
-            ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
-            ->where('transactions.source_id', $sourceBId)
-            ->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value)
-            ->when($matchedIds->isNotEmpty(), fn ($q) => $q->whereNotIn('normalized_transactions.id', $matchedIds))
-            ->select('normalized_transactions.*', 'transactions.raw_payload')
-            ->get();
+                return (new LengthAwarePaginator($rows, count($ids), 50, $page,
+                    ['pageName' => 'page_'.$side, 'path' => $request->url()]))->withQueryString();
+            };
+            $unmatchedA = $load($run->unmatched_a_ids, 'a');
+            $unmatchedB = $load($run->unmatched_b_ids, 'b');
+        } else {
+            $load = fn ($sourceId, $side) => NormalizedTransaction::query()->fromActiveImports()
+                ->with('transaction.source')
+                ->whereHas('transaction', fn ($q) => $q->where('source_id', $sourceId))
+                ->where('matching_status', MatchingStatus::Unmatched->value)->orderBy('id')->paginate(50, ['*'], 'page_'.$side)->withQueryString();
+            $unmatchedA = $load($matchingResult->matchingRule?->source_a_id, 'a');
+            $unmatchedB = $load($matchingResult->matchingRule?->source_b_id, 'b');
+        }
 
         return view('admin.matching-results.show', [
             'result' => $matchingResult,
@@ -142,10 +145,15 @@ class MatchingResultController extends Controller
 
         $matchingRuleName = $matchingResult->matchingRule?->name ?? __('Rapprochement manuel');
 
-        // Supprime les détails et exceptions associés avant le résultat principal
-        $matchingResult->matchingDetails()->delete();
-        $matchingResult->exceptions()->delete();
-        $matchingResult->delete();
+        DB::transaction(function () use ($matchingResult) {
+            $ids = $matchingResult->matchingDetails()->pluck('normalized_transaction_id');
+            $statuses = app(TransactionStatus::class);
+            $statuses->lock($ids);
+            // Keep details for the cancellation audit; deleted results are ignored.
+            $matchingResult->exceptions()->delete();
+            $matchingResult->delete();
+            $statuses->refresh($ids);
+        });
 
         return redirect()->route('admin.matching-results.index')->with('status', __('Résultat de rapprochement supprimé avec succès (:rule).', ['rule' => $matchingRuleName]));
     }
@@ -245,7 +253,7 @@ class MatchingResultController extends Controller
     /**
      * Construit l'export synchrone pour un query donné.
      */
-    private function buildExport(\Illuminate\Database\Eloquent\Builder $query, string $format): BinaryFileResponse
+    private function buildExport(Builder $query, string $format): BinaryFileResponse
     {
         $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
             ->where('side', $side)

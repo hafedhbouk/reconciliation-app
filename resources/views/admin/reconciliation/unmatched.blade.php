@@ -11,7 +11,7 @@
                     <select name="import_a_id" id="import_a_id" class="form-select">
                         <option value="">{{ __('Sélectionner...') }}</option>
                         @foreach ($sources as $source)
-                            @php $imports = $source->imports()->where('status', 'completed')->orderByDesc('created_at')->get(); @endphp
+                            @php $imports = $source->imports; @endphp
                             @if ($imports->isNotEmpty())
                                 <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                     @foreach ($imports as $import)
@@ -29,7 +29,7 @@
                     <select name="import_b_id" id="import_b_id" class="form-select">
                         <option value="">{{ __('Sélectionner...') }}</option>
                         @foreach ($sources as $source)
-                                    @php $imports = $source->imports()->where('status', 'completed')->orderByDesc('created_at')->get(); @endphp
+                                    @php $imports = $source->imports; @endphp
                                     @if ($imports->isNotEmpty())
                                         <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                             @foreach ($imports as $import)
@@ -60,6 +60,7 @@
                     <span class="badge bg-info"><i class="bi bi-clock me-1"></i>{{ __('En attente') }}</span>
                 @elseif ($snapshot->status === 'completed')
                     <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>{{ __('Terminé') }}</span>
+                    <span class="text-secondary ms-2">{{ __('Calculé le') }} {{ $snapshot->completed_at?->format('d/m/Y H:i:s') }}</span>
                 @elseif ($snapshot->status === 'failed')
                     <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>{{ __('Échoué') }}</span>
                 @endif
@@ -101,12 +102,22 @@
         @endif
 
         @if ($snapshot && $snapshot->status === 'completed')
+            @if ($snapshot->file_totals)
+                <div class="row mb-3">
+                    @foreach (['a' => $sourceAName, 'b' => $sourceBName] as $side => $name)
+                        <div class="col-md-6"><div class="card">
+                            <div class="card-header">{{ __('Bilan') }} — {{ $name }}</div>
+                            @include('admin.reconciliation._file-totals', ['totals' => $snapshot->file_totals[$side]])
+                        </div></div>
+                    @endforeach
+                </div>
+            @endif
             <div class="row">
                 <div class="col-md-6">
                     <div class="card mb-3">
                         <div class="card-header fw-semibold">
                             {{ __('Transactions dans') }} {{ $sourceAName }} {{ __('sans correspondance dans') }} {{ $sourceBName }}
-                            <span class="badge bg-secondary ms-2">{{ $unmatchedA->count() }}</span>
+                            <span class="badge bg-secondary ms-2">{{ $unmatchedA->total() }}</span>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-sm table-hover mb-0">
@@ -134,6 +145,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="card-footer">{{ $unmatchedA->links() }}</div>
                     </div>
                 </div>
 
@@ -141,7 +153,7 @@
                     <div class="card mb-3">
                         <div class="card-header fw-semibold">
                             {{ __('Transactions dans') }} {{ $sourceBName }} {{ __('sans correspondance dans') }} {{ $sourceAName }}
-                            <span class="badge bg-secondary ms-2">{{ $unmatchedB->count() }}</span>
+                            <span class="badge bg-secondary ms-2">{{ $unmatchedB->total() }}</span>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-sm table-hover mb-0">
@@ -169,6 +181,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="card-footer">{{ $unmatchedB->links() }}</div>
                     </div>
                 </div>
             </div>

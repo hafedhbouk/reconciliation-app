@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -34,27 +35,36 @@ class RunAdHocMatchingJob implements ShouldQueue
 
     public function handle(RuleMatcher $matcher): void
     {
-        $importA = Import::query()->findOrFail($this->importAId);
-        $importB = Import::query()->findOrFail($this->importBId);
+        [$rule, $summary] = DB::transaction(function () use ($matcher) {
+            $imports = Import::query()->whereIn('id', [$this->importAId, $this->importBId])
+                ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            if ($imports->count() !== 2) {
+                throw new \InvalidArgumentException('Deux fichiers distincts et actifs sont nécessaires.');
+            }
+            $importA = $imports->get($this->importAId);
+            $importB = $imports->get($this->importBId);
 
-        $sourceA = $importA->source;
-        $sourceB = $importB->source;
+            $sourceA = $importA->source;
+            $sourceB = $importB->source;
 
-        // Keep file comparisons separate from configurable global rules.
-        // Always use the requested fields, including when an older rule exists.
-        $rule = MatchingRule::query()->updateOrCreate(
-            ['name' => 'Fichiers : '.$sourceA->code.' ↔ '.$sourceB->code],
-            [
-                'source_a_id' => $sourceA->id,
-                'source_b_id' => $sourceB->id,
-                'cardinality' => MatchingCardinality::ManyToMany,
-                'priority' => 0,
-                'is_active' => false,
-                'criteria' => app(FileComparisonRules::class)->criteria($sourceA, $sourceB),
-            ],
-        );
+            // Keep file comparisons separate from configurable global rules.
+            // Always use the requested fields, including when an older rule exists.
+            $rule = MatchingRule::query()->updateOrCreate(
+                ['name' => 'Fichiers : '.$sourceA->code.' ↔ '.$sourceB->code],
+                [
+                    'source_a_id' => $sourceA->id,
+                    'source_b_id' => $sourceB->id,
+                    'cardinality' => MatchingCardinality::ManyToMany,
+                    'priority' => 0,
+                    'is_active' => false,
+                    'criteria' => app(FileComparisonRules::class)->criteria($sourceA, $sourceB),
+                ],
+            );
 
-        $summary = $matcher->match($rule, $this->batchReference, $this->importAId, $this->importBId);
+            $summary = $matcher->match($rule, $this->batchReference, $this->importAId, $this->importBId);
+
+            return [$rule, $summary];
+        });
 
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(

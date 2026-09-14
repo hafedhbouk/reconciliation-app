@@ -21,6 +21,7 @@ use App\Enums\ExceptionType;
 use App\Enums\MatchingCardinality;
 use App\Enums\MatchingResultStatus;
 use App\Enums\MatchingStatus;
+use App\Models\ComparisonRun;
 use App\Models\ExceptionRecord;
 use App\Models\Import;
 use App\Models\MatchingDetail;
@@ -139,19 +140,78 @@ class RuleMatcher
         $primaryA = $criteria['primary_key']['a'];
         $primaryB = $criteria['primary_key']['b'];
         $verifyFields = $criteria['verify_fields'] ?? [];
-        $a = $this->loadCandidates($rule->source_a_id, [], $primaryA, $importIdA, true);
-        $b = $this->loadCandidates($rule->source_b_id, [], $primaryB, $importIdB, true);
 
-        return DB::transaction(function () use ($a, $b, $rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults) {
-            $matched = 0;
-            $conflicts = 0;
-            $unmatchedA = collect();
-            $unmatchedB = collect();
-            $keys = $a->keys()->merge($b->keys())->unique();
+        return DB::transaction(function () use ($rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults, $criteria) {
+            // Serialize file jobs (including inverse pairs) before loading candidates.
+            $imports = Import::query()->whereIn('id', [$importIdA, $importIdB])->orderBy('id')->lockForUpdate()->get();
+            if ($imports->count() !== 2) {
+                throw new \InvalidArgumentException('Un des fichiers a été supprimé.');
+            }
+            $run = null;
+            if ($persistResults) {
+                $run = ComparisonRun::firstOrCreate(
+                    ['import_a_id' => $importIdA, 'import_b_id' => $importIdB, 'batch_reference' => $batchReference],
+                    ['criteria' => $criteria],
+                );
+                if ($run->summary !== null) {
+                    if ($run->invalidated_at !== null) {
+                        throw new \RuntimeException('Les données ont été renormalisées : lancer une nouvelle comparaison avec un nouveau lot.');
+                    }
 
-            foreach ($keys as $key) {
-                $groupA = $a->get($key, collect());
-                $groupB = $b->get($key, collect());
+                    return new MatchingRunSummary(...$run->summary);
+                }
+                $ids = NormalizedTransaction::query()->fromActiveImports()
+                    ->whereHas('transaction', fn ($q) => $q->whereIn('import_id', [$importIdA, $importIdB]))->pluck('id');
+                app(TransactionStatus::class)->lock($ids, false);
+            }
+            $started = now();
+            $snapshot = UnmatchedSnapshot::firstOrCreate(['import_a_id' => $importIdA, 'import_b_id' => $importIdB], ['status' => 'processing']);
+            DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)->delete();
+            $storage = app(SnapshotRows::class);
+            $a = $this->fileGroups($rule->source_a_id, $primaryA, $importIdA);
+            $b = $this->fileGroups($rule->source_b_id, $primaryB, $importIdB);
+            $matched = $conflicts = $considered = 0;
+            $exclusiveIds = ['a' => [], 'b' => []];
+            $buffers = ['a' => [], 'b' => []];
+            $totals = [];
+            $expected = [];
+            foreach (['a' => $importIdA, 'b' => $importIdB] as $side => $importId) {
+                $aggregate = NormalizedTransaction::query()->fromActiveImports()
+                    ->whereHas('transaction', fn ($q) => $q->where('import_id', $importId))
+                    ->selectRaw('COUNT(*) AS row_count, COALESCE(SUM(normalized_amount_millimes), 0) AS amount')->first();
+                $expected[$side] = ['rows' => (int) $aggregate->row_count, 'amount_millimes' => (int) $aggregate->amount];
+            }
+            foreach (['a', 'b'] as $side) {
+                foreach (['total', 'matched', 'conflict', 'exclusive'] as $category) {
+                    $totals[$side][$category] = ['rows' => 0, 'amount_millimes' => 0];
+                }
+            }
+            $tally = function ($side, $category, $rows) use (&$totals) {
+                $totals[$side][$category]['rows'] += $rows->count();
+                $totals[$side][$category]['amount_millimes'] += (int) $rows->sum('normalized_amount_millimes');
+            };
+            while ($a->valid() || $b->valid()) {
+                $comparison = ! $a->valid() ? 1 : (! $b->valid() ? -1 : strcmp($a->key(), $b->key()));
+                $groupA = $comparison <= 0 ? $a->current() : collect();
+                $groupB = $comparison >= 0 ? $b->current() : collect();
+                if ($comparison <= 0) {
+                    $a->next();
+                }
+                if ($comparison >= 0) {
+                    $b->next();
+                }
+                $considered++;
+                $tally('a', 'total', $groupA);
+                $tally('b', 'total', $groupB);
+                $identities = collect();
+                foreach (['a' => $groupA, 'b' => $groupB] as $side => $rows) {
+                    foreach ($rows as $row) {
+                        $identities->push('key:'.$this->primaryKeyValue($row, $side === 'a' ? $primaryA : $primaryB));
+                    }
+                }
+                if ($identities->uniqueStrict()->count() > 1) {
+                    throw new \RuntimeException('Clés de comparaison incohérentes.');
+                }
                 $fullA = $groupA->groupBy(fn ($nt) => $this->fileSignature($nt, 'a', $verifyFields));
                 $fullB = $groupB->groupBy(fn ($nt) => $this->fileSignature($nt, 'b', $verifyFields));
                 $remainingA = collect();
@@ -164,8 +224,10 @@ class RuleMatcher
                     if ($count > 0) {
                         if ($persistResults) {
                             $this->persistOutcome($rowsA->take($count), $rowsB->take($count), $rule,
-                                MatchingResultStatus::Matched, 100.0, null, $batchReference);
+                                MatchingResultStatus::Matched, 100.0, null, $batchReference, $run->id);
                         }
+                        $tally('a', 'matched', $rowsA->take($count));
+                        $tally('b', 'matched', $rowsB->take($count));
                         $matched++;
                     }
                     $remainingA = $remainingA->merge($rowsA->slice($count)->values());
@@ -186,30 +248,43 @@ class RuleMatcher
                         default => ExceptionType::Conflict,
                     };
                     if ($persistResults) {
-                        $this->persistOutcome($remainingA, $remainingB, $rule, MatchingResultStatus::Conflict, null, $type, $batchReference);
+                        $this->persistOutcome($remainingA, $remainingB, $rule, MatchingResultStatus::Conflict, null, $type, $batchReference, $run->id);
                     }
+                    $tally('a', 'conflict', $remainingA);
+                    $tally('b', 'conflict', $remainingB);
                     $conflicts++;
                 } else {
-                    $unmatchedA = $unmatchedA->merge($remainingA);
-                    $unmatchedB = $unmatchedB->merge($remainingB);
+                    foreach (['a' => $remainingA, 'b' => $remainingB] as $side => $remaining) {
+                        $tally($side, 'exclusive', $remaining);
+                        foreach ($remaining as $nt) {
+                            $exclusiveIds[$side][] = $nt->id;
+                            $buffers[$side][] = $this->fileSnapshotRow($nt, $side === 'a' ? $primaryA : $primaryB);
+                            if (count($buffers[$side]) >= 500) {
+                                $storage->insert($snapshot->id, $side, $buffers[$side]);
+                                $buffers[$side] = [];
+                            }
+                        }
+                    }
                 }
             }
 
-            // This snapshot is relative to the two files, regardless of each
-            // row's status in earlier comparisons with other files.
-            UnmatchedSnapshot::updateOrCreate(
-                ['import_a_id' => $importIdA, 'import_b_id' => $importIdB],
-                [
-                    'status' => 'completed',
-                    'result_a' => $unmatchedA->map(fn ($nt) => $this->fileSnapshotRow($nt, $primaryA))->values()->all(),
-                    'result_b' => $unmatchedB->map(fn ($nt) => $this->fileSnapshotRow($nt, $primaryB))->values()->all(),
-                    'error' => null,
-                    'started_at' => now(),
-                    'completed_at' => now(),
-                ],
-            );
+            foreach (['a', 'b'] as $side) {
+                $storage->insert($snapshot->id, $side, $buffers[$side]);
+                $totals[$side]['balanced'] =
+                    $totals[$side]['total'] === $expected[$side]
+                    && $totals[$side]['total']['rows'] === $totals[$side]['matched']['rows'] + $totals[$side]['conflict']['rows'] + $totals[$side]['exclusive']['rows']
+                    && $totals[$side]['total']['amount_millimes'] === $totals[$side]['matched']['amount_millimes'] + $totals[$side]['conflict']['amount_millimes'] + $totals[$side]['exclusive']['amount_millimes'];
+                if (! $totals[$side]['balanced']) {
+                    throw new \RuntimeException('Bilan de comparaison déséquilibré.');
+                }
+            }
+            $snapshot->update(['status' => 'completed', 'rows_persisted' => true, 'result_a' => null, 'result_b' => null,
+                'file_totals' => $totals, 'error' => null, 'started_at' => $started, 'completed_at' => now()]);
+            $summary = new MatchingRunSummary($considered, $matched, $conflicts, 0, 0, count($exclusiveIds['a']), count($exclusiveIds['b']));
+            $run?->update(['summary' => (array) $summary, 'file_totals' => $totals,
+                'unmatched_a_ids' => $exclusiveIds['a'], 'unmatched_b_ids' => $exclusiveIds['b']]);
 
-            return new MatchingRunSummary($keys->count(), $matched, $conflicts, 0, 0, $unmatchedA->count(), $unmatchedB->count());
+            return $summary;
         });
     }
 
@@ -223,6 +298,85 @@ class RuleMatcher
         ]);
 
         return $this->matchFiles($rule, '', $a->id, $b->id, false);
+    }
+
+    /** Read ordered groups in pages; only the current key and one page are retained. */
+    private function fileGroups(int $sourceId, string|array $primary, int $importId): \Generator
+    {
+        $fields = $primary === 'date|amount' ? ['date', 'amount'] : (array) $primary;
+        $grammar = DB::connection()->getQueryGrammar();
+        $expressions = array_map(fn ($field) => match ($field) {
+            'date' => 'normalized_transactions.normalized_date',
+            'amount' => 'normalized_transactions.normalized_amount_millimes',
+            'reference' => 'normalized_transactions.normalized_reference',
+            default => 'NULLIF('.$grammar->wrap('transactions.raw_payload->'.$field).", 'null')",
+        }, $fields);
+        $concat = fn ($parts) => DB::getDriverName() === 'sqlite' ? implode(' || ', $parts) : 'CONCAT('.implode(', ', $parts).')';
+        $parts = ["'key:'"];
+        foreach ($expressions as $index => $expression) {
+            if ($index > 0) {
+                $parts[] = "'|'";
+            }
+            $parts[] = 'CAST('.$expression.' AS CHAR)';
+        }
+        $checks = array_map(fn ($expression) => "($expression IS NULL OR TRIM(CAST($expression AS CHAR)) = '')", $expressions);
+        if (in_array('reference', $fields, true)) {
+            $checks[] = "(transactions.external_reference IS NULL OR TRIM(transactions.external_reference) = '')";
+        }
+        $key = 'CASE WHEN '.implode(' OR ', $checks).' THEN '.$concat(["'missing:'", 'CAST(normalized_transactions.id AS CHAR)']).' ELSE '.$concat($parts).' END';
+        $key = DB::getDriverName() === 'sqlite' ? "($key) COLLATE BINARY" : "CAST(($key) AS BINARY)";
+        $query = NormalizedTransaction::query()->fromActiveImports()
+            ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
+            ->where('transactions.source_id', $sourceId)->where('transactions.import_id', $importId)
+            ->select('normalized_transactions.id');
+        $table = 'comparison_keys_'.bin2hex(random_bytes(8));
+        $sqlite = DB::getDriverName() === 'sqlite';
+        if ($sqlite) {
+            DB::connection()->getPdo()->sqliteCreateFunction('comparison_sha256', fn ($value) => hash('sha256', (string) $value), 1);
+            $query->selectRaw("comparison_sha256($key) AS comparison_key");
+            DB::statement("CREATE TEMPORARY TABLE $table (id INTEGER PRIMARY KEY, comparison_key TEXT COLLATE BINARY NOT NULL)");
+            DB::statement("CREATE INDEX {$table}_order ON $table (comparison_key, id)");
+        } else {
+            $query->selectRaw("SHA2($key, 256) AS comparison_key");
+            // CREATE/DROP TEMPORARY TABLE do not commit a MySQL transaction.
+            // Declare indexes here, never through ALTER TABLE / CREATE INDEX.
+            DB::statement("CREATE TEMPORARY TABLE $table (id BIGINT UNSIGNED PRIMARY KEY, comparison_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL, INDEX key_order (comparison_key, id)) ENGINE=InnoDB");
+        }
+        try {
+            DB::statement("INSERT INTO $table (id, comparison_key) ".$query->toSql(), $query->getBindings());
+            $previous = null;
+            $group = collect();
+            $pageSize = max(1, (int) config('matching.file_page_size', 1000));
+            $lastKey = null;
+            $lastId = null;
+            do {
+                $page = DB::table($table)->when($lastKey !== null, fn ($q) => $q->where(fn ($q) => $q->where('comparison_key', '>', $lastKey)
+                    ->orWhere(fn ($q) => $q->where('comparison_key', $lastKey)->where('id', '>', $lastId))))
+                    ->orderBy('comparison_key')->orderBy('id')->limit($pageSize)->get();
+                $rows = NormalizedTransaction::query()->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
+                    ->with('transaction.source')->whereIn('normalized_transactions.id', $page->pluck('id'))
+                    ->select('normalized_transactions.*', 'transactions.raw_payload')->get()->keyBy('id');
+                foreach ($page as $entry) {
+                    $row = $rows->get($entry->id);
+                    if ($row === null) {
+                        throw new \RuntimeException('Une transaction a changé pendant la comparaison.');
+                    }
+                    $current = $entry->comparison_key;
+                    if ($previous !== null && $previous !== $current) {
+                        yield $previous => $group;
+                        $group = collect();
+                    }
+                    $group->push($row);
+                    $previous = $lastKey = $current;
+                    $lastId = $row->id;
+                }
+            } while ($page->count() === $pageSize);
+            if ($group->isNotEmpty()) {
+                yield $previous => $group;
+            }
+        } finally {
+            DB::statement(($sqlite ? 'DROP TABLE ' : 'DROP TEMPORARY TABLE ').$table);
+        }
     }
 
     private function fileSignature(NormalizedTransaction $nt, string $side, array $verifyFields): string
@@ -258,6 +412,7 @@ class RuleMatcher
     private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false): Collection
     {
         $rows = NormalizedTransaction::query()
+            ->fromActiveImports()
             ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
             ->where('transactions.source_id', $sourceId)
             ->when(! $allStatuses, fn ($query) => $query->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value))
@@ -370,7 +525,8 @@ class RuleMatcher
         );
 
         return DB::transaction(function () use ($groupA, $groupB, $rule, $amountOk, $dateOk, $amountExact, $dateExact, $batchReference) {
-            $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'));
+            $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'))->unique()->sort()->values();
+            app(TransactionStatus::class)->lock($allIds);
 
             // Vérification défensive : un job concurrent peut avoir déjà
             // traité une partie de ce groupe pendant l'exécution.
@@ -379,9 +535,10 @@ class RuleMatcher
             $stillUnmatched = 0;
             foreach ($allIds->chunk(1000) as $chunk) {
                 $stillUnmatched += NormalizedTransaction::query()
+                    ->fromActiveImports()
                     ->whereIn('id', $chunk)
                     ->where('matching_status', MatchingStatus::Unmatched->value)
-                    ->count();
+                    ->lockForUpdate()->get(['id'])->count();
             }
 
             if ($stillUnmatched !== $allIds->count()) {
@@ -544,8 +701,10 @@ class RuleMatcher
         ?float $confidence,
         ?ExceptionType $exceptionType,
         string $batchReference,
+        ?int $comparisonRunId = null,
     ): void {
         $result = MatchingResult::create([
+            'comparison_run_id' => $comparisonRunId,
             'matching_rule_id' => $rule->id,
             'batch_reference' => $batchReference,
             'status' => $status,
@@ -556,33 +715,20 @@ class RuleMatcher
         ]);
 
         $now = now();
-        $details = $groupA->map(fn ($nt) => [
-            'matching_result_id' => $result->id,
-            'normalized_transaction_id' => $nt->id,
-            'side' => 'a',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->merge($groupB->map(fn ($nt) => [
-            'matching_result_id' => $result->id,
-            'normalized_transaction_id' => $nt->id,
-            'side' => 'b',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]));
-
-        MatchingDetail::insert($details->all());
-
-        $newMatchingStatus = $status === MatchingResultStatus::Conflict
-            ? MatchingStatus::Conflict
-            : MatchingStatus::Matched;
+        foreach (['a' => $groupA, 'b' => $groupB] as $side => $group) {
+            foreach ($group->chunk(1000) as $chunk) {
+                MatchingDetail::insert($chunk->map(fn ($nt) => [
+                    'matching_result_id' => $result->id,
+                    'normalized_transaction_id' => $nt->id,
+                    'side' => $side,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])->all());
+            }
+        }
 
         $allIds = $groupA->pluck('id')->merge($groupB->pluck('id'));
-
-        foreach ($allIds->chunk(1000) as $chunk) {
-            NormalizedTransaction::query()
-                ->whereIn('id', $chunk)
-                ->update(['matching_status' => $newMatchingStatus->value]);
-        }
+        app(TransactionStatus::class)->refresh($allIds);
 
         if ($exceptionType !== null) {
             ExceptionRecord::create([

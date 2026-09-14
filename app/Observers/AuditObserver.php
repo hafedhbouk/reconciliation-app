@@ -2,14 +2,13 @@
 
 namespace App\Observers;
 
+use App\Models\UnmatchedSnapshot;
 use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditObserver
 {
-    public function __construct(private AuditLogService $auditLogService)
-    {
-    }
+    public function __construct(private AuditLogService $auditLogService) {}
 
     public function created(Model $model): void
     {
@@ -24,7 +23,7 @@ class AuditObserver
             return;
         }
 
-        $original = array_intersect_key($model->getOriginal(), $changes);
+        $original = array_intersect_key(($model instanceof UnmatchedSnapshot ? $model->getRawOriginal() : $model->getOriginal()), $changes);
 
         $this->auditLogService->logModelEvent('updated', $model, $original, $changes);
     }

@@ -22,9 +22,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Import extends Model
 {
-    use HasFactory, SoftDeletes, HasUserstamps, Auditable;
+    use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
+        'mapping_snapshot', 'mapping_hash', 'heartbeat_at', 'processing_file_hash',
         'source_id',
         'bank_id',
         'original_filename',
@@ -48,6 +49,8 @@ class Import extends Model
     protected function casts(): array
     {
         return [
+            'mapping_snapshot' => 'array',
+            'heartbeat_at' => 'datetime',
             'status' => ImportStatus::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',

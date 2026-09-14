@@ -23,10 +23,10 @@ use App\Models\Import;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
 use App\Notifications\ImportProcessedNotification;
+use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use App\Services\Import\TransactionNormalizer;
-use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -59,20 +59,35 @@ class ProcessImportJob implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public int $importId)
-    {
-    }
+    public function __construct(public int $importId) {}
 
     public function handle(ImportRowReaderFactory $readerFactory, MappingEngine $engine, TransactionNormalizer $normalizer): void
     {
         $import = Import::query()->with('source')->findOrFail($this->importId);
-        $source = $import->source;
-        $mappings = SourceColumnMapping::query()->where('source_id', $source->id)->get();
+        if (in_array($import->status, [ImportStatus::Completed, ImportStatus::PartiallyCompleted], true)) {
+            return;
+        }
+        $versions = app(ImportMappingVersion::class);
+        $import = $versions->freeze($import);
+        $source = clone $import->source;
+        $source->file_type = $import->mapping_snapshot['file_type'];
+        $source->config = $import->mapping_snapshot['config'];
+        $source->bank_id = $import->mapping_snapshot['bank_id'] ?? null;
+        $source->default_currency_id = $import->mapping_snapshot['default_currency_id'] ?? null;
+        $mappings = $versions->mappings($import->mapping_snapshot);
         $requiredMappings = $mappings->where('is_required', true);
 
         $reader = $readerFactory->make($source);
         $path = Storage::path($import->stored_path);
         $sourceConfig = $source->config ?? [];
+        $fileHash = hash_file('sha256', $path);
+        DB::transaction(function () use ($import, $fileHash) {
+            $current = Import::whereKey($import->id)->lockForUpdate()->firstOrFail();
+            if ($current->processing_file_hash !== null && ! hash_equals($current->processing_file_hash, $fileHash)) {
+                throw new \RuntimeException('Le fichier a changé depuis le début du traitement : reprise refusée.');
+            }
+            $current->update(['processing_file_hash' => $fileHash]);
+        });
 
         $missing = $engine->validateHeaders($reader->headers($path, $sourceConfig), $requiredMappings);
 
@@ -88,51 +103,35 @@ class ProcessImportJob implements ShouldQueue
             return;
         }
 
-        $import->update(['status' => ImportStatus::Processing, 'started_at' => now()]);
+        $import->update(['status' => ImportStatus::Processing, 'started_at' => $import->started_at ?? now(), 'heartbeat_at' => now(), 'error_summary' => null, 'finished_at' => null]);
 
         $chunkSize = config('imports.chunk_size', 500);
         $userId = $import->imported_by;
 
-        $processed = 0;
-        $success = 0;
-        $errors = 0;
-
         $rows = LazyCollection::make(fn () => yield from $reader->read($path, $sourceConfig));
-
-        // Traiter le fichier par chunks pour ne pas dépasser la mémoire,
-        // même sur des imports de 80k+ lignes.
         foreach ($rows->chunk($chunkSize) as $chunk) {
-            [$chunkProcessed, $chunkSuccess, $chunkErrors] = $this->processChunk(
-                $chunk, $import, $source, $mappings, $engine, $normalizer, $userId
-            );
-
-            $processed += $chunkProcessed;
-            $success += $chunkSuccess;
-            $errors += $chunkErrors;
-
-            $import->update([
-                'total_rows' => $processed,
-                'processed_rows' => $processed,
-                'success_rows' => $success,
-                'error_rows' => $errors,
-            ]);
+            $this->processChunk($chunk, $import, $source, $mappings, $engine, $normalizer, $userId);
         }
-
-        $import->update([
-            'status' => match (true) {
-                $errors === 0 => ImportStatus::Completed,
-                $success === 0 => ImportStatus::Failed,
-                default => ImportStatus::PartiallyCompleted,
-            },
-            'finished_at' => now(),
-        ]);
+        DB::transaction(function () use ($import) {
+            $current = Import::whereKey($import->id)->lockForUpdate()->firstOrFail();
+            $this->syncCounters($current);
+            $current->update([
+                'status' => match (true) {
+                    $current->error_rows === 0 => ImportStatus::Completed,
+                    $current->success_rows === 0 => ImportStatus::Failed,
+                    default => ImportStatus::PartiallyCompleted,
+                },
+                'finished_at' => now(), 'heartbeat_at' => now(),
+            ]);
+        });
+        $import->refresh();
 
         $import->importedByUser?->notify(new ImportProcessedNotification($import));
     }
 
     /**
-     * @param LazyCollection<int,array<string,mixed>> $chunk row_number => raw row
-     * @param Collection<int,SourceColumnMapping> $mappings
+     * @param  LazyCollection<int,array<string,mixed>>  $chunk  row_number => raw row
+     * @param  Collection<int,SourceColumnMapping>  $mappings
      * @return array{0:int,1:int,2:int} [processed, success, error] counts for this chunk
      */
     private function processChunk(
@@ -145,6 +144,19 @@ class ProcessImportJob implements ShouldQueue
         ?int $userId,
     ): array {
         return DB::transaction(function () use ($chunk, $import, $source, $mappings, $engine, $normalizer, $userId) {
+            $current = Import::whereKey($import->id)->lockForUpdate()->firstOrFail();
+            $chunk = $chunk->collect();
+            if ($current->mapping_hash !== $import->mapping_hash) {
+                throw new \RuntimeException('Le mapping de cet import a changé pendant le traitement.');
+            }
+            $existing = DB::table('import_rows')->where('import_id', $import->id)
+                ->whereIn('row_number', $chunk->keys())->lockForUpdate()->pluck('row_number')->flip();
+            $chunk = $chunk->reject(fn ($row, $number) => $existing->has($number));
+            if ($chunk->isEmpty()) {
+                $this->syncCounters($current);
+
+                return [0, 0, 0];
+            }
             $now = now();
             $importRowsInsert = [];
             $transactionRowsByRowNumber = [];
@@ -165,7 +177,7 @@ class ProcessImportJob implements ShouldQueue
 
                 try {
                     $transformed = $engine->transformRow($rawRow, $mappings);
-                    $transactionRow = $normalizer->buildTransactionRow($transformed, $source, $import, $userId ?? 0);
+                    $transactionRow = $normalizer->buildTransactionRow($transformed, $source, $import, $userId);
                     $snapshot = $normalizer->computeNormalizedSnapshot($transactionRow);
 
                     $importRowsInsert[$rowNumber] = $base + [
@@ -218,22 +230,33 @@ class ProcessImportJob implements ShouldQueue
                     $normalizedInsert[] = $normalizer->buildNormalizedRow(
                         $transactionId,
                         $normalizedSnapshotsByRowNumber[$rowNumber],
-                        $userId ?? 0
+                        $userId
                     );
                 }
 
                 DB::table('normalized_transactions')->insert($normalizedInsert);
             }
 
+            $this->syncCounters($current);
+
             return [count($importRowsInsert), $successCount, $errorCount];
         });
     }
 
+    private function syncCounters(Import $import): void
+    {
+        $counts = DB::table('import_rows')->where('import_id', $import->id)
+            ->selectRaw("COUNT(*) AS total, COALESCE(SUM(CASE WHEN status = 'imported' THEN 1 ELSE 0 END), 0) AS accepted, COALESCE(SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END), 0) AS rejected")->lockForUpdate()->first();
+        $import->update(['total_rows' => (int) $counts->total, 'processed_rows' => (int) $counts->total,
+            'success_rows' => (int) $counts->accepted, 'error_rows' => (int) $counts->rejected, 'heartbeat_at' => now()]);
+    }
+
     public function failed(Throwable $e): void
     {
-        Import::query()->whereKey($this->importId)->update([
+        Import::query()->whereKey($this->importId)->whereNotIn('status', ['completed', 'partially_completed'])->update([
             'status' => ImportStatus::Failed->value,
             'error_summary' => $e->getMessage(),
+            'job_dispatched_at' => null,
             'finished_at' => now(),
         ]);
     }

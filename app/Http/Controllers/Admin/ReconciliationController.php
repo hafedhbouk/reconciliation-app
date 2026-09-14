@@ -14,15 +14,20 @@ use App\Enums\MatchingResultStatus;
 use App\Enums\MatchingStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreManualMatchRequest;
+use App\Jobs\ComputeUnmatchedJob;
 use App\Models\MatchingDetail;
 use App\Models\MatchingResult;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
+use App\Models\UnmatchedSnapshot;
+use App\Services\Matching\SnapshotRows;
+use App\Services\Matching\TransactionStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ReconciliationController extends Controller
@@ -41,39 +46,40 @@ class ReconciliationController extends Controller
         $this->authorize('viewAny', MatchingResult::class);
 
         $validated = $request->validate([
-            'import_a_id' => ['nullable', 'exists:imports,id'],
-            'import_b_id' => ['nullable', 'exists:imports,id'],
+            'import_a_id' => ['nullable', 'integer', Rule::exists('imports', 'id')->whereNull('deleted_at')],
+            'import_b_id' => ['nullable', 'integer', Rule::exists('imports', 'id')->whereNull('deleted_at')],
         ]);
 
         $importAId = $validated['import_a_id'] ?? null;
         $importBId = $validated['import_b_id'] ?? null;
 
-        $sources = Source::query()->where('is_active', true)->orderBy('name')->get();
+        $sources = Source::query()->where('is_active', true)->with(['imports' => fn ($q) => $q->where('status', 'completed')->orderByDesc('created_at')])->orderBy('name')->get();
 
         $snapshot = null;
         $unmatchedA = collect();
         $unmatchedB = collect();
 
         if ($importAId !== null && $importBId !== null && $importAId !== $importBId) {
-            $snapshot = \App\Models\UnmatchedSnapshot::query()
+            $snapshot = UnmatchedSnapshot::query()
                 ->where('import_a_id', $importAId)
                 ->where('import_b_id', $importBId)
                 ->orderByDesc('id')
                 ->first();
 
             if ($snapshot === null) {
-                $snapshot = \App\Models\UnmatchedSnapshot::query()->create([
+                $snapshot = UnmatchedSnapshot::query()->create([
                     'import_a_id' => $importAId,
                     'import_b_id' => $importBId,
                     'status' => 'pending',
                 ]);
 
-                \App\Jobs\ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+                ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
             }
 
             if ($snapshot->status === 'completed') {
-                $unmatchedA = collect($snapshot->result_a ?? []);
-                $unmatchedB = collect($snapshot->result_b ?? []);
+                $pages = app(SnapshotRows::class);
+                $unmatchedA = $pages->paginate($snapshot, 'a');
+                $unmatchedB = $pages->paginate($snapshot, 'b');
             }
         }
 
@@ -92,11 +98,11 @@ class ReconciliationController extends Controller
         $this->authorize('viewAny', MatchingResult::class);
 
         $validated = $request->validate([
-            'import_a_id' => ['required', 'exists:imports,id'],
-            'import_b_id' => ['required', 'exists:imports,id', 'different:import_a_id'],
+            'import_a_id' => ['required', 'integer', Rule::exists('imports', 'id')->whereNull('deleted_at')],
+            'import_b_id' => ['required', 'integer', Rule::exists('imports', 'id')->whereNull('deleted_at'), 'different:import_a_id'],
         ]);
 
-        $snapshot = \App\Models\UnmatchedSnapshot::query()
+        $snapshot = UnmatchedSnapshot::query()
             ->where('import_a_id', $validated['import_a_id'])
             ->where('import_b_id', $validated['import_b_id'])
             ->orderByDesc('id')
@@ -112,7 +118,7 @@ class ReconciliationController extends Controller
                 'completed_at' => null,
             ]);
 
-            \App\Jobs\ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+            ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
         }
 
         return redirect()->route('admin.reconciliation.unmatched', [
@@ -169,6 +175,7 @@ class ReconciliationController extends Controller
     private function filteredUnmatchedQuery(array $filters)
     {
         return NormalizedTransaction::query()
+            ->fromActiveImports()
             ->where('matching_status', MatchingStatus::Unmatched->value)
             ->whereHas('transaction', fn ($query) => $query
                 ->when($filters['source_id'] ?? null, fn ($q, $sourceId) => $q->where('source_id', $sourceId)))
@@ -190,6 +197,15 @@ class ReconciliationController extends Controller
         // insert like the automated matching jobs), so HasUserstamps and
         // Auditable fire normally here, unlike RuleMatcher's bulk writes.
         $result = DB::transaction(function () use ($idsA, $idsB, $request) {
+            $ids = collect([...$idsA, ...$idsB])->map(fn ($id) => (int) $id);
+            $rows = app(TransactionStatus::class)->lock($ids);
+            $activeCount = NormalizedTransaction::query()->fromActiveImports()->whereIn('id', $ids)->count();
+            if ($ids->unique()->count() !== $ids->count() || $activeCount !== $ids->count()
+                || $rows->contains(fn ($row) => $row->matching_status !== MatchingStatus::Unmatched)) {
+                throw ValidationException::withMessages([
+                    'normalized_transaction_ids_a' => __('Une ou plusieurs transactions sélectionnées ne sont plus disponibles.'),
+                ]);
+            }
             $matchingResult = MatchingResult::query()->create([
                 'matching_rule_id' => null,
                 'batch_reference' => null,

@@ -33,6 +33,7 @@ class UnmatchedSweeper
         $created = 0;
 
         NormalizedTransaction::query()
+            ->fromActiveImports()
             ->when($sourceId !== null, fn ($query) => $query->whereHas(
                 'transaction',
                 fn ($inner) => $inner->where('source_id', $sourceId),

@@ -330,6 +330,75 @@ Depuis le menu utilisateur (haut de page), accédez à **Profil** pour :
 
 ## 14. Questions fréquentes
 
+**Comment vérifier le mapping utilisé par un import ?**
+La fiche de l'import affiche sa version de mapping. La copie enregistrée comprend
+les colonnes, les transformations et les paramètres de lecture du fichier.
+Une alerte signale une version différente du paramétrage actuel. Les imports
+antérieurs à ce suivi portent la mention « Version non enregistrée » : leur
+normalisation doit être vérifiée, notamment pour les anciens WEB/STEG.
+Une renormalisation réussie enregistre la version effectivement appliquée.
+
+**Comment reprendre un import interrompu ?**
+Depuis sa fiche, utilisez **Reprendre les lignes non traitées** pour un import
+échoué ou sans progression depuis cinq minutes. Les lignes déjà enregistrées
+sont conservées, avec leurs identifiants et leurs éventuels rejets. Chaque lot
+de lignes et ses compteurs sont validés ensemble ; une reprise ne réinsère pas
+les lignes déjà traitées. Le fichier doit être identique et le mapping initial
+est réutilisé. Les rejets nécessitant un autre mapping demandent un nouvel import.
+Si aucune ligne n'a encore été enregistrée, une relance peut utiliser le mapping
+corrigé. La reprise d'un ancien import partiel sans version est refusée pour
+éviter de mélanger deux normalisations : vérifier puis renormaliser ou réimporter.
+
+**Comment lire les différences et les bilans ?**
+Les différences sont paginées côté serveur, à raison de 50 lignes par côté ;
+chaque côté dispose de sa propre navigation et affiche son nombre total de lignes.
+Les anciens caches sont convertis une seule fois lors de leur première consultation.
+La date et l'heure du calcul sont visibles. Après renormalisation, les caches
+concernés sont invalidés et une nouvelle comparaison est nécessaire.
+
+La fiche de chaque fichier présente les lignes lues, acceptées et rejetées,
+ainsi que le montant total accepté en millimes. Chaque nouvelle comparaison
+fournit, pour chaque fichier, les lignes rapprochées, en conflit et exclusives,
+avec leurs montants. Le contrôle compare les catégories aux comptes et sommes
+des transactions en base : aucun arrondi monétaire n'est utilisé. Les montants
+des rejets, potentiellement invalides ou absents, sont exclus de ce total.
+Les bilans antérieurs à une renormalisation restent visibles comme historiques.
+
+**Quel statut retenir lorsqu'une transaction figure dans plusieurs comparaisons ?**
+Chaque nouvelle exécution entre fichiers conserve les deux imports, les règles
+appliquées, son bilan et les identifiants des lignes exclusives. Le détail d'un
+résultat affiche les fichiers concernés et les exclusives de cette exécution.
+Une même transaction peut être rapprochée avec BNA et en conflit avec WEB.
+Son statut global est « Conflit » dès qu'un résultat actif est en conflit ;
+sinon il est « Rapproché » s'il existe un résultat rapproché ou partiel,
+et « Non rapproché » en l'absence de ces résultats.
+
+**Que se passe-t-il si je supprime un résultat ?**
+L'annulation recalcule les statuts des transactions concernées en tenant compte
+des autres résultats actifs. Les liens du résultat annulé sont conservés pour
+l'historique. Les différences entre fichiers ne changent pas : elles dépendent
+des données des fichiers, pas de l'annulation d'un résultat.
+
+**Un traitement peut-il être exécuté deux fois ?**
+La reprise du même lot pour les mêmes fichiers réutilise le bilan enregistré,
+y compris lorsqu'aucune ligne n'a été rapprochée. Une nouvelle demande avec
+un nouveau numéro de lot crée une exécution distincte. Les traitements qui
+partagent des transactions sont verrouillés pendant les écritures ; une
+sélection manuelle devenue indisponible est refusée.
+
+**Comment sont traités les imports supprimés et les doublons ?**
+Les transactions des imports supprimés sont exclues des nouveaux rapprochements,
+des sélections manuelles et des scans de doublons ou de lignes non rapprochées.
+Les résultats historiques sont conservés. Pour BNA, la détection des doublons
+compare le numéro d'autorisation, la date et le montant, même pour les anciens
+imports dont l'empreinte ne contenait pas l'autorisation. Pour SMT, une alerte
+basée sur la date et le montant indique un doublon potentiel à vérifier.
+Les anciennes alertes ne sont pas supprimées automatiquement.
+
+Ces informations d'exécution sont enregistrées pour les nouveaux rapprochements ;
+les anciens résultats ne sont pas réécrits automatiquement. Cette évolution ne
+renormalise pas les anciens imports WEB/STEG.
+
 **Mon import reste bloqué en « en cours ».**
 Le traitement se fait en arrière-plan ; si personne n'a démarré le
 worker de file d'attente côté serveur, contactez votre administrateur

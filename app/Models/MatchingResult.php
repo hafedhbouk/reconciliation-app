@@ -13,9 +13,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MatchingResult extends Model
 {
-    use HasFactory, SoftDeletes, HasUserstamps, Auditable;
+    use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
+        'comparison_run_id',
         'matching_rule_id',
         'batch_reference',
         'status',
@@ -37,6 +38,11 @@ class MatchingResult extends Model
     public function matchingRule(): BelongsTo
     {
         return $this->belongsTo(MatchingRule::class);
+    }
+
+    public function comparisonRun(): BelongsTo
+    {
+        return $this->belongsTo(ComparisonRun::class);
     }
 
     public function matchedByUser(): BelongsTo

@@ -3,6 +3,13 @@
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Import') }} — {{ $import->original_filename }}</h2>
     </x-slot>
 
+    @if ($mappingState !== 'current')
+        <div class="alert alert-warning">
+            {{ $mappingState === 'unknown' ? __('Version du mapping non enregistrée : vérifier les anciens imports avant rapprochement.') : __('Le mapping a changé depuis cet import. Une renormalisation est nécessaire pour appliquer les nouvelles règles.') }}
+        </div>
+    @endif
+    <p class="small text-secondary">{{ __('Version du mapping utilisée') }} : {{ $import->mapping_hash ? substr($import->mapping_hash, 0, 12) : __('Non enregistrée') }}</p>
+
     <div class="card mb-3">
         <div class="card-body">
             <dl class="row mb-0">
@@ -17,7 +24,7 @@
                 <dt class="col-sm-2">{{ __('Importé par') }}</dt>
                 <dd class="col-sm-4">{{ $import->importedByUser?->name ?? '—' }}</dd>
 
-                <dt class="col-sm-2">{{ __('Total lignes') }}</dt>
+                <dt class="col-sm-2">{{ __('Lignes lues') }}</dt>
                 <dd class="col-sm-4">{{ $import->total_rows ?? '—' }}</dd>
 
                 <dt class="col-sm-2">{{ __('Lignes réussies') }}</dt>
@@ -43,6 +50,14 @@
                 </p>
             @endif
 
+            @if ($canResume)
+                <form method="POST" action="{{ route('admin.imports.process', $import) }}" class="mt-3 d-inline">
+                    @csrf
+                    <x-primary-button>{{ __('Reprendre les lignes non traitées') }}</x-primary-button>
+                </form>
+                <p class="small text-secondary mt-2">{{ __('Les lignes déjà enregistrées, y compris les rejets, sont conservées. La reprise utilise le mapping initial.') }}</p>
+            @endif
+
             @can('delete', $import)
                 <form method="POST" action="{{ route('admin.imports.destroy', $import) }}" class="mt-3 d-inline" onsubmit="return confirm('{{ __('Êtes-vous sûr de vouloir supprimer cet import ? Cette action est irréversible.') }}');">
                     @csrf
@@ -52,6 +67,29 @@
             @endcan
         </div>
     </div>
+
+    <div class="card mb-3">
+        <div class="card-header">{{ __('Bilan du fichier') }}</div>
+        <div class="card-body">
+            <p>{{ __('Lues') }} : {{ $import->processed_rows }} · {{ __('Acceptées') }} : {{ $import->success_rows }} · {{ __('Rejetées') }} : {{ $import->error_rows }}</p>
+            <p>{{ __('Montant total accepté (millimes)') }} : {{ $ledger->sum('amount_millimes') }}</p>
+            @php $balancedImport = $import->processed_rows === $import->success_rows + $import->error_rows && $import->success_rows === (int) $ledger->sum('rows_count'); @endphp
+            <p class="{{ $balancedImport ? 'text-success' : 'text-danger' }}">{{ $balancedImport ? __('Contrôle des compteurs : équilibré.') : __('Écart entre les compteurs et les transactions enregistrées.') }}</p>
+            <p class="small text-secondary mb-0">{{ __('Les montants des lignes rejetées ne sont pas inclus : ils peuvent être invalides ou absents. Les conflits et exclusives se lisent par comparaison ci-dessous.') }}</p>
+        </div>
+    </div>
+
+    @foreach ($runs as $run)
+        @php $side = $run->import_a_id === $import->id ? 'a' : 'b'; $other = $side === 'a' ? $run->importB : $run->importA; @endphp
+        @if ($run->file_totals)
+            <div class="card mb-3">
+                <div class="card-header">{{ __('Comparaison avec') }} {{ $other?->original_filename }} · {{ $run->created_at->format('d/m/Y H:i:s') }} · {{ __('Lot') }} {{ $run->batch_reference }}</div>
+                @if ($run->invalidated_at)<p class="text-warning m-2">{{ __('Bilan historique antérieur à une renormalisation. Relancer le rapprochement pour un bilan actuel.') }}</p>@endif
+                @include('admin.reconciliation._file-totals', ['totals' => $run->file_totals[$side]])
+            </div>
+        @endif
+    @endforeach
+    {{ $runs->links() }}
 
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">

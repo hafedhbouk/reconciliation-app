@@ -15,6 +15,7 @@ namespace App\Models;
 use App\Enums\MatchingStatus;
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,7 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class NormalizedTransaction extends Model
 {
-    use HasFactory, SoftDeletes, HasUserstamps, Auditable;
+    use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
         'transaction_id',
@@ -41,6 +42,13 @@ class NormalizedTransaction extends Model
             'normalized_date' => 'date:Y-m-d',
             'matching_status' => MatchingStatus::class,
         ];
+    }
+
+    public function scopeFromActiveImports(Builder $query): void
+    {
+        $query->whereHas('transaction', fn ($transaction) => $transaction->where(
+            fn ($parent) => $parent->whereNull('import_id')->orWhereHas('import'),
+        ));
     }
 
     public function transaction(): BelongsTo

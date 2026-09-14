@@ -36,6 +36,7 @@ class StoreManualMatchRequest extends BaseFormRequest
             $unmatchedCount = 0;
             foreach ($allIds->chunk(1000) as $chunk) {
                 $unmatchedCount += NormalizedTransaction::query()
+                    ->fromActiveImports()
                     ->whereIn('id', $chunk)
                     ->where('matching_status', MatchingStatus::Unmatched->value)
                     ->count();

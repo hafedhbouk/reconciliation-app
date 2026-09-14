@@ -3,7 +3,9 @@
 use App\Enums\ExceptionType;
 use App\Enums\MatchingResultStatus;
 use App\Models\ExceptionRecord;
+use App\Models\Import;
 use App\Models\MatchingResult;
+use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\Transaction;
@@ -21,7 +23,7 @@ function makeNormalizedTx(Source $source, string $reference, int $amountMillimes
         'raw_payload' => $statusRaw !== null ? ['status_raw' => $statusRaw] : [],
     ]);
 
-    return \App\Models\NormalizedTransaction::factory()->create([
+    return NormalizedTransaction::factory()->create([
         'transaction_id' => $transaction->id,
         'normalized_reference' => $reference,
         'normalized_amount_millimes' => $amountMillimes,
@@ -31,7 +33,20 @@ function makeNormalizedTx(Source $source, string $reference, int $amountMillimes
 }
 
 beforeEach(function () {
-    $this->matcher = new RuleMatcher(new ConfidenceScorer());
+    $this->matcher = new RuleMatcher(new ConfidenceScorer);
+});
+
+test('global matching ignores rows belonging to archived imports', function () {
+    $a = Source::factory()->create();
+    $b = Source::factory()->create();
+    $row = makeNormalizedTx($a, '123456', 10000, '2026-05-01');
+    makeNormalizedTx($b, '123456', 10000, '2026-05-01');
+    $import = Import::factory()->create(['source_id' => $a->id]);
+    $row->transaction->update(['import_id' => $import->id]);
+    $import->delete();
+    $rule = MatchingRule::factory()->create(['source_a_id' => $a->id, 'source_b_id' => $b->id]);
+    expect($this->matcher->match($rule, 'archived')->matched)->toBe(0);
+    expect(MatchingResult::count())->toBe(0);
 });
 
 test('exact match on both amount and date creates a Matched result with full confidence', function () {
@@ -40,7 +55,7 @@ test('exact match on both amount and date creates a Matched result with full con
     $ntA = makeNormalizedTx($sourceA, '843500', 1773000, '2026-01-15');
     $ntB = makeNormalizedTx($sourceB, '843500', 1773000, '2026-01-15');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -64,7 +79,7 @@ test('same date but different amount creates a Conflict result and an AmountMism
     $ntA = makeNormalizedTx($sourceA, '077025', 84000, '2026-01-08');
     $ntB = makeNormalizedTx($sourceB, '077025', 98000, '2026-01-08');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -90,7 +105,7 @@ test('same amount but different date creates a Conflict result and a DateMismatc
     makeNormalizedTx($sourceA, '030046', 13000, '2026-01-25');
     makeNormalizedTx($sourceB, '030046', 13000, '2026-01-01');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -104,7 +119,7 @@ test('neither amount nor date matching creates no result and no exception, both 
     $ntA = makeNormalizedTx($sourceA, '363528', 27000, '2026-01-07');
     $ntB = makeNormalizedTx($sourceB, '363528', 275000, '2026-01-01');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -125,7 +140,7 @@ test('an N:1 group (2 rows side A, 1 row side B) with matching sums produces one
     makeNormalizedTx($sourceA, '999111', 30000, '2026-01-10');
     makeNormalizedTx($sourceB, '999111', 80000, '2026-01-10');
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $sourceA->id,
         'source_b_id' => $sourceB->id,
         'cardinality' => 'N:M',
@@ -146,7 +161,7 @@ test('a cardinality mismatch is recorded as a note but the match still succeeds'
     makeNormalizedTx($sourceA, '555222', 30000, '2026-01-10');
     makeNormalizedTx($sourceB, '555222', 80000, '2026-01-10');
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $sourceA->id,
         'source_b_id' => $sourceB->id,
         'cardinality' => '1:1',
@@ -166,7 +181,7 @@ test('excluded_status_raw filters a row out of the candidate pool even with a ma
     makeNormalizedTx($sourceA, '345547', 4750, '2026-01-31', statusRaw: 'Commission');
     makeNormalizedTx($sourceB, '345547', 4750, '2026-01-31');
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $sourceA->id,
         'source_b_id' => $sourceB->id,
         'criteria' => [
@@ -188,7 +203,7 @@ test('rerunning the same rule twice is idempotent and creates nothing new', func
     makeNormalizedTx($sourceA, '843500', 1773000, '2026-01-15');
     makeNormalizedTx($sourceB, '843500', 1773000, '2026-01-15');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $this->matcher->match($rule, 'batch-1');
     $firstCount = MatchingResult::query()->count();
@@ -212,7 +227,7 @@ test('a reference reused by two distinct transactions on different dates matches
     makeNormalizedTx($sourceB, '077025', 84000, '2026-01-08');
     makeNormalizedTx($sourceB, '077025', 98000, '2026-01-01');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -233,7 +248,7 @@ test('a genuine mismatch is still a conflict even when group sizes and sums coin
     makeNormalizedTx($sourceB, '999888', 120000, '2026-01-01');
     makeNormalizedTx($sourceB, '999888', 30000, '2026-01-08');
 
-    $rule = \App\Models\MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
+    $rule = MatchingRule::factory()->create(['source_a_id' => $sourceA->id, 'source_b_id' => $sourceB->id]);
 
     $summary = $this->matcher->match($rule, 'batch-1');
 
@@ -248,7 +263,7 @@ test('a tolerance-consumed partial match produces a Partial status with reduced 
     makeNormalizedTx($sourceA, '777888', 100000, '2026-01-10');
     makeNormalizedTx($sourceB, '777888', 100500, '2026-01-10');
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $sourceA->id,
         'source_b_id' => $sourceB->id,
         'criteria' => [
@@ -279,7 +294,7 @@ test('WEB-BNA matches via secondary_reference (recu_paie) against num_autorisati
     $ntBna->transaction->raw_payload = ['num_autorisation' => '416779'];
     $ntBna->transaction->save();
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $web->id,
         'source_b_id' => $bna->id,
         'criteria' => [
@@ -313,7 +328,7 @@ test('ALPHA-WEB matches via reference with num_autorisation-secondary_reference 
     $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
     $ntWeb->transaction->save();
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $alpha->id,
         'source_b_id' => $web->id,
         'criteria' => [
@@ -350,7 +365,7 @@ test('ALPHA-WEB with mismatched num_autorisation produces no_signal (no match, n
     $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
     $ntWeb->transaction->save();
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $alpha->id,
         'source_b_id' => $web->id,
         'criteria' => [
@@ -385,7 +400,7 @@ test('SMT composite date|amount key matches across sources', function () {
     makeNormalizedTx($smt, '2026-02-01|16000', 16000, '2026-02-01');
     makeNormalizedTx($bna, '416779', 16000, '2026-02-01');
 
-    $rule = \App\Models\MatchingRule::factory()->create([
+    $rule = MatchingRule::factory()->create([
         'source_a_id' => $smt->id,
         'source_b_id' => $bna->id,
         'criteria' => [

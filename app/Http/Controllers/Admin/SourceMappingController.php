@@ -19,6 +19,7 @@ use App\Models\SourceColumnMapping;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Throwable;
@@ -65,29 +66,32 @@ class SourceMappingController extends Controller
 
         $submitted = $request->validated('mappings', []);
 
-        foreach (MappingTargetField::cases() as $index => $field) {
-            $data = $submitted[$field->value] ?? null;
-            $sourceColumn = trim((string) ($data['source_column'] ?? ''));
+        DB::transaction(function () use ($submitted, $source) {
+            foreach (MappingTargetField::cases() as $index => $field) {
+                $data = $submitted[$field->value] ?? null;
+                $sourceColumn = trim((string) ($data['source_column'] ?? ''));
 
-            if ($sourceColumn === '') {
-                SourceColumnMapping::query()
-                    ->where('source_id', $source->id)
-                    ->where('target_field', $field->value)
-                    ->delete();
+                if ($sourceColumn === '') {
+                    SourceColumnMapping::query()
+                        ->where('source_id', $source->id)
+                        ->where('target_field', $field->value)
+                        ->delete();
 
-                continue;
+                    continue;
+                }
+
+                SourceColumnMapping::query()->updateOrCreate(
+                    ['source_id' => $source->id, 'target_field' => $field->value],
+                    [
+                        'source_column' => $sourceColumn,
+                        'transform' => $this->buildTransformSteps($field, $data),
+                        'is_required' => ! empty($data['is_required']),
+                        'sort_order' => $index,
+                    ]
+                );
             }
 
-            SourceColumnMapping::query()->updateOrCreate(
-                ['source_id' => $source->id, 'target_field' => $field->value],
-                [
-                    'source_column' => $sourceColumn,
-                    'transform' => $this->buildTransformSteps($field, $data),
-                    'is_required' => ! empty($data['is_required']),
-                    'sort_order' => $index,
-                ]
-            );
-        }
+        });
 
         $importId = $request->input('import_id');
 

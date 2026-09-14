@@ -3,7 +3,7 @@
 namespace App\Services\Import;
 
 use App\Models\Import;
-use App\Models\SourceColumnMapping;
+use App\Services\Matching\SnapshotRows;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -26,10 +26,12 @@ class ImportRenormalizer
         try {
             foreach ($importIds as $importId) {
                 $import = Import::with('source')->findOrFail($importId);
-                if (! in_array($import->source->code, ['ALPHA', 'BNA'], true)) {
-                    throw new RuntimeException('Seuls les imports ALPHA/BNA sont pris en charge.');
+                if (! in_array($import->source->code, ['ALPHA', 'BNA', 'WEB', 'STEG', 'SMT'], true)) {
+                    throw new RuntimeException('Source non prise en charge pour la renormalisation.');
                 }
-                $mappings = SourceColumnMapping::where('source_id', $import->source_id)->orderBy('sort_order')->get();
+                $versions = app(ImportMappingVersion::class);
+                $mappingSnapshot = $versions->capture($import->source);
+                $mappings = $versions->mappings($mappingSnapshot);
                 $count = 0;
                 DB::table('transactions')->where('import_id', $importId)->whereNull('deleted_at')->orderBy('id')
                     ->chunkById(250, function ($transactions) use ($import, $mappings, $stream, &$count, &$total, $progress) {
@@ -43,10 +45,10 @@ class ImportRenormalizer
                             }
                             $raw = json_decode($row->raw_data, true, 512, JSON_THROW_ON_ERROR);
                             $mapped = $this->engine->transformRow($raw, $mappings);
-                            if (trim((string) ($mapped['num_autorisation'] ?? '')) === '') {
+                            if (in_array($import->source->code, ['ALPHA', 'BNA'], true) && trim((string) ($mapped['num_autorisation'] ?? '')) === '') {
                                 throw new RuntimeException("Autorisation absente pour la transaction {$transaction->id}.");
                             }
-                            $built = $this->normalizer->buildTransactionRow($mapped, $import->source, $import, $import->imported_by ?? 0);
+                            $built = $this->normalizer->buildTransactionRow($mapped, $import->source, $import, $import->imported_by);
                             $snapshot = $this->normalizer->computeNormalizedSnapshot($built);
                             // Renormalization is not a new matching run.
                             $snapshot['matching_status'] = $nt->matching_status;
@@ -71,7 +73,7 @@ class ImportRenormalizer
                             $progress && $progress("Import {$import->id} : {$count} lignes vérifiées");
                         }
                     });
-                $summary[$importId] = ['file' => $import->original_filename, 'rows' => $count];
+                $summary[$importId] = ['file' => $import->original_filename, 'rows' => $count, 'mapping_snapshot' => $mappingSnapshot, 'mapping_hash' => $versions->hash($mappingSnapshot)];
                 $progress && $progress("Import {$importId} prêt : {$count} lignes");
             }
             // Back up and invalidate file-difference caches that depend on these imports.
@@ -102,7 +104,12 @@ class ImportRenormalizer
             throw new RuntimeException('Plan incomplet : aucune modification effectuée.');
         }
 
-        return DB::transaction(function () use ($path, $progress) {
+        return DB::transaction(function () use ($path, $progress, $footer) {
+            $importIds = array_keys($footer['imports']);
+            $imports = Import::whereIn('id', $importIds)->orderBy('id')->lockForUpdate()->get();
+            if ($imports->count() !== count($importIds) || $imports->contains(fn ($import) => in_array($import->status->value, ['pending', 'processing'], true))) {
+                throw new RuntimeException('Un import est supprimé ou encore en cours de traitement.');
+            }
             $batch = [];
             $count = 0;
             foreach ($this->records($path) as $record) {
@@ -122,6 +129,14 @@ class ImportRenormalizer
             if ($batch !== []) {
                 $this->applyBatch($batch);
             }
+
+            foreach ($imports as $import) {
+                $version = $footer['imports'][$import->id];
+                if (isset($version['mapping_snapshot'], $version['mapping_hash'])) {
+                    $import->update(['mapping_snapshot' => $version['mapping_snapshot'], 'mapping_hash' => $version['mapping_hash']]);
+                }
+            }
+            app(SnapshotRows::class)->invalidate($importIds);
 
             return $count;
         });

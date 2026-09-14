@@ -6,15 +6,19 @@ use App\Models\ImportRow;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\Transaction;
+use App\Models\UnmatchedSnapshot;
+use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\ImportRenormalizer;
+use App\Services\Matching\SnapshotRows;
 use Database\Seeders\BankSeeder;
 use Database\Seeders\CurrencySeeder;
 use Database\Seeders\SourceColumnMappingSeeder;
 use Database\Seeders\SourceSeeder;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     $this->seed([CurrencySeeder::class, BankSeeder::class, SourceSeeder::class, SourceColumnMappingSeeder::class]);
-    $this->import = Import::factory()->create(['source_id' => Source::where('code', 'ALPHA')->sole()->id]);
+    $this->import = Import::factory()->create(['source_id' => Source::where('code', 'ALPHA')->sole()->id, 'status' => 'completed']);
     $this->row = ImportRow::create([
         'import_id' => $this->import->id, 'row_number' => 2, 'status' => 'imported',
         'raw_data' => ['REFERENCE' => '001234567', 'NUM_AUTO' => 'b3512', 'DAT_ENC' => '01/02/2026', 'MONTANT_ENCAISS' => '000000016000'],
@@ -67,4 +71,18 @@ test('invalid source rows cannot produce an applicable plan', function () {
         ->toThrow(MissingRequiredFieldException::class);
     expect(fn () => $service->apply($this->path))->toThrow(RuntimeException::class);
     expect($this->transaction->fresh()->raw_payload)->toBe(['reference' => 'legacy']);
+});
+
+test('renormalization records the applied version and invalidates caches created after preparation', function () {
+    $service = app(ImportRenormalizer::class);
+    $service->prepare([$this->import->id], $this->path);
+    $other = Import::factory()->create();
+    $snapshot = UnmatchedSnapshot::create(['import_a_id' => $this->import->id, 'import_b_id' => $other->id,
+        'status' => 'completed', 'rows_persisted' => true, 'completed_at' => now()]);
+    app(SnapshotRows::class)->insert($snapshot->id, 'a', [['id' => $this->normalized->id]]);
+    $service->apply($this->path);
+    expect($snapshot->fresh()->status)->toBe('failed');
+    expect($snapshot->fresh()->completed_at)->toBeNull();
+    expect(DB::table('unmatched_snapshot_rows')->count())->toBe(0);
+    expect(app(ImportMappingVersion::class)->state($this->import->fresh()))->toBe('current');
 });
