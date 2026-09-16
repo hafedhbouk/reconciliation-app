@@ -356,6 +356,9 @@ test('seeded matching rules keep the requested common fields for every source pa
     expect($rules['ALPHA ↔ BNA']->criteria['primary_key'])->toBe([
         'a' => 'num_autorisation', 'b' => 'num_autorisation',
     ])->and($rules['ALPHA ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date'])
+        ->and($rules['ALPHA ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
+            'a' => ['num_autorisation'], 'b' => ['num_autorisation'],
+        ])
         ->and($rules['ALPHA ↔ WEB']->criteria['primary_key'])->toBe([
             'a' => ['reference', 'num_autorisation'],
             'b' => ['reference', 'secondary_reference'],
@@ -372,11 +375,14 @@ test('seeded matching rules keep the requested common fields for every source pa
         ->and($rules['WEB ↔ BNA']->criteria['primary_key'])->toBe([
             'a' => 'secondary_reference', 'b' => 'num_autorisation',
         ])->and($rules['WEB ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date']);
-    expect($rules['WEB ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
-        'a' => ['secondary_reference'], 'b' => [],
-    ])->and($rules['ALPHA ↔ WEB']->criteria['excluded_non_numeric'])->toBe([
-        'a' => [], 'b' => ['secondary_reference'],
-    ]);
+    expect($rules['ALPHA ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
+        'a' => ['num_autorisation'], 'b' => ['num_autorisation'],
+    ])
+        ->and($rules['WEB ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
+            'a' => ['secondary_reference'], 'b' => [],
+        ])->and($rules['ALPHA ↔ WEB']->criteria['excluded_non_numeric'])->toBe([
+            'a' => [], 'b' => ['secondary_reference'],
+        ]);
 });
 
 test('non-numeric WEB receipts are excluded from receipt-based matching', function () {
@@ -399,4 +405,16 @@ test('non-numeric WEB receipts are excluded from receipt-based matching', functi
     expect($summary->matched)->toBe(0)
         ->and($webRow->fresh()->matching_status->value)->toBe('unmatched')
         ->and(MatchingResult::count())->toBe(0);
+});
+
+test('non-numeric ALPHA-BNA authorizations remain exclusive in file comparison', function () {
+    $alpha = fileComparisonImport('ALPHA');
+    $bna = fileComparisonImport('BNA');
+    $alphaRow = fileComparisonRow($alpha, authorization: 'ND3PNV');
+    fileComparisonRow($bna, authorization: 'ND3PNV');
+    $snapshot = runFileComparison($alpha, $bna);
+
+    expect(MatchingResult::count())->toBe(0)
+        ->and(array_column($snapshot->result_a, 'id'))->toBe([$alphaRow->id])
+        ->and($snapshot->result_b)->toHaveCount(1);
 });

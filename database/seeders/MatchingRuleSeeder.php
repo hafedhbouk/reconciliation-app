@@ -43,6 +43,7 @@ class MatchingRuleSeeder extends Seeder
                 'excluded_b' => ['Commission'],
                 'primary_key' => ['a' => 'num_autorisation', 'b' => 'num_autorisation'],
                 'verify_fields' => ['amount', 'date'],
+                'excluded_non_numeric' => ['a' => ['num_autorisation'], 'b' => ['num_autorisation']],
             ],
             [
                 'name' => 'SMT ↔ BNA',

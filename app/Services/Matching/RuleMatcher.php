@@ -142,8 +142,10 @@ class RuleMatcher
         $primaryA = $criteria['primary_key']['a'];
         $primaryB = $criteria['primary_key']['b'];
         $verifyFields = $criteria['verify_fields'] ?? [];
+        $excludedNonNumericA = $criteria['excluded_non_numeric']['a'] ?? [];
+        $excludedNonNumericB = $criteria['excluded_non_numeric']['b'] ?? [];
 
-        return DB::transaction(function () use ($rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults, $criteria) {
+        return DB::transaction(function () use ($rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults, $criteria, $excludedNonNumericA, $excludedNonNumericB) {
             // Serialize file jobs (including inverse pairs) before loading candidates.
             $imports = Import::query()->whereIn('id', [$importIdA, $importIdB])->orderBy('id')->lockForUpdate()->get();
             if ($imports->count() !== 2) {
@@ -170,8 +172,8 @@ class RuleMatcher
             $snapshot = UnmatchedSnapshot::firstOrCreate(['import_a_id' => $importIdA, 'import_b_id' => $importIdB], ['status' => 'processing']);
             DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)->delete();
             $storage = app(SnapshotRows::class);
-            $a = $this->fileGroups($rule->source_a_id, $primaryA, $importIdA);
-            $b = $this->fileGroups($rule->source_b_id, $primaryB, $importIdB);
+            $a = $this->fileGroups($rule->source_a_id, $primaryA, $importIdA, $excludedNonNumericA);
+            $b = $this->fileGroups($rule->source_b_id, $primaryB, $importIdB, $excludedNonNumericB);
             $matched = $conflicts = $considered = 0;
             $exclusiveIds = ['a' => [], 'b' => []];
             $buffers = ['a' => [], 'b' => []];
@@ -303,7 +305,7 @@ class RuleMatcher
     }
 
     /** Read ordered groups in pages; only the current key and one page are retained. */
-    private function fileGroups(int $sourceId, string|array $primary, int $importId): \Generator
+    private function fileGroups(int $sourceId, string|array $primary, int $importId, array $excludedNonNumeric = []): \Generator
     {
         $fields = $primary === 'date|amount' ? ['date', 'amount'] : (array) $primary;
         $grammar = DB::connection()->getQueryGrammar();
@@ -363,13 +365,17 @@ class RuleMatcher
                     if ($row === null) {
                         throw new \RuntimeException('Une transaction a changé pendant la comparaison.');
                     }
-                    $current = $entry->comparison_key;
+                    $entryKey = $entry->comparison_key;
+                    $current = $this->hasExcludedNonNumeric($row, $excludedNonNumeric)
+                        ? $entryKey.'|missing:'.$row->id
+                        : $entryKey;
                     if ($previous !== null && $previous !== $current) {
                         yield $previous => $group;
                         $group = collect();
                     }
                     $group->push($row);
-                    $previous = $lastKey = $current;
+                    $previous = $current;
+                    $lastKey = $entryKey;
                     $lastId = $row->id;
                 }
             } while ($page->count() === $pageSize);
@@ -379,6 +385,17 @@ class RuleMatcher
         } finally {
             DB::statement(($sqlite ? 'DROP TABLE ' : 'DROP TEMPORARY TABLE ').$table);
         }
+    }
+
+    private function hasExcludedNonNumeric(NormalizedTransaction $transaction, array $fields): bool
+    {
+        foreach ($fields as $field) {
+            if (! preg_match('/^\d+$/', (string) $this->fieldValue($transaction, $field))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function fileSignature(NormalizedTransaction $nt, string $side, array $verifyFields): string

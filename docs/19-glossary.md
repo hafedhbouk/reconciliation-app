@@ -147,8 +147,8 @@
 |-----------|--------|
 | **Source A** | ALPHA |
 | **Source B** | BNA |
-| **Clé primaire** | `num_autorisation` |
-| **Vérification** | `amount` + `date` |
+| **Clé primaire** | `num_autorisation` numérique |
+| **Vérification** | `amount` + `date`; valeurs non numériques exclues du matching |
 | **Tolérance** | Configurable (amount_millimes, days) |
 
 ### SMT-BNA
