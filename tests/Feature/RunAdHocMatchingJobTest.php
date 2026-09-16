@@ -19,6 +19,7 @@ use App\Services\Import\TransactionNormalizer;
 use App\Services\Matching\RuleMatcher;
 use Database\Seeders\BankSeeder;
 use Database\Seeders\CurrencySeeder;
+use Database\Seeders\MatchingRuleSeeder;
 use Database\Seeders\SourceColumnMappingSeeder;
 use Database\Seeders\SourceSeeder;
 use Illuminate\Support\Facades\DB;
@@ -339,4 +340,63 @@ test('the six combinations work with the actual seeded source mappings and norma
     }
     expect(MatchingResult::where('status', 'matched')->count())->toBe(6);
     expect(MatchingResult::where('status', 'conflict')->count())->toBe(0);
+});
+
+test('seeded matching rules keep the requested common fields for every source pair', function () {
+    $this->seed([
+        CurrencySeeder::class,
+        BankSeeder::class,
+        SourceSeeder::class,
+        SourceColumnMappingSeeder::class,
+        MatchingRuleSeeder::class,
+    ]);
+
+    $rules = MatchingRule::query()->get()->keyBy('name');
+
+    expect($rules['ALPHA ↔ BNA']->criteria['primary_key'])->toBe([
+        'a' => 'num_autorisation', 'b' => 'num_autorisation',
+    ])->and($rules['ALPHA ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date'])
+        ->and($rules['ALPHA ↔ WEB']->criteria['primary_key'])->toBe([
+            'a' => ['reference', 'num_autorisation'],
+            'b' => ['reference', 'secondary_reference'],
+        ])->and($rules['ALPHA ↔ WEB']->criteria['verify_fields'])->toBe(['amount', 'date'])
+        ->and($rules['ALPHA ↔ SMT']->criteria['primary_key'])->toBe([
+            'a' => 'date|amount', 'b' => 'date|amount',
+        ])
+        ->and($rules['SMT ↔ BNA']->criteria['primary_key'])->toBe([
+            'a' => 'date|amount', 'b' => 'date|amount',
+        ])
+        ->and($rules['WEB ↔ SMT']->criteria['primary_key'])->toBe([
+            'a' => 'date|amount', 'b' => 'date|amount',
+        ])
+        ->and($rules['WEB ↔ BNA']->criteria['primary_key'])->toBe([
+            'a' => 'secondary_reference', 'b' => 'num_autorisation',
+        ])->and($rules['WEB ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date']);
+    expect($rules['WEB ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
+        'a' => ['secondary_reference'], 'b' => [],
+    ])->and($rules['ALPHA ↔ WEB']->criteria['excluded_non_numeric'])->toBe([
+        'a' => [], 'b' => ['secondary_reference'],
+    ]);
+});
+
+test('non-numeric WEB receipts are excluded from receipt-based matching', function () {
+    $web = fileComparisonImport('WEB');
+    $bna = fileComparisonImport('BNA');
+    $webRow = fileComparisonRow($web, authorization: 'ND3PNV');
+    fileComparisonRow($bna, authorization: 'ND3PNV');
+    $rule = MatchingRule::factory()->create([
+        'source_a_id' => $web->source_id,
+        'source_b_id' => $bna->source_id,
+        'criteria' => [
+            'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
+            'verify_fields' => ['amount', 'date'],
+            'excluded_non_numeric' => ['a' => ['secondary_reference'], 'b' => []],
+        ],
+    ]);
+
+    $summary = app(RuleMatcher::class)->match($rule, 'invalid-receipt-test');
+
+    expect($summary->matched)->toBe(0)
+        ->and($webRow->fresh()->matching_status->value)->toBe('unmatched')
+        ->and(MatchingResult::count())->toBe(0);
 });

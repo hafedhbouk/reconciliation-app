@@ -88,12 +88,14 @@ class RuleMatcher
         $toleranceDays = (int) ($criteria['tolerance_days'] ?? 0);
         $excludedA = $criteria['excluded_status_raw']['a'] ?? [];
         $excludedB = $criteria['excluded_status_raw']['b'] ?? [];
+        $excludedNonNumericA = $criteria['excluded_non_numeric']['a'] ?? [];
+        $excludedNonNumericB = $criteria['excluded_non_numeric']['b'] ?? [];
         $primaryKeyA = $criteria['primary_key']['a'] ?? 'reference';
         $primaryKeyB = $criteria['primary_key']['b'] ?? 'reference';
         $verifyFields = $criteria['verify_fields'] ?? [];
 
-        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA, $importIdA);
-        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB, $importIdB);
+        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA, $importIdA, false, $excludedNonNumericA);
+        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB, $importIdB, false, $excludedNonNumericB);
 
         $matched = 0;
         $conflicts = 0;
@@ -409,7 +411,7 @@ class RuleMatcher
     /**
      * @return Collection<string,Collection<int,NormalizedTransaction>> keyed by the configured primary key
      */
-    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false): Collection
+    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false, array $excludedNonNumeric = []): Collection
     {
         $rows = NormalizedTransaction::query()
             ->fromActiveImports()
@@ -424,6 +426,18 @@ class RuleMatcher
             }))
             ->select('normalized_transactions.*', 'transactions.raw_payload')
             ->get();
+
+        if ($excludedNonNumeric !== []) {
+            $rows = $rows->reject(function (NormalizedTransaction $nt) use ($excludedNonNumeric): bool {
+                foreach ($excludedNonNumeric as $field) {
+                    if (! preg_match('/^\d+$/', (string) $this->fieldValue($nt, $field))) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        }
 
         $grouped = $rows->groupBy(function (NormalizedTransaction $nt) use ($primaryKey, $allStatuses) {
             if ($allStatuses) {

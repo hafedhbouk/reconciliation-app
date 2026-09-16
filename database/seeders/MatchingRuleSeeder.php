@@ -61,6 +61,7 @@ class MatchingRuleSeeder extends Seeder
                 'excluded_b' => ['Commission'],
                 'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
                 'verify_fields' => ['amount', 'date'],
+                'excluded_non_numeric' => ['a' => ['secondary_reference'], 'b' => []],
             ],
             [
                 'name' => 'ALPHA ↔ WEB',
@@ -70,6 +71,7 @@ class MatchingRuleSeeder extends Seeder
                 'excluded_b' => [],
                 'primary_key' => ['a' => ['reference', 'num_autorisation'], 'b' => ['reference', 'secondary_reference']],
                 'verify_fields' => ['amount', 'date'],
+                'excluded_non_numeric' => ['a' => [], 'b' => ['secondary_reference']],
             ],
             [
                 'name' => 'ALPHA ↔ SMT',
@@ -106,6 +108,7 @@ class MatchingRuleSeeder extends Seeder
                         'excluded_status_raw' => ['a' => [], 'b' => $rule['excluded_b']],
                         'primary_key' => $rule['primary_key'],
                         'verify_fields' => $rule['verify_fields'],
+                        'excluded_non_numeric' => $rule['excluded_non_numeric'] ?? ['a' => [], 'b' => []],
                     ],
                 ]
             );

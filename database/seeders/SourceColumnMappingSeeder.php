@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
  * validated rules (2026-07):
  *
  *   - WEB (alias STEG) : session and reference are now separate columns
- *     in the CSV export; reference keeps the right_chars(9) safety net;
+ *     in the CSV export; reference is trimmed and zero-padded to 9 digits;
  *     secondary_reference = recu_paie (with conditional b/B prefix stripped
  *     + zero-padded to 6 to align with BNA's N° autorisation); montant;
  *     date_paiement.
@@ -105,8 +105,7 @@ class SourceColumnMappingSeeder extends Seeder
         // Client correction (2026-07): WEB is STEG's online payment portal
         // export. The file now has separate "session" and "reference" columns
         // instead of the old fused "session,reference" column. reference
-        // keeps the right_chars(9) safety net in case the export still pads
-        // it. recu_paie (once its conditional b/B prefix is stripped) becomes
+        // is padded to nine digits. recu_paie (once its conditional b/B prefix is stripped) becomes
         // the auxiliary `secondary_reference` — it's the cross-source matching
         // key used against BNA's N° autorisation.
         $this->upsert($source, 'session', 'session', [
@@ -115,7 +114,7 @@ class SourceColumnMappingSeeder extends Seeder
 
         $this->upsert($source, 'reference', 'reference', [
             ['key' => 'trim'],
-            ['key' => 'right_chars', 'config' => ['length' => 9]],
+                ['key' => 'zero_pad', 'config' => ['length' => 9]],
         ], required: true, order: 1);
 
         // recu_paie is the cross-source matching key against BNA's

@@ -19,7 +19,7 @@ test('each source imports all required fields and strips only the authorization 
         'ALPHA' => ['REFERENCE' => '001234567', 'MONTANT_ENCAISS' => '000000016000', 'DAT_ENC' => '01/02/2026', 'NUM_AUTO' => ' '.$prefix.'003512 '],
         'BNA' => ['N° autorisation' => '003512', 'Date' => '01/02/2026', 'Montant (TND)' => '16.000'],
         'SMT' => ['New Deposit date' => '2026.02.01 12:34:56', 'Montant' => '16.000'],
-        default => ['reference' => '001234567', 'montant' => '000000016000', 'date_paiement' => '2026-02-01 12:34:56', 'recu_paie' => ' '.$prefix.'003512 '],
+        default => ['reference' => '1234567', 'montant' => '000000016000', 'date_paiement' => '2026-02-01 12:34:56', 'recu_paie' => ' '.$prefix.'003512 '],
     };
     $engine = app(MappingEngine::class);
     expect($mappings->where('is_required', true)->pluck('source_column')->all())->toEqualCanonicalizing(array_keys($raw));

@@ -123,10 +123,10 @@
 |-----------|--------|
 | **Code** | `WEB` (affiché "WEB / STEG") |
 | **Type fichier** | `csv` |
-| **Référence** | `reference` (reference, right_chars 9) |
-| **Référence secondaire** | `secondary_reference` (recu_paie, b/B stripped, zero-padded 6) |
+| **Référence** | `reference` (reference, zero-padded 9 digits) |
+| **Référence secondaire** | `secondary_reference` (recu_paie, b/B stripped, zero-padded 6; valeurs non numériques exclues du matching) |
 | **Montant** | `amount` (montant, fixed_width_millimes) |
-| **Date** | `date` (date_paiement, format Y-m-d H:i:s) |
+| **Date** | `date` (date_paiement, normalized for storage and displayed `jj/mm/aaaa`) |
 | **Session** | `session` (session, trim) — champ non-core, stocké dans raw_payload |
 
 ### SMT
@@ -137,7 +137,7 @@
 | **Type fichier** | `csv` (séparateur `;`) |
 | **Clé de matching** | Composite `date\|amount` (généré par TransactionNormalizer) |
 | **Montant** | `amount` (Montant, decimal_string_to_millimes, 3 decimals) |
-| **Date** | `date` (New Deposit date, format Y.m.d H:i:s) |
+| **Date** | `date` (New Deposit date, normalized for storage and displayed `jj/mm/aaaa`) |
 
 ## Règles de matching détaillées
 
@@ -167,7 +167,7 @@
 | **Source A** | WEB |
 | **Source B** | BNA |
 | **Clé primaire** | `secondary_reference` (recu_paie) vs `num_autorisation` |
-| **Vérification** | Aucune |
+| **Vérification** | `amount` + `date` |
 
 ### ALPHA-WEB
 
@@ -175,8 +175,8 @@
 |-----------|--------|
 | **Source A** | ALPHA |
 | **Source B** | WEB |
-| **Clé primaire** | `reference` |
-| **Vérification** | `num_autorisation` vs `secondary_reference` |
+| **Clé primaire** | `reference` + `num_autorisation` vs `reference` + `secondary_reference` |
+| **Vérification** | `amount` + `date` |
 
 ### ALPHA-SMT
 
