@@ -31,6 +31,7 @@ class MatchingExport extends Model
         'filters',
         'error_message',
         'completed_at',
+        'type', // 'matching' or 'search' or 'unmatched'
     ];
 
     protected function casts(): array

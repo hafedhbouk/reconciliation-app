@@ -12,6 +12,8 @@ namespace App\Http\Controllers\Admin;
  */
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
+use App\Jobs\GenerateSearchExportJob;
+use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use Illuminate\Database\Eloquent\Builder;
@@ -80,6 +82,86 @@ class SearchController extends Controller
         );
 
         return Excel::download($export, "recherche.{$format}", $this->writerType($format));
+    }
+
+    /**
+     * Lance un export asynchrone pour les gros volumes.
+     * Crée un enregistrement MatchingExport et dispatche le job de génération.
+     */
+    public function exportAsync(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorize('search.viewAny');
+        $request->validate([
+            'format' => 'required|in:csv,xlsx,pdf',
+            'source_id' => 'nullable|exists:sources,id',
+            'reference' => 'nullable|string|max:255',
+            'amount_min' => 'nullable|integer',
+            'amount_max' => 'nullable|integer',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+            'matching_status' => 'nullable|string',
+            'canal' => 'nullable|string|max:255',
+        ]);
+
+        $filters = $request->only([
+            'source_id',
+            'reference',
+            'amount_min',
+            'amount_max',
+            'date_from',
+            'date_to',
+            'matching_status',
+            'canal',
+        ]);
+
+        $matchingExport = MatchingExport::query()->create([
+            'user_id' => auth()->id(),
+            'format' => $request->input('format'),
+            'status' => 'pending',
+            'filters' => $filters,
+            'type' => 'search',
+            'download_token' => \Illuminate\Support\Str::random(64),
+        ]);
+
+        GenerateSearchExportJob::dispatch($matchingExport);
+
+        return redirect()->route('admin.search.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
+    }
+
+    /**
+     * Liste des exports de l'utilisateur connecté.
+     */
+    public function exports(Request $request): View
+    {
+        $this->authorize('search.viewAny');
+
+        $exports = MatchingExport::query()
+            ->where('type', 'search')
+            ->when($request->user()->cannot('viewAny', MatchingExport::class), fn ($q) => $q->where('user_id', $request->user()->id))
+            ->orderByDesc('id')
+            ->paginate(20);
+
+        return view('admin.search.exports', compact('exports'));
+    }
+
+    /**
+     * Téléchargement sécurisé par token (pas d'auth requise).
+     */
+    public function downloadExport(string $token): BinaryFileResponse
+    {
+        $export = MatchingExport::query()->where('download_token', $token)->firstOrFail();
+
+        if (! $export->isCompleted() || ! $export->file_path) {
+            abort(404);
+        }
+
+        $path = \Illuminate\Support\Facades\Storage::path($export->file_path);
+
+        if (! file_exists($path)) {
+            abort(404);
+        }
+
+        return response()->download($path, "recherche.{$export->format}");
     }
 
     private function buildQuery(Request $request): Builder

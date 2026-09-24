@@ -25,7 +25,7 @@
     </x-slot>
 
     <div class="row g-3 mb-3">
-        <div class="col-md-3">
+        <div class="col-6 col-md-3">
             <div class="card h-100">
                 <div class="card-body">
                     <div class="text-secondary small text-uppercase">{{ __('Transactions totales') }}</div>
@@ -34,7 +34,7 @@
             </div>
         </div>
         @can('exceptions.viewAny')
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="text-secondary small text-uppercase">{{ __('Exceptions ouvertes') }}</div>
@@ -44,7 +44,7 @@
             </div>
         @endcan
         @can('imports.viewAny')
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="text-secondary small text-uppercase">{{ __('Imports ce mois-ci') }}</div>
@@ -54,7 +54,7 @@
             </div>
         @endcan
         @can('matching-results.viewAny')
-            <div class="col-md-3">
+            <div class="col-6 col-md-3">
                 <div class="card h-100">
                     <div class="card-body">
                         <div class="text-secondary small text-uppercase">{{ __('Taux de rapprochement') }}</div>
@@ -67,30 +67,30 @@
 
     <div class="row g-3 mb-3">
         @can('matching-results.viewAny')
-            <div class="col-md-4">
+            <div class="col-12 col-md-6 col-lg-4">
                 <div class="card h-100">
                     <div class="card-header fw-semibold">{{ __('Résultats de rapprochement') }}</div>
                     <div class="card-body">
-                        <canvas id="chart-matching" height="220"></canvas>
+                        <canvas id="chart-matching" height="200"></canvas>
                     </div>
                 </div>
             </div>
         @endcan
         @can('exceptions.viewAny')
-            <div class="col-md-4">
+            <div class="col-12 col-md-6 col-lg-4">
                 <div class="card h-100">
                     <div class="card-header fw-semibold">{{ __('Exceptions par type') }}</div>
                     <div class="card-body">
-                        <canvas id="chart-exceptions" height="220"></canvas>
+                        <canvas id="chart-exceptions" height="200"></canvas>
                     </div>
                 </div>
             </div>
         @endcan
-        <div class="col-md-4">
+        <div class="col-12 col-md-6 col-lg-4">
             <div class="card h-100">
                 <div class="card-header fw-semibold">{{ __('Volume par source') }}</div>
                 <div class="card-body">
-                    <canvas id="chart-volume" height="220"></canvas>
+                    <canvas id="chart-volume" height="200"></canvas>
                 </div>
             </div>
         </div>
@@ -99,7 +99,7 @@
     <div class="card">
         <div class="card-header fw-semibold">{{ __('Volume de transactions (30 derniers jours)') }}</div>
         <div class="card-body">
-            <canvas id="chart-trend" height="90"></canvas>
+            <canvas id="chart-trend" height="120"></canvas>
         </div>
     </div>
 

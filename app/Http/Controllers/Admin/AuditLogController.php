@@ -24,7 +24,13 @@ class AuditLogController extends Controller
     {
         $this->authorize('viewAny', AuditLog::class);
 
-        $logs = AuditLog::query()->with('user')->select('audit_logs.*');
+        // Keep large JSON payloads out of the listing's sort and response.
+        // They remain available on the individual audit entry page.
+        $logs = AuditLog::query()->with('user:id,name')->select([
+            'audit_logs.id', 'audit_logs.user_id', 'audit_logs.event',
+            'audit_logs.auditable_type', 'audit_logs.auditable_id',
+            'audit_logs.ip_address', 'audit_logs.created_at',
+        ]);
 
         return DataTables::of($logs)
             ->addColumn('user', fn (AuditLog $log) => $log->user?->name ?? __('Système'))

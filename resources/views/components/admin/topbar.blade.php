@@ -1,5 +1,11 @@
 <nav class="navbar navbar-expand bg-body border-bottom px-3">
-    <div class="container-fluid px-0 justify-content-end">
+    <div class="container-fluid px-0 justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" id="mobileMenuToggle" class="btn btn-outline-secondary btn-sm mobile-menu-toggle" title="{{ __('Menu') }}">
+                <i class="bi bi-list"></i>
+            </button>
+            <span class="fw-semibold d-lg-none">{{ config('app.name') }}</span>
+        </div>
         <div class="d-flex align-items-center gap-2">
             @php
                 $unreadNotifications = auth()->user()->unreadNotifications()->latest()->take(8)->get();

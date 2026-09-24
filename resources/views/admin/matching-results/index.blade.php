@@ -50,9 +50,7 @@
                     <select name="status" id="status-filter" class="form-select form-select-sm">
                         <option value="">{{ __('Tous les statuts') }}</option>
                         <option value="matched" {{ request('status') === 'matched' ? 'selected' : '' }}>{{ __('Rapproché') }}</option>
-                        <option value="partial" {{ request('status') === 'partial' ? 'selected' : '' }}>{{ __('Partiel') }}</option>
                         <option value="conflict" {{ request('status') === 'conflict' ? 'selected' : '' }}>{{ __('Conflit') }}</option>
-                        <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>{{ __('Rejeté') }}</option>
                     </select>
                 </div>
                 <div class="col-auto">
@@ -172,9 +170,7 @@
                             <select name="status" id="export_status" class="form-select">
                                 <option value="">{{ __('Tous les statuts') }}</option>
                                 <option value="matched">{{ __('Rapproché') }}</option>
-                                <option value="partial">{{ __('Partiel') }}</option>
                                 <option value="conflict">{{ __('Conflit') }}</option>
-                                <option value="rejected">{{ __('Rejeté') }}</option>
                             </select>
                         </div>
                     </div>

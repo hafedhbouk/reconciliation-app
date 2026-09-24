@@ -90,6 +90,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('search', [SearchController::class, 'index'])->name('search.index');
     Route::get('search/data', [SearchController::class, 'data'])->name('search.data');
     Route::get('search/export/{format}', [SearchController::class, 'export'])->middleware('throttle:expensive-actions')->name('search.export');
+    Route::post('search/export-async', [SearchController::class, 'exportAsync'])->middleware('throttle:expensive-actions')->name('search.export-async');
+    Route::get('search/exports', [SearchController::class, 'exports'])->name('search.exports');
+    Route::get('search/exports/{token}/download', [SearchController::class, 'downloadExport'])->name('search.exports.download');
 });
 
 require __DIR__.'/auth.php';

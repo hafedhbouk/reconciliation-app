@@ -19,9 +19,9 @@
     </head>
     <body class="antialiased">
         <div class="d-flex flex-column justify-content-center align-items-center vh-100 bg-body-secondary">
-            <div class="mb-3">
+<div class="mb-3">
                 <a href="/" class="text-decoration-none">
-                    <x-application-logo style="height: 4rem; width: auto;" />
+                    <x-application-logo style="height: 15rem; width: auto;" />
                 </a>
             </div>
 

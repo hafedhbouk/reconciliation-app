@@ -94,10 +94,25 @@ class DashboardMetricsService
     public function dailyTransactionTrend(int $days = 30): array
     {
         return Cache::remember("dashboard.daily_transaction_trend.{$days}", now()->addMinutes(self::TTL_MINUTES), function () use ($days) {
-            $from = now()->subDays($days - 1)->startOfDay();
+            // Use the max transaction_date available as anchor, since transaction_date
+            // contains business dates (Feb-Jun 2026) while "now" is Sep 2026.
+            $maxDate = Transaction::query()->max('transaction_date');
+
+            if (! $maxDate) {
+                $trend = [];
+                for ($i = 0; $i < $days; $i++) {
+                    $date = now()->subDays($days - 1 - $i)->format('Y-m-d');
+                    $trend[] = ['date' => $date, 'count' => 0];
+                }
+
+                return $trend;
+            }
+
+            $from = \Illuminate\Support\Carbon::parse($maxDate)->subDays($days - 1)->startOfDay();
 
             $rows = Transaction::query()
                 ->where('transaction_date', '>=', $from->format('Y-m-d'))
+                ->where('transaction_date', '<=', $maxDate)
                 ->selectRaw('transaction_date, count(*) as c')
                 ->groupBy('transaction_date')
                 ->pluck('c', 'transaction_date');
