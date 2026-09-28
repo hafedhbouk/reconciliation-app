@@ -19,7 +19,7 @@ COPY resources/ ./resources/
 RUN npm run build
 
 # Shared PHP platform for dependency installation and production
-FROM php:8.3-fpm-alpine AS php-base
+FROM php:8.5-fpm-alpine AS php-base
 
 # Install system dependencies
 RUN apk add --no-cache \
