@@ -22,12 +22,15 @@ use App\Jobs\SweepUnmatchedJob;
 use App\Models\Import;
 use App\Models\MatchingRule;
 use App\Models\Source;
+use App\Services\Matching\DuplicateDetector;
+use App\Services\Matching\UnmatchedSweeper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -42,6 +45,38 @@ class MatchingRuleController extends Controller
     {
         return view('admin.matching-rules.index', [
             'sources' => Source::query()->where('is_active', true)->orderBy('name')->get(),
+        ]);
+    }
+
+    public function maintenance(Request $request, DuplicateDetector $detector, UnmatchedSweeper $sweeper): View
+    {
+        $this->authorize('update', MatchingRule::class);
+        $filters = $request->boolean('preview') ? $this->validateMaintenanceFilters($request) : [];
+        $duplicatePreview = null;
+        $unmatchedPreview = null;
+
+        if ($filters !== []) {
+            $duplicatePreview = $detector->scan(
+                sourceId: $filters['source_id'] ?? null,
+                importId: $filters['import_id'] ?? null,
+                dateFrom: $filters['date_from'] ?? null,
+                dateTo: $filters['date_to'] ?? null,
+                preview: true,
+            );
+            $unmatchedPreview = $sweeper->previewCount(
+                $filters['source_id'] ?? null,
+                $filters['import_id'] ?? null,
+                $filters['date_from'] ?? null,
+                $filters['date_to'] ?? null,
+            );
+        }
+
+        return view('admin.matching-rules.maintenance', [
+            'sources' => Source::query()->where('is_active', true)->orderBy('name')->get(),
+            'imports' => Import::query()->with('source')->where('status', 'completed')->orderByDesc('created_at')->limit(250)->get(),
+            'filters' => $filters,
+            'duplicatePreview' => $duplicatePreview,
+            'unmatchedPreview' => $unmatchedPreview,
         ]);
     }
 
@@ -160,7 +195,11 @@ class MatchingRuleController extends Controller
             ->map(fn (MatchingRule $rule) => new RunMatchingRuleJob($rule->id, $batchReference))
             ->all();
 
-        $jobs = [...$ruleJobs, new DetectDuplicatesJob, new SweepUnmatchedJob];
+        $jobs = [
+            ...$ruleJobs,
+            new DetectDuplicatesJob(batchReference: $batchReference),
+            new SweepUnmatchedJob(batchReference: $batchReference),
+        ];
 
         if (auth()->id() !== null) {
             $jobs[] = new NotifyMatchingBatchCompleteJob($batchReference, auth()->id());
@@ -171,22 +210,61 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Toutes les règles actives ont été lancées, par ordre de priorité.'));
     }
 
-    public function detectDuplicates(): RedirectResponse
+    public function detectDuplicates(Request $request): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
+        $filters = $this->validateMaintenanceFilters($request);
+        $batchReference = (string) Str::uuid();
 
-        DetectDuplicatesJob::dispatch(null, auth()->id());
+        DetectDuplicatesJob::dispatch(
+            $filters['source_id'] ?? null,
+            auth()->id(),
+            $filters['import_id'] ?? null,
+            $filters['date_from'] ?? null,
+            $filters['date_to'] ?? null,
+            $batchReference,
+        );
 
-        return redirect()->route('admin.matching-rules.index')->with('status', __('Détection des doublons lancée.'));
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Détection des doublons lancée (lot :batch).', ['batch' => $batchReference]));
     }
 
-    public function sweepUnmatched(): RedirectResponse
+    public function sweepUnmatched(Request $request): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
+        $filters = $this->validateMaintenanceFilters($request);
+        $batchReference = (string) Str::uuid();
 
-        SweepUnmatchedJob::dispatch(null, auth()->id());
+        SweepUnmatchedJob::dispatch(
+            $filters['source_id'] ?? null,
+            auth()->id(),
+            $filters['import_id'] ?? null,
+            $filters['date_from'] ?? null,
+            $filters['date_to'] ?? null,
+            $batchReference,
+        );
 
-        return redirect()->route('admin.matching-rules.index')->with('status', __('Balayage des transactions non rapprochées lancé.'));
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Balayage des non-rapprochés lancé (lot :batch).', ['batch' => $batchReference]));
+    }
+
+    private function validateMaintenanceFilters(Request $request): array
+    {
+        $validated = $request->validate([
+            'source_id' => ['nullable', 'integer', 'exists:sources,id'],
+            'import_id' => ['nullable', 'integer', Rule::exists('imports', 'id')->where('status', 'completed')],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        if (! empty($validated['source_id']) && ! empty($validated['import_id'])) {
+            $import = Import::query()->find($validated['import_id']);
+            if ($import?->source_id !== (int) $validated['source_id']) {
+                throw ValidationException::withMessages([
+                    'import_id' => __('Le fichier sélectionné ne correspond pas à la source choisie.'),
+                ]);
+            }
+        }
+
+        return $validated;
     }
 
     /**

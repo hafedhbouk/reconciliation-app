@@ -16,6 +16,7 @@ class UpdateExceptionRequest extends BaseFormRequest
             'type' => ['sometimes', Rule::in(array_column(ExceptionType::cases(), 'value'))],
             'assigned_to' => ['sometimes', 'nullable', 'exists:users,id'],
             'resolution_comment' => ['sometimes', 'nullable', 'string'],
+            'is_expected' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -61,7 +61,7 @@ test('an unmatched row with an existing open exception is skipped', function () 
     expect(ExceptionRecord::query()->count())->toBe(1);
 });
 
-test('an unmatched row whose only exception was resolved gets swept again', function () {
+test('an unmatched row whose exception was resolved is not raised again', function () {
     $source = Source::factory()->create();
     $nt = makeSweepTx($source, MatchingStatus::Unmatched);
     ExceptionRecord::create([
@@ -72,8 +72,8 @@ test('an unmatched row whose only exception was resolved gets swept again', func
 
     $created = $this->sweeper->sweep();
 
-    expect($created)->toBe(1);
-    expect(ExceptionRecord::query()->count())->toBe(2);
+    expect($created)->toBe(0);
+    expect(ExceptionRecord::query()->count())->toBe(1);
 });
 
 test('re-sweeping immediately is idempotent', function () {
@@ -87,4 +87,26 @@ test('re-sweeping immediately is idempotent', function () {
 
     expect($secondCreated)->toBe(0);
     expect(ExceptionRecord::query()->count())->toBe($firstCount);
+});
+
+test('unmatched preview is read-only and actual sweep respects file and date filters', function () {
+    $source = Source::factory()->create();
+    $import = \App\Models\Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    $otherImport = \App\Models\Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    $selected = makeSweepTx($source, MatchingStatus::Unmatched);
+    $selected->transaction->update(['import_id' => $import->id]);
+    $selected->update(['normalized_date' => '2026-05-15']);
+    $outsideDate = makeSweepTx($source, MatchingStatus::Unmatched);
+    $outsideDate->transaction->update(['import_id' => $import->id]);
+    $outsideDate->update(['normalized_date' => '2026-06-15']);
+    $outsideImport = makeSweepTx($source, MatchingStatus::Unmatched);
+    $outsideImport->transaction->update(['import_id' => $otherImport->id]);
+    $outsideImport->update(['normalized_date' => '2026-05-15']);
+
+    expect($this->sweeper->previewCount($source->id, $import->id, '2026-05-01', '2026-05-31'))->toBe(1)
+        ->and(ExceptionRecord::query()->count())->toBe(0);
+
+    expect($this->sweeper->sweep($source->id, $import->id, '2026-05-01', '2026-05-31', 'preview-batch-002'))->toBe(1)
+        ->and(ExceptionRecord::query()->sole()->normalized_transaction_id)->toBe($selected->id)
+        ->and(ExceptionRecord::query()->sole()->batch_reference)->toBe('preview-batch-002');
 });

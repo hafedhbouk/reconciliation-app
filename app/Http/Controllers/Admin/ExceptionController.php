@@ -11,6 +11,7 @@ namespace App\Http\Controllers\Admin;
  * SearchController.
  */
 use App\Enums\ExceptionStatus;
+use App\Enums\ExceptionType;
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateExceptionRequest;
@@ -41,17 +42,21 @@ class ExceptionController extends Controller
         $this->authorize('viewAny', ExceptionRecord::class);
 
         $exceptions = ExceptionRecord::query()
-            ->with(['normalizedTransaction.transaction.source', 'assignedTo'])
+            ->with(['normalizedTransaction.transaction.source', 'assignedTo', 'matchingResult'])
             ->select('exceptions.*');
 
         return DataTables::of($exceptions)
-            ->addColumn('type_label', fn (ExceptionRecord $exception) => $exception->type->label())
+            ->addColumn('type_label', fn (ExceptionRecord $exception) => $this->typeLabel($exception))
+            ->addColumn('qualification', fn (ExceptionRecord $exception) => $exception->type === ExceptionType::Unmatched
+                ? ($exception->is_expected ? __('Attendu') : __('À traiter'))
+                : '—')
             ->addColumn('status', fn (ExceptionRecord $exception) => sprintf(
                 '<span class="badge %s">%s</span>',
                 $exception->status->badgeClass(),
                 $exception->status->label()
             ))
             ->addColumn('source_reference', fn (ExceptionRecord $exception) => $this->sourceReferenceSnapshot($exception))
+            ->addColumn('batch_reference', fn (ExceptionRecord $exception) => $this->batchReferenceSnapshot($exception))
             ->addColumn('assigned_to', fn (ExceptionRecord $exception) => $exception->assignedTo?->name ?? '—')
             ->addColumn('actions', fn (ExceptionRecord $exception) => '<a href="'.route('admin.exceptions.show', $exception).'" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>')
             ->rawColumns(['status', 'actions'])
@@ -77,6 +82,10 @@ class ExceptionController extends Controller
     public function update(UpdateExceptionRequest $request, ExceptionRecord $exception): RedirectResponse
     {
         $data = $request->validated();
+        $type = $data['type'] ?? $exception->type->value;
+        if ($type !== ExceptionType::Unmatched->value) {
+            $data['is_expected'] = false;
+        }
 
         if (($data['status'] ?? null) === ExceptionStatus::Resolved->value && $exception->status !== ExceptionStatus::Resolved) {
             $data['resolved_by'] = $request->user()->id;
@@ -93,7 +102,7 @@ class ExceptionController extends Controller
         $this->authorize('viewAny', ExceptionRecord::class);
         abort_unless(in_array($format, ['csv', 'xlsx', 'pdf'], true), 404);
 
-        $query = ExceptionRecord::query()->with(['normalizedTransaction.transaction.source', 'assignedTo'])->orderByDesc('id');
+        $query = ExceptionRecord::query()->with(['normalizedTransaction.transaction.source', 'assignedTo', 'matchingResult'])->orderByDesc('id');
 
         // See SearchController::export() -- XLSX/PDF both build a full
         // in-memory object model and exhausted PHP's memory limit on a real
@@ -104,11 +113,13 @@ class ExceptionController extends Controller
 
         $export = new GenericTableExport(
             $query,
-            [__('Type'), __('Statut'), __('Source / Référence'), __('Assigné à'), __('Créé le')],
+            [__('Type'), __('Qualification'), __('Statut'), __('Source / Référence'), __('Lot'), __('Assigné à'), __('Créé le')],
             fn (ExceptionRecord $exception) => [
-                $exception->type->label(),
+                $this->typeLabel($exception),
+                $exception->type === ExceptionType::Unmatched ? ($exception->is_expected ? __('Attendu') : __('À traiter')) : '—',
                 $exception->status->label(),
                 $this->sourceReferenceSnapshot($exception),
+                $this->batchReferenceSnapshot($exception),
                 $exception->assignedTo?->name ?? '—',
                 $exception->created_at?->format('d/m/Y H:i'),
             ],
@@ -132,5 +143,19 @@ class ExceptionController extends Controller
         }
 
         return ($nt->transaction?->source?->code ?? '?').' / '.$nt->normalized_reference;
+    }
+
+    private function typeLabel(ExceptionRecord $exception): string
+    {
+        return $exception->type === ExceptionType::Duplicate
+            ? __('Doublon potentiel')
+            : $exception->type->label();
+    }
+
+    private function batchReferenceSnapshot(ExceptionRecord $exception): string
+    {
+        $batchReference = $exception->batch_reference ?? $exception->matchingResult?->batch_reference;
+
+        return $batchReference ? substr($batchReference, 0, 8) : '—';
     }
 }

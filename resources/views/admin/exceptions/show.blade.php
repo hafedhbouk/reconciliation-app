@@ -9,12 +9,22 @@
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-4">{{ __('Type') }}</dt>
-                        <dd class="col-sm-8">{{ $exception->type->label() }}</dd>
+                        <dd class="col-sm-8">{{ $exception->type === \App\Enums\ExceptionType::Duplicate ? __('Doublon potentiel') : $exception->type->label() }}</dd>
 
                         <dt class="col-sm-4">{{ __('Statut') }}</dt>
                         <dd class="col-sm-8">
                             <span class="badge {{ $exception->status->badgeClass() }}">{{ $exception->status->label() }}</span>
                         </dd>
+
+                        @if ($exception->type === \App\Enums\ExceptionType::Unmatched)
+                            <dt class="col-sm-4">{{ __('Qualification') }}</dt>
+                            <dd class="col-sm-8">{{ $exception->is_expected ? __('Attendu') : __('À traiter') }}</dd>
+                        @endif
+
+                        @if ($exception->batch_reference || $exception->matchingResult?->batch_reference)
+                            <dt class="col-sm-4">{{ __('Lot de détection') }}</dt>
+                            <dd class="col-sm-8"><code>{{ $exception->batch_reference ?? $exception->matchingResult?->batch_reference }}</code></dd>
+                        @endif
 
                         @if ($exception->normalizedTransaction)
                             <dt class="col-sm-4">{{ __('Source') }}</dt>
@@ -44,7 +54,7 @@
 
                         @if ($exception->resolved_at)
                             <dt class="col-sm-4">{{ __('Résolu par') }}</dt>
-                            <dd class="col-sm-8">{{ $exception->resolvedBy?->name }} — {{ $exception->resolved_at->format('d/m/Y H:i') }}</dd>
+                            <dd class="col-sm-8">{{ $exception->resolvedBy?->name ?? __('Automatique') }} — {{ $exception->resolved_at->format('d/m/Y H:i') }}</dd>
                         @endif
 
                         @if ($exception->resolution_comment)
@@ -95,6 +105,14 @@
                                 <x-input-label for="resolution_comment" :value="__('Commentaire')" />
                                 <textarea id="resolution_comment" name="resolution_comment" class="form-control" rows="3">{{ old('resolution_comment', $exception->resolution_comment) }}</textarea>
                             </div>
+
+                            @if ($exception->type === \App\Enums\ExceptionType::Unmatched)
+                                <input type="hidden" name="is_expected" value="0">
+                                <div class="form-check mb-3">
+                                    <input id="is_expected" name="is_expected" type="checkbox" value="1" class="form-check-input" @checked(old('is_expected', $exception->is_expected))>
+                                    <label for="is_expected" class="form-check-label">{{ __('Non-rapproché attendu (pas une anomalie à traiter)') }}</label>
+                                </div>
+                            @endif
 
                             <x-primary-button>{{ __('Enregistrer') }}</x-primary-button>
                         </form>

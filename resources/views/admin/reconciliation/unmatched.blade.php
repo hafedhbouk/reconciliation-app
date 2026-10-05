@@ -86,6 +86,76 @@
             $importB = \App\Models\Import::query()->find($importBId);
             $sourceAName = $importA?->source?->name ?? 'A';
             $sourceBName = $importB?->source?->name ?? 'B';
+            $sourceACode = strtoupper($importA?->source?->code ?? '');
+            $sourceBCode = strtoupper($importB?->source?->code ?? '');
+            $isAlphaBna = in_array($sourceACode, ['ALPHA', 'BNA'], true)
+                && in_array($sourceBCode, ['ALPHA', 'BNA'], true)
+                && $sourceACode !== $sourceBCode;
+            $isAlphaWeb = in_array('ALPHA', [$sourceACode, $sourceBCode], true)
+                && (in_array('WEB', [$sourceACode, $sourceBCode], true) || in_array('STEG', [$sourceACode, $sourceBCode], true));
+            $isBnaWeb = in_array('BNA', [$sourceACode, $sourceBCode], true)
+                && (in_array('WEB', [$sourceACode, $sourceBCode], true) || in_array('STEG', [$sourceACode, $sourceBCode], true));
+            $columnsFor = static function (string $sourceCode) use ($isAlphaBna, $isAlphaWeb, $isBnaWeb) {
+                if ($isAlphaBna) {
+                    return $sourceCode === 'ALPHA'
+                        ? [
+                            ['label' => 'NUM_AUTO', 'field' => 'num_autorisation'],
+                            ['label' => 'DAT_ENC', 'field' => 'date'],
+                            ['label' => 'MONTANT_ENCAISS', 'field' => 'amount_millimes'],
+                        ]
+                        : [
+                            ['label' => 'N° autorisation', 'field' => 'num_autorisation'],
+                            ['label' => 'Date', 'field' => 'date'],
+                            ['label' => 'Montant', 'field' => 'amount_millimes'],
+                        ];
+                }
+
+                if ($isAlphaWeb) {
+                    return $sourceCode === 'ALPHA'
+                        ? [
+                            ['label' => 'REFERENCE', 'field' => 'reference'],
+                            ['label' => 'NUM_AUTO', 'field' => 'num_autorisation'],
+                            ['label' => 'DAT_ENC', 'field' => 'date'],
+                            ['label' => 'MONTANT_ENCAISS', 'field' => 'amount_millimes'],
+                        ]
+                        : [
+                            ['label' => 'reference', 'field' => 'reference'],
+                            ['label' => 'recu_paie', 'field' => 'secondary_reference'],
+                            ['label' => 'date_paiement', 'field' => 'date'],
+                            ['label' => 'montant', 'field' => 'amount_millimes'],
+                        ];
+                }
+
+                if ($isBnaWeb) {
+                    return $sourceCode === 'BNA'
+                        ? [
+                            ['label' => 'N° autorisation', 'field' => 'num_autorisation'],
+                            ['label' => 'Date', 'field' => 'date'],
+                            ['label' => 'Montant', 'field' => 'amount_millimes'],
+                        ]
+                        : [
+                            ['label' => 'recu_paie', 'field' => 'secondary_reference'],
+                            ['label' => 'date_paiement', 'field' => 'date'],
+                            ['label' => 'montant', 'field' => 'amount_millimes'],
+                        ];
+                }
+
+                return [
+                    ['label' => __('Source'), 'field' => 'source'],
+                    ['label' => __('Référence'), 'field' => 'reference'],
+                    ['label' => __('Montant'), 'field' => 'amount_millimes'],
+                    ['label' => __('Date'), 'field' => 'date'],
+                ];
+            };
+            $columnsA = $columnsFor($sourceACode);
+            $columnsB = $columnsFor($sourceBCode);
+            $valueFor = static fn (array $row, string $field) => match ($field) {
+                'source' => $row['source'] ?? 'N/A',
+                'reference' => $row['reference'] ?? ($row['primary_key_value'] ?? ''),
+                'num_autorisation' => $row['num_autorisation'] ?? '—',
+                'secondary_reference' => $row['secondary_reference'] ?? '—',
+                default => $row[$field] ?? '',
+            };
         @endphp
 
         @if ($snapshot && $snapshot->status === 'processing')
@@ -145,23 +215,21 @@
                             <table class="table table-sm table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th>{{ __('Source') }}</th>
-                                        <th>{{ __('Référence') }}</th>
-                                        <th>{{ __('Montant') }}</th>
-                                        <th>{{ __('Date') }}</th>
+                                        @foreach ($columnsA as $column)
+                                            <th>{{ __($column['label']) }}</th>
+                                        @endforeach
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse ($unmatchedA as $tx)
                                         <tr>
-                                            <td>{{ $tx['source'] ?? 'N/A' }}</td>
-                                            <td>{{ $tx['reference'] ?? ($tx['primary_key_value'] ?? '') }}</td>
-                                            <td>{{ $tx['amount_millimes'] ?? '' }}</td>
-                                            <td>{{ $tx['date'] ?? '' }}</td>
+                                            @foreach ($columnsA as $column)
+                                                <td>{{ $valueFor($tx, $column['field']) }}</td>
+                                            @endforeach
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                            <td colspan="{{ count($columnsA) }}" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
                                         </tr>
                                     @endforelse
                                 </tbody>
@@ -181,23 +249,21 @@
                             <table class="table table-sm table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th>{{ __('Source') }}</th>
-                                        <th>{{ __('Référence') }}</th>
-                                        <th>{{ __('Montant') }}</th>
-                                        <th>{{ __('Date') }}</th>
+                                        @foreach ($columnsB as $column)
+                                            <th>{{ __($column['label']) }}</th>
+                                        @endforeach
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @forelse ($unmatchedB as $tx)
                                         <tr>
-                                            <td>{{ $tx['source'] ?? 'N/A' }}</td>
-                                            <td>{{ $tx['reference'] ?? ($tx['primary_key_value'] ?? '') }}</td>
-                                            <td>{{ $tx['amount_millimes'] ?? '' }}</td>
-                                            <td>{{ $tx['date'] ?? '' }}</td>
+                                            @foreach ($columnsB as $column)
+                                                <td>{{ $valueFor($tx, $column['field']) }}</td>
+                                            @endforeach
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                            <td colspan="{{ count($columnsB) }}" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
                                         </tr>
                                     @endforelse
                                 </tbody>

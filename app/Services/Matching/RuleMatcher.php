@@ -419,6 +419,8 @@ class RuleMatcher
             'id' => $nt->id,
             'source' => $nt->transaction->source->code,
             'reference' => $nt->normalized_reference,
+            'num_autorisation' => $this->fieldValue($nt, 'num_autorisation'),
+            'secondary_reference' => $this->fieldValue($nt, 'secondary_reference'),
             'amount_millimes' => $nt->normalized_amount_millimes,
             'date' => $nt->normalized_date?->format('d/m/Y'),
             'primary_key_value' => $this->primaryKeyValue($nt, $primaryKey),

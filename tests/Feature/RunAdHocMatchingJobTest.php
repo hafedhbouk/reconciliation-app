@@ -171,6 +171,71 @@ test('all source pairs compare complete rows in either direction and isolate the
     ['WEB', 'BNA'], ['STEG', 'BNA'],
 ])->with([false, true]);
 
+test('Alpha BNA differences display authorization fields and compare on authorization date and amount', function () {
+    actingAsAdmin();
+    $alpha = fileComparisonImport('ALPHA');
+    $bna = fileComparisonImport('BNA');
+    $matchedAlpha = fileComparisonRow($alpha, '111111111', '001234', '2026-05-15', 9000);
+    $matchedBna = fileComparisonRow($bna, '2026-05-15|9000', '001234', '2026-05-15', 9000);
+    $alphaOnly = fileComparisonRow($alpha, '999999999', '001111', '2026-05-01', 75000);
+    $bnaOnly = fileComparisonRow($bna, '2026-05-15|109000', '002222', '2026-05-15', 109000);
+
+    $snapshot = runFileComparison($alpha, $bna);
+
+    expect(MatchingResult::where('status', 'matched')->sole()->matchingDetails->pluck('normalized_transaction_id')->all())
+        ->toEqualCanonicalizing([$matchedAlpha->id, $matchedBna->id]);
+
+    $this->get(route('admin.reconciliation.unmatched', [
+        'import_a_id' => $alpha->id,
+        'import_b_id' => $bna->id,
+    ]))
+        ->assertOk()
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('N° autorisation')
+        ->assertSee('Date')
+        ->assertSee('Montant')
+        ->assertSee('001111')
+        ->assertSee('002222')
+        ->assertDontSee('999999999')
+        ->assertDontSee('2026-05-15|109000');
+});
+
+test('Alpha WEB differences display reference and receipt fields used by the comparison', function () {
+    actingAsAdmin();
+    $alpha = fileComparisonImport('ALPHA');
+    $web = fileComparisonImport('WEB');
+    $matchedAlpha = fileComparisonRow($alpha, '123456789', '001234', '2026-05-01', 10000);
+    $matchedWeb = fileComparisonRow($web, '123456789', '001234', '2026-05-01', 10000);
+    fileComparisonRow($alpha, '222222222', '002222', '2026-05-02', 20000);
+    fileComparisonRow($web, '333333333', '003333', '2026-05-03', 30000);
+
+    $snapshot = runFileComparison($alpha, $web);
+
+    expect(MatchingResult::where('status', 'matched')->sole()->matchingDetails->pluck('normalized_transaction_id')->all())
+        ->toEqualCanonicalizing([$matchedAlpha->id, $matchedWeb->id]);
+
+    $this->get(route('admin.reconciliation.unmatched', [
+        'import_a_id' => $alpha->id,
+        'import_b_id' => $web->id,
+    ]))
+        ->assertOk()
+        ->assertSee('REFERENCE')
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('reference')
+        ->assertSee('recu_paie')
+        ->assertSee('date_paiement')
+        ->assertSee('montant')
+        ->assertSee('222222222')
+        ->assertSee('002222')
+        ->assertSee('333333333')
+        ->assertSee('003333')
+        ->assertDontSee('123456789');
+});
+
 test('shared identifiers produce amount date and combined conflicts', function (string $codeA, string $codeB, bool $reverse) {
     $a = fileComparisonImport($codeA);
     $b = fileComparisonImport($codeB);

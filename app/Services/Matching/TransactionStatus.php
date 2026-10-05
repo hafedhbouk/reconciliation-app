@@ -2,7 +2,11 @@
 
 namespace App\Services\Matching;
 
+use App\Enums\ExceptionStatus;
+use App\Enums\ExceptionType;
 use App\Models\NormalizedTransaction;
+use App\Models\ExceptionRecord;
+use App\Enums\MatchingStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -41,6 +45,22 @@ class TransactionStatus
                 2 => 'conflict', 1 => 'matched', default => 'unmatched',
             }) as $status => $group) {
                 NormalizedTransaction::query()->whereIn('id', $group)->update(['matching_status' => $status]);
+                if ($status === MatchingStatus::Matched->value) {
+                    ExceptionRecord::query()->whereIn('normalized_transaction_id', $group)
+                        ->where('type', ExceptionType::Unmatched->value)
+                        ->where('status', ExceptionStatus::Open->value)
+                        ->chunkById(500, function ($exceptions) {
+                            foreach ($exceptions as $exception) {
+                                $exception->update([
+                                    'status' => ExceptionStatus::Resolved->value,
+                                    'resolved_by' => null,
+                                    'resolved_at' => now(),
+                                    'resolution_comment' => $exception->resolution_comment
+                                        ?: 'Rapprochement effectué automatiquement.',
+                                ]);
+                            }
+                        });
+                }
             }
         }
     }

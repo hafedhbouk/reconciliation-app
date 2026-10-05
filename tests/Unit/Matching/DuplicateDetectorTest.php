@@ -37,6 +37,7 @@ test('a 2-row dedup group creates exactly 1 duplicate exception on the newer row
     expect($exception->type)->toBe(ExceptionType::Duplicate);
     expect($exception->normalized_transaction_id)->toBe($duplicate->id);
     expect($exception->normalized_transaction_id)->not->toBe($original->id);
+    expect($exception->resolution_comment)->toContain('Doublon potentiel');
 });
 
 test('a 3-row dedup group creates 2 duplicate exceptions', function () {
@@ -77,6 +78,39 @@ test('unique dedup hashes never produce an exception', function () {
     expect($summary->groupsFound)->toBe(0);
     expect($summary->exceptionsCreated)->toBe(0);
     expect(ExceptionRecord::query()->count())->toBe(0);
+});
+
+test('duplicate preview is read-only and actual scan respects file and date filters', function () {
+    $source = Source::factory()->create();
+    $import = Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    $otherImport = Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    foreach ([[$import, '2026-05-10'], [$import, '2026-05-10'], [$import, '2026-06-10'], [$otherImport, '2026-05-10']] as [$rowImport, $date]) {
+        $row = makeDedupTx($source, 'same-dedup-key');
+        $row->transaction->update(['import_id' => $rowImport->id]);
+        $row->update(['normalized_date' => $date]);
+    }
+
+    $preview = $this->detector->scan(
+        sourceId: $source->id,
+        importId: $import->id,
+        dateFrom: '2026-05-01',
+        dateTo: '2026-05-31',
+        preview: true,
+    );
+
+    expect($preview->groupsFound)->toBe(1)
+        ->and($preview->exceptionsCreated)->toBe(1)
+        ->and(ExceptionRecord::query()->count())->toBe(0);
+
+    $this->detector->scan(
+        sourceId: $source->id,
+        importId: $import->id,
+        dateFrom: '2026-05-01',
+        dateTo: '2026-05-31',
+        batchReference: 'preview-batch-001',
+    );
+
+    expect(ExceptionRecord::query()->sole()->batch_reference)->toBe('preview-batch-001');
 });
 
 test('BNA authorizations distinguish legacy collisions and detect duplicates across hash versions', function () {

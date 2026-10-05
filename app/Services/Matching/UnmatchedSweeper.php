@@ -15,6 +15,7 @@ use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
 use App\Enums\MatchingStatus;
 use App\Models\NormalizedTransaction;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -27,30 +28,31 @@ use Illuminate\Support\Facades\DB;
  */
 class UnmatchedSweeper
 {
-    public function sweep(?int $sourceId = null): int
+    public function previewCount(?int $sourceId = null, ?int $importId = null, ?string $dateFrom = null, ?string $dateTo = null): int
+    {
+        return $this->candidates($sourceId, $importId, $dateFrom, $dateTo)->count();
+    }
+
+    public function sweep(
+        ?int $sourceId = null,
+        ?int $importId = null,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        ?string $batchReference = null,
+    ): int
     {
         $chunkSize = config('matching.chunk_size', 1000);
         $created = 0;
 
-        NormalizedTransaction::query()
-            ->fromActiveImports()
-            ->when($sourceId !== null, fn ($query) => $query->whereHas(
-                'transaction',
-                fn ($inner) => $inner->where('source_id', $sourceId),
-            ))
-            ->where('matching_status', MatchingStatus::Unmatched->value)
-            // Ne pas créer d'exception si une existe déjà en ouvert ou en revue.
-            ->whereDoesntHave('exceptions', fn ($query) => $query->whereIn('status', [
-                ExceptionStatus::Open->value,
-                ExceptionStatus::InReview->value,
-            ]))
+        $this->candidates($sourceId, $importId, $dateFrom, $dateTo)
             ->select('normalized_transactions.id')
-            ->chunkById($chunkSize, function ($rows) use (&$created) {
+            ->chunkById($chunkSize, function ($rows) use (&$created, $batchReference) {
                 $now = now();
 
                 $inserts = $rows->map(fn ($row) => [
                     'normalized_transaction_id' => $row->id,
                     'matching_result_id' => null,
+                    'batch_reference' => $batchReference,
                     'type' => ExceptionType::Unmatched->value,
                     'status' => ExceptionStatus::Open->value,
                     'created_by' => null,
@@ -64,5 +66,26 @@ class UnmatchedSweeper
             });
 
         return $created;
+    }
+
+    private function candidates(?int $sourceId, ?int $importId, ?string $dateFrom, ?string $dateTo): Builder
+    {
+        return NormalizedTransaction::query()
+            ->fromActiveImports()
+            ->when($sourceId !== null, fn ($query) => $query->whereHas(
+                'transaction',
+                fn ($inner) => $inner->where('source_id', $sourceId),
+            ))
+            ->when($importId !== null, fn ($query) => $query->whereHas(
+                'transaction',
+                fn ($inner) => $inner->where('import_id', $importId),
+            ))
+            ->when($dateFrom !== null, fn ($query) => $query->whereDate('normalized_date', '>=', $dateFrom))
+            ->when($dateTo !== null, fn ($query) => $query->whereDate('normalized_date', '<=', $dateTo))
+            ->where('matching_status', MatchingStatus::Unmatched->value)
+            ->whereDoesntHave('exceptions', fn ($query) => $query->where(function ($inner) {
+                $inner->whereIn('status', [ExceptionStatus::Open->value, ExceptionStatus::InReview->value])
+                    ->orWhere('type', ExceptionType::Unmatched->value);
+            }));
     }
 }

@@ -7,6 +7,7 @@ use App\Models\ImportRow;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
+use App\Models\Transaction;
 use App\Models\UnmatchedSnapshot;
 use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\MappingEngine;
@@ -102,6 +103,214 @@ test('difference pages paginate each side independently and migrate legacy cache
     expect(DB::table('unmatched_snapshot_rows')->count())->toBe(242);
     $this->get(route('admin.reconciliation.unmatched', ['import_a_id' => $a->id, 'import_b_id' => $b->id]))->assertOk();
     expect(DB::table('unmatched_snapshot_rows')->count())->toBe(242);
+});
+
+test('legacy Alpha BNA snapshots show authorization fields without rerunning comparison', function () {
+    actingAsAdmin();
+    $alpha = Source::factory()->create(['code' => 'ALPHA', 'name' => 'Alpha']);
+    $bna = Source::factory()->create(['code' => 'BNA', 'name' => 'BNA']);
+    $importA = Import::factory()->create(['source_id' => $alpha->id, 'status' => 'completed']);
+    $importB = Import::factory()->create(['source_id' => $bna->id, 'status' => 'completed']);
+    $transactionA = Transaction::factory()->create([
+        'source_id' => $alpha->id,
+        'import_id' => $importA->id,
+        'external_reference' => '999999999',
+        'raw_payload' => ['num_autorisation' => '001111'],
+    ]);
+    $rowA = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionA->id,
+        'normalized_reference' => '999999999',
+        'normalized_amount_millimes' => 75000,
+        'normalized_date' => '2026-05-01',
+    ]);
+    $transactionB = Transaction::factory()->create([
+        'source_id' => $bna->id,
+        'import_id' => $importB->id,
+        'external_reference' => null,
+        'raw_payload' => ['num_autorisation' => '002222'],
+    ]);
+    $rowB = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionB->id,
+        'normalized_reference' => '2026-05-15|109000',
+        'normalized_amount_millimes' => 109000,
+        'normalized_date' => '2026-05-15',
+    ]);
+    UnmatchedSnapshot::query()->create([
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+        'status' => 'completed',
+        'completed_at' => now(),
+        'result_a' => [[
+            'id' => $rowA->id,
+            'source' => 'ALPHA',
+            'reference' => '999999999',
+            'amount_millimes' => 75000,
+            'date' => '01/05/2026',
+        ]],
+        'result_b' => [[
+            'id' => $rowB->id,
+            'source' => 'BNA',
+            'reference' => '2026-05-15|109000',
+            'amount_millimes' => 109000,
+            'date' => '15/05/2026',
+        ]],
+    ]);
+
+    $this->get(route('admin.reconciliation.unmatched', [
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+    ]))
+        ->assertOk()
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('N° autorisation')
+        ->assertSee('001111')
+        ->assertSee('002222')
+        ->assertDontSee('999999999')
+        ->assertDontSee('2026-05-15|109000');
+});
+
+test('legacy Alpha WEB snapshots show authorization and receipt fields without rerunning comparison', function () {
+    actingAsAdmin();
+    $alpha = Source::factory()->create(['code' => 'ALPHA', 'name' => 'Alpha']);
+    $web = Source::factory()->create(['code' => 'WEB', 'name' => 'WEB / STEG']);
+    $importA = Import::factory()->create(['source_id' => $alpha->id, 'status' => 'completed']);
+    $importB = Import::factory()->create(['source_id' => $web->id, 'status' => 'completed']);
+    $alphaReference = '123456789';
+    $webReference = '987654321';
+    $authorization = '001111';
+    $transactionA = Transaction::factory()->create([
+        'source_id' => $alpha->id,
+        'import_id' => $importA->id,
+        'external_reference' => $alphaReference,
+        'raw_payload' => ['reference' => $alphaReference, 'num_autorisation' => $authorization],
+    ]);
+    $rowA = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionA->id,
+        'normalized_reference' => $alphaReference,
+        'normalized_amount_millimes' => 75000,
+        'normalized_date' => '2026-05-01',
+    ]);
+    $transactionB = Transaction::factory()->create([
+        'source_id' => $web->id,
+        'import_id' => $importB->id,
+        'external_reference' => $webReference,
+        'raw_payload' => ['reference' => $webReference, 'secondary_reference' => $authorization],
+    ]);
+    $rowB = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionB->id,
+        'normalized_reference' => $webReference,
+        'normalized_amount_millimes' => 75000,
+        'normalized_date' => '2026-05-01',
+    ]);
+    UnmatchedSnapshot::query()->create([
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+        'status' => 'completed',
+        'completed_at' => now(),
+        'result_a' => [[
+            'id' => $rowA->id,
+            'source' => 'ALPHA',
+            'reference' => $alphaReference,
+            'amount_millimes' => 75000,
+            'date' => '01/05/2026',
+        ]],
+        'result_b' => [[
+            'id' => $rowB->id,
+            'source' => 'WEB',
+            'reference' => $webReference,
+            'amount_millimes' => 75000,
+            'date' => '01/05/2026',
+        ]],
+    ]);
+
+    $this->get(route('admin.reconciliation.unmatched', [
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+    ]))
+        ->assertOk()
+        ->assertSee('REFERENCE')
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('reference')
+        ->assertSee('recu_paie')
+        ->assertSee('date_paiement')
+        ->assertSee('montant')
+        ->assertSee($alphaReference)
+        ->assertSee($webReference)
+        ->assertSee($authorization);
+});
+
+test('legacy BNA WEB snapshots show authorization and receipt fields without rerunning comparison', function () {
+    actingAsAdmin();
+    $bna = Source::factory()->create(['code' => 'BNA', 'name' => 'BNA']);
+    $web = Source::factory()->create(['code' => 'WEB', 'name' => 'WEB / STEG']);
+    $importA = Import::factory()->create(['source_id' => $bna->id, 'status' => 'completed']);
+    $importB = Import::factory()->create(['source_id' => $web->id, 'status' => 'completed']);
+    $authorization = '004321';
+    $bnaReference = '2026-05-15|109000';
+    $webReference = '987654321';
+    $transactionA = Transaction::factory()->create([
+        'source_id' => $bna->id,
+        'import_id' => $importA->id,
+        'external_reference' => null,
+        'raw_payload' => ['num_autorisation' => $authorization],
+    ]);
+    $rowA = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionA->id,
+        'normalized_reference' => $bnaReference,
+        'normalized_amount_millimes' => 109000,
+        'normalized_date' => '2026-05-15',
+    ]);
+    $transactionB = Transaction::factory()->create([
+        'source_id' => $web->id,
+        'import_id' => $importB->id,
+        'external_reference' => $webReference,
+        'raw_payload' => ['reference' => $webReference, 'secondary_reference' => $authorization],
+    ]);
+    $rowB = NormalizedTransaction::factory()->create([
+        'transaction_id' => $transactionB->id,
+        'normalized_reference' => $webReference,
+        'normalized_amount_millimes' => 109000,
+        'normalized_date' => '2026-05-15',
+    ]);
+    UnmatchedSnapshot::query()->create([
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+        'status' => 'completed',
+        'completed_at' => now(),
+        'result_a' => [[
+            'id' => $rowA->id,
+            'source' => 'BNA',
+            'reference' => $bnaReference,
+            'amount_millimes' => 109000,
+            'date' => '15/05/2026',
+        ]],
+        'result_b' => [[
+            'id' => $rowB->id,
+            'source' => 'WEB',
+            'reference' => $webReference,
+            'amount_millimes' => 109000,
+            'date' => '15/05/2026',
+        ]],
+    ]);
+
+    $this->get(route('admin.reconciliation.unmatched', [
+        'import_a_id' => $importA->id,
+        'import_b_id' => $importB->id,
+    ]))
+        ->assertOk()
+        ->assertSee('N° autorisation')
+        ->assertSee('Date')
+        ->assertSee('Montant')
+        ->assertSee('recu_paie')
+        ->assertSee('date_paiement')
+        ->assertSee('montant')
+        ->assertSee($authorization)
+        ->assertDontSee($bnaReference)
+        ->assertDontSee($webReference);
 });
 
 test('the import page displays mapping warnings and balanced accepted amounts', function () {

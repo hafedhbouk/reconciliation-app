@@ -29,11 +29,24 @@ class DetectDuplicatesJob implements ShouldQueue
 
     public int $timeout = 0;
 
-    public function __construct(public ?int $sourceId = null, public ?int $notifyUserId = null) {}
+    public function __construct(
+        public ?int $sourceId = null,
+        public ?int $notifyUserId = null,
+        public ?int $importId = null,
+        public ?string $dateFrom = null,
+        public ?string $dateTo = null,
+        public ?string $batchReference = null,
+    ) {}
 
     public function handle(DuplicateDetector $detector): void
     {
-        $summary = $detector->scan($this->sourceId);
+        $summary = $detector->scan(
+            $this->sourceId,
+            $this->importId,
+            $this->dateFrom,
+            $this->dateTo,
+            batchReference: $this->batchReference,
+        );
 
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(

@@ -4,6 +4,7 @@ use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
 use App\Models\ExceptionAttachment;
 use App\Models\ExceptionRecord;
+use App\Models\MatchingResult;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -37,6 +38,40 @@ test('resolving an exception sets resolved_by and resolved_at', function () {
     expect($exception->resolved_by)->toBe($admin->id);
     expect($exception->resolved_at)->not->toBeNull();
     expect($exception->resolution_comment)->toBe('Faux positif confirmé.');
+});
+
+test('an unmatched exception can be qualified as expected', function () {
+    actingAsAdmin();
+    $exception = ExceptionRecord::factory()->create(['type' => ExceptionType::Unmatched->value]);
+
+    $this->put(route('admin.exceptions.update', $exception), [
+        'is_expected' => '1',
+    ])->assertRedirect(route('admin.exceptions.show', $exception));
+
+    expect($exception->fresh()->is_expected)->toBeTrue();
+});
+
+test('duplicate candidates are labeled and expose their matching batch', function () {
+    actingAsAdmin();
+    $batchReference = 'batch-reference-1234';
+    $result = MatchingResult::factory()->create(['batch_reference' => $batchReference]);
+    $exception = ExceptionRecord::factory()->create([
+        'normalized_transaction_id' => null,
+        'matching_result_id' => $result->id,
+        'type' => ExceptionType::Duplicate->value,
+    ]);
+
+    $this->get(route('admin.exceptions.show', $exception))
+        ->assertOk()
+        ->assertSee('Doublon potentiel')
+        ->assertSee($batchReference);
+
+    $this->getJson(route('admin.exceptions.data'))
+        ->assertOk()
+        ->assertJsonFragment([
+            'type_label' => 'Doublon potentiel',
+            'batch_reference' => substr($batchReference, 0, 8),
+        ]);
 });
 
 test('reclassifying the type is a plain field update with no special handling', function () {

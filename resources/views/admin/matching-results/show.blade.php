@@ -53,6 +53,72 @@
     @php
         $unmatchedSourceA = $result->matchingRule?->sourceA;
         $unmatchedSourceB = $result->matchingRule?->sourceB;
+        $columnsFor = static function ($source, $peer) {
+            $sourceCode = strtoupper($source?->code ?? '') === 'STEG' ? 'WEB' : strtoupper($source?->code ?? '');
+            $peerCode = strtoupper($peer?->code ?? '') === 'STEG' ? 'WEB' : strtoupper($peer?->code ?? '');
+
+            if (in_array($sourceCode, ['BNA', 'WEB'], true)
+                && in_array($peerCode, ['BNA', 'WEB'], true)) {
+                return $sourceCode === 'BNA'
+                    ? [
+                        ['label' => 'N° autorisation', 'field' => 'authorization'],
+                        ['label' => 'Date', 'field' => 'date'],
+                        ['label' => 'Montant', 'field' => 'amount'],
+                    ]
+                    : [
+                        ['label' => 'recu_paie', 'field' => 'secondary_reference'],
+                        ['label' => 'date_paiement', 'field' => 'date'],
+                        ['label' => 'montant', 'field' => 'amount'],
+                    ];
+            }
+
+            if (in_array($sourceCode, ['ALPHA', 'WEB'], true)
+                && in_array($peerCode, ['ALPHA', 'WEB'], true)) {
+                return $sourceCode === 'ALPHA'
+                    ? [
+                        ['label' => 'REFERENCE', 'field' => 'reference'],
+                        ['label' => 'NUM_AUTO', 'field' => 'authorization'],
+                        ['label' => 'DAT_ENC', 'field' => 'date'],
+                        ['label' => 'MONTANT_ENCAISS', 'field' => 'amount'],
+                    ]
+                    : [
+                        ['label' => 'reference', 'field' => 'reference'],
+                        ['label' => 'recu_paie', 'field' => 'secondary_reference'],
+                        ['label' => 'date_paiement', 'field' => 'date'],
+                        ['label' => 'montant', 'field' => 'amount'],
+                    ];
+            }
+
+            return match ($sourceCode) {
+                'ALPHA' => [
+                    ['label' => 'NUM_AUTO', 'field' => 'authorization'],
+                    ['label' => 'DAT_ENC', 'field' => 'date'],
+                    ['label' => 'MONTANT_ENCAISS', 'field' => 'amount'],
+                ],
+                'BNA' => [
+                    ['label' => 'N° autorisation', 'field' => 'authorization'],
+                    ['label' => 'Date', 'field' => 'date'],
+                    ['label' => 'Montant', 'field' => 'amount'],
+                ],
+                default => [
+                    ['label' => __('Source'), 'field' => 'source'],
+                    ['label' => __('Référence'), 'field' => 'reference'],
+                    ['label' => __('Montant'), 'field' => 'amount'],
+                    ['label' => __('Date'), 'field' => 'date'],
+                ],
+            };
+        };
+        $columnsA = $columnsFor($unmatchedSourceA, $unmatchedSourceB);
+        $columnsB = $columnsFor($unmatchedSourceB, $unmatchedSourceA);
+        $valueFor = static fn ($nt, $field) => match ($field) {
+            'authorization' => $nt->transaction->raw_payload['num_autorisation'] ?? '—',
+            'secondary_reference' => $nt->transaction->raw_payload['secondary_reference'] ?? '—',
+            'date' => $nt->normalized_date?->format('d/m/Y') ?? '—',
+            'amount' => $nt->normalized_amount_millimes,
+            'reference' => $nt->normalized_reference,
+            'source' => $nt->transaction->source->code,
+            default => '—',
+        };
     @endphp
 
     <div class="row">
@@ -65,23 +131,21 @@
                     <table class="table table-sm table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>{{ __('Source') }}</th>
-                                <th>{{ __('Référence') }}</th>
-                                <th>{{ __('Montant') }}</th>
-                                <th>{{ __('Date') }}</th>
+                                @foreach ($columnsA as $column)
+                                    <th>{{ __($column['label']) }}</th>
+                                @endforeach
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($unmatchedA as $nt)
                                 <tr>
-                                    <td>{{ $nt->transaction->source->code }}</td>
-                                    <td>{{ $nt->normalized_reference }}</td>
-                                    <td>{{ $nt->normalized_amount_millimes }}</td>
-                                    <td>{{ $nt->normalized_date?->format('d/m/Y') }}</td>
+                                    @foreach ($columnsA as $column)
+                                        <td>{{ $valueFor($nt, $column['field']) }}</td>
+                                    @endforeach
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                    <td colspan="{{ count($columnsA) }}" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -100,23 +164,21 @@
                     <table class="table table-sm table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>{{ __('Source') }}</th>
-                                <th>{{ __('Référence') }}</th>
-                                <th>{{ __('Montant') }}</th>
-                                <th>{{ __('Date') }}</th>
+                                @foreach ($columnsB as $column)
+                                    <th>{{ __($column['label']) }}</th>
+                                @endforeach
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($unmatchedB as $nt)
                                 <tr>
-                                    <td>{{ $nt->transaction->source->code }}</td>
-                                    <td>{{ $nt->normalized_reference }}</td>
-                                    <td>{{ $nt->normalized_amount_millimes }}</td>
-                                    <td>{{ $nt->normalized_date?->format('d/m/Y') }}</td>
+                                    @foreach ($columnsB as $column)
+                                        <td>{{ $valueFor($nt, $column['field']) }}</td>
+                                    @endforeach
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
+                                    <td colspan="{{ count($columnsB) }}" class="text-center text-secondary py-3">{{ __('Aucune transaction sans correspondance.') }}</td>
                                 </tr>
                             @endforelse
                         </tbody>

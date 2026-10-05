@@ -24,7 +24,14 @@ use App\Models\NormalizedTransaction;
  */
 class DuplicateDetector
 {
-    public function scan(?int $sourceId = null): DuplicateScanSummary
+    public function scan(
+        ?int $sourceId = null,
+        ?int $importId = null,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+        bool $preview = false,
+        ?string $batchReference = null,
+    ): DuplicateScanSummary
     {
         $seen = [];
         $duplicateGroups = [];
@@ -32,7 +39,10 @@ class DuplicateDetector
 
         NormalizedTransaction::query()->fromActiveImports()->with('transaction.source')
             ->when($sourceId !== null, fn ($query) => $query->whereHas('transaction', fn ($q) => $q->where('source_id', $sourceId)))
-            ->whereNotNull('dedup_hash')->chunkById(1000, function ($rows) use (&$seen, &$duplicateGroups, &$exceptionsCreated) {
+            ->when($importId !== null, fn ($query) => $query->whereHas('transaction', fn ($q) => $q->where('import_id', $importId)))
+            ->when($dateFrom !== null, fn ($query) => $query->whereDate('normalized_date', '>=', $dateFrom))
+            ->when($dateTo !== null, fn ($query) => $query->whereDate('normalized_date', '<=', $dateTo))
+            ->whereNotNull('dedup_hash')->chunkById(1000, function ($rows) use (&$seen, &$duplicateGroups, &$exceptionsCreated, $preview, $batchReference) {
                 foreach ($rows as $row) {
                     $transaction = $row->transaction;
                     $code = strtoupper($transaction->source->code);
@@ -57,13 +67,21 @@ class DuplicateDetector
                         ->where('type', ExceptionType::Duplicate->value)->exists()) {
                         continue;
                     }
+                    $reviewComment = $code === 'SMT'
+                        ? 'Doublon potentiel : la date et le montant seuls ne prouvent pas un paiement en double. Vérification manuelle requise.'
+                        : 'Doublon potentiel : mêmes identifiants et mêmes données de paiement. Vérification manuelle requise.';
+                    if ($preview) {
+                        $exceptionsCreated++;
+
+                        continue;
+                    }
                     ExceptionRecord::create([
                         'normalized_transaction_id' => $row->id,
                         'matching_result_id' => null,
+                        'batch_reference' => $batchReference,
                         'type' => ExceptionType::Duplicate,
                         'status' => ExceptionStatus::Open,
-                        'resolution_comment' => $code === 'SMT'
-                            ? 'Doublon potentiel : la date et le montant seuls ne prouvent pas un paiement en double.' : null,
+                        'resolution_comment' => $reviewComment,
                     ]);
                     $exceptionsCreated++;
                 }

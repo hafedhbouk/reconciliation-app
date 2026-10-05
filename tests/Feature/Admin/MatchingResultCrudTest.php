@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\MatchingResult;
+use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
+use App\Models\Source;
+use App\Models\Transaction;
 
 test('admin can list matching results', function () {
     actingAsAdmin();
@@ -15,6 +18,152 @@ test('admin can view a matching result detail page', function () {
     $result = MatchingResult::factory()->create();
 
     $this->get(route('admin.matching-results.show', $result))->assertOk();
+});
+
+test('Alpha BNA result displays authorization date and amount fields', function () {
+    actingAsAdmin();
+    $authorization = '012345';
+    $alphaReference = '999999999';
+    $alpha = Source::factory()->create(['code' => 'ALPHA', 'name' => 'Alpha']);
+    $bna = Source::factory()->create(['code' => 'BNA', 'name' => 'BNA']);
+    $rule = MatchingRule::factory()->create([
+        'source_a_id' => $alpha->id,
+        'source_b_id' => $bna->id,
+    ]);
+    $result = MatchingResult::factory()->create(['matching_rule_id' => $rule->id]);
+
+    $alphaTransaction = Transaction::factory()->create([
+        'source_id' => $alpha->id,
+        'external_reference' => $alphaReference,
+        'raw_payload' => ['num_autorisation' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $alphaTransaction->id,
+        'normalized_reference' => $alphaReference,
+        'normalized_amount_millimes' => 178000,
+        'normalized_date' => '2026-05-01',
+    ]);
+
+    $bnaTransaction = Transaction::factory()->create([
+        'source_id' => $bna->id,
+        'external_reference' => null,
+        'raw_payload' => ['num_autorisation' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $bnaTransaction->id,
+        'normalized_amount_millimes' => 178000,
+        'normalized_date' => '2026-05-01',
+    ]);
+
+    $this->get(route('admin.matching-results.show', $result))
+        ->assertOk()
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('N° autorisation')
+        ->assertSee('Date')
+        ->assertSee('Montant')
+        ->assertSee($authorization)
+        ->assertDontSee($alphaReference);
+});
+
+test('Alpha WEB result displays both reference and receipt fields', function () {
+    actingAsAdmin();
+    $alphaReference = '123456789';
+    $webReference = '987654321';
+    $authorization = '004321';
+    $alpha = Source::factory()->create(['code' => 'ALPHA', 'name' => 'Alpha']);
+    $web = Source::factory()->create(['code' => 'WEB', 'name' => 'WEB / STEG']);
+    $rule = MatchingRule::factory()->create([
+        'source_a_id' => $alpha->id,
+        'source_b_id' => $web->id,
+    ]);
+    $result = MatchingResult::factory()->create(['matching_rule_id' => $rule->id]);
+
+    $alphaTransaction = Transaction::factory()->create([
+        'source_id' => $alpha->id,
+        'external_reference' => $alphaReference,
+        'raw_payload' => ['reference' => $alphaReference, 'num_autorisation' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $alphaTransaction->id,
+        'normalized_reference' => $alphaReference,
+        'normalized_amount_millimes' => 75000,
+        'normalized_date' => '2026-05-01',
+    ]);
+
+    $webTransaction = Transaction::factory()->create([
+        'source_id' => $web->id,
+        'external_reference' => $webReference,
+        'raw_payload' => ['reference' => $webReference, 'secondary_reference' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $webTransaction->id,
+        'normalized_reference' => $webReference,
+        'normalized_amount_millimes' => 75000,
+        'normalized_date' => '2026-05-01',
+    ]);
+
+    $this->get(route('admin.matching-results.show', $result))
+        ->assertOk()
+        ->assertSee('REFERENCE')
+        ->assertSee('NUM_AUTO')
+        ->assertSee('DAT_ENC')
+        ->assertSee('MONTANT_ENCAISS')
+        ->assertSee('reference')
+        ->assertSee('recu_paie')
+        ->assertSee('date_paiement')
+        ->assertSee('montant')
+        ->assertSee($alphaReference)
+        ->assertSee($webReference)
+        ->assertSee($authorization);
+});
+
+test('BNA WEB result displays authorization and receipt comparison fields', function () {
+    actingAsAdmin();
+    $authorization = '006321';
+    $webReference = '888777666';
+    $bna = Source::factory()->create(['code' => 'BNA', 'name' => 'BNA']);
+    $web = Source::factory()->create(['code' => 'WEB', 'name' => 'WEB / STEG']);
+    $rule = MatchingRule::factory()->create([
+        'source_a_id' => $bna->id,
+        'source_b_id' => $web->id,
+    ]);
+    $result = MatchingResult::factory()->create(['matching_rule_id' => $rule->id]);
+
+    $bnaTransaction = Transaction::factory()->create([
+        'source_id' => $bna->id,
+        'external_reference' => null,
+        'raw_payload' => ['num_autorisation' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $bnaTransaction->id,
+        'normalized_amount_millimes' => 13000,
+        'normalized_date' => '2026-05-15',
+    ]);
+
+    $webTransaction = Transaction::factory()->create([
+        'source_id' => $web->id,
+        'external_reference' => $webReference,
+        'raw_payload' => ['reference' => $webReference, 'secondary_reference' => $authorization],
+    ]);
+    NormalizedTransaction::factory()->create([
+        'transaction_id' => $webTransaction->id,
+        'normalized_reference' => $webReference,
+        'normalized_amount_millimes' => 13000,
+        'normalized_date' => '2026-05-15',
+    ]);
+
+    $this->get(route('admin.matching-results.show', $result))
+        ->assertOk()
+        ->assertSee('N° autorisation')
+        ->assertSee('Date')
+        ->assertSee('Montant')
+        ->assertSee('recu_paie')
+        ->assertSee('date_paiement')
+        ->assertSee('montant')
+        ->assertSee($authorization)
+        ->assertDontSee($webReference);
 });
 
 test('the datatables endpoint returns matching results as json', function () {

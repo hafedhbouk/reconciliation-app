@@ -30,8 +30,10 @@ class ExceptionRecord extends Model
     protected $fillable = [
         'normalized_transaction_id',
         'matching_result_id',
+        'batch_reference',
         'type',
         'status',
+        'is_expected',
         'assigned_to',
         'resolution_comment',
         'resolved_by',
@@ -43,6 +45,7 @@ class ExceptionRecord extends Model
         return [
             'type' => ExceptionType::class,
             'status' => ExceptionStatus::class,
+            'is_expected' => 'boolean',
             'resolved_at' => 'datetime',
         ];
     }

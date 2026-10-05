@@ -3,6 +3,7 @@
 namespace App\Services\Matching;
 
 use App\Models\ComparisonRun;
+use App\Models\NormalizedTransaction;
 use App\Models\UnmatchedSnapshot;
 use Illuminate\Support\Facades\DB;
 
@@ -48,9 +49,43 @@ class SnapshotRows
     public function paginate(UnmatchedSnapshot $snapshot, string $side, int $perPage = 50)
     {
         $this->ensureStored($snapshot);
+        $page = $this->query($snapshot->id, $side)->paginate($perPage, ['data'], 'page_'.$side)
+            ->withQueryString();
 
-        return $this->query($snapshot->id, $side)->paginate($perPage, ['data'], 'page_'.$side)
-            ->through(fn ($row) => json_decode($row->data, true, 512, JSON_THROW_ON_ERROR))->withQueryString();
+        $snapshot->loadMissing(['importA.source', 'importB.source']);
+        $codes = [
+            strtoupper($snapshot->importA?->source?->code ?? ''),
+            strtoupper($snapshot->importB?->source?->code ?? ''),
+        ];
+        $isAlphaBna = in_array('ALPHA', $codes, true) && in_array('BNA', $codes, true);
+        $isAlphaWeb = in_array('ALPHA', $codes, true)
+            && (in_array('WEB', $codes, true) || in_array('STEG', $codes, true));
+        $isBnaWeb = in_array('BNA', $codes, true)
+            && (in_array('WEB', $codes, true) || in_array('STEG', $codes, true));
+
+        if (! $isAlphaBna && ! $isAlphaWeb && ! $isBnaWeb) {
+            return $page->through(fn ($row) => json_decode($row->data, true, 512, JSON_THROW_ON_ERROR));
+        }
+
+        $decodedRows = $page->getCollection()->map(fn ($row) => json_decode($row->data, true, 512, JSON_THROW_ON_ERROR));
+        $fieldsById = NormalizedTransaction::query()->with('transaction:id,raw_payload')
+            ->whereIn('id', $decodedRows->pluck('id')->filter())
+            ->get(['id', 'transaction_id'])
+            ->mapWithKeys(fn (NormalizedTransaction $transaction) => [$transaction->id => [
+                'num_autorisation' => $transaction->transaction?->raw_payload['num_autorisation'] ?? null,
+                'secondary_reference' => $transaction->transaction?->raw_payload['secondary_reference'] ?? null,
+            ]]);
+
+        return $page->through(function ($row) use ($fieldsById) {
+            $data = json_decode($row->data, true, 512, JSON_THROW_ON_ERROR);
+            foreach (['num_autorisation', 'secondary_reference'] as $field) {
+                if (! isset($data[$field])) {
+                    $data[$field] = $fieldsById[$data['id']][$field] ?? null;
+                }
+            }
+
+            return $data;
+        });
     }
 
     public function invalidate(array $importIds): void

@@ -10,18 +10,9 @@
                             <i class="bi bi-play-circle me-1"></i>{{ __('Lancer tout') }}
                         </button>
                     </form>
-                    <form action="{{ route('admin.matching-rules.detect-duplicates') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-files me-1"></i>{{ __('Détecter les doublons') }}
-                        </button>
-                    </form>
-                    <form action="{{ route('admin.matching-rules.sweep-unmatched') }}" method="POST">
-                        @csrf
-                        <button type="submit" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-broom me-1"></i>{{ __('Balayer les non-rapprochés') }}
-                        </button>
-                    </form>
+                    <a href="{{ route('admin.matching-rules.maintenance') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-clipboard-data me-1"></i>{{ __('Contrôler doublons et non-rapprochés') }}
+                    </a>
                 @endcan
                 @can('matching-rules.create')
                     <a href="{{ route('admin.matching-rules.create') }}" class="btn btn-dark btn-sm">

@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::post('imports/{import}/process', [ImportController::class, 'process'])->name('imports.process');
 
     Route::get('matching-rules/data', [MatchingRuleController::class, 'data'])->name('matching-rules.data');
+    Route::get('matching-rules/maintenance', [MatchingRuleController::class, 'maintenance'])->name('matching-rules.maintenance');
     Route::post('matching-rules/run-all', [MatchingRuleController::class, 'runAll'])->middleware('throttle:expensive-actions')->name('matching-rules.run-all');
     Route::post('matching-rules/detect-duplicates', [MatchingRuleController::class, 'detectDuplicates'])->middleware('throttle:expensive-actions')->name('matching-rules.detect-duplicates');
     Route::post('matching-rules/sweep-unmatched', [MatchingRuleController::class, 'sweepUnmatched'])->middleware('throttle:expensive-actions')->name('matching-rules.sweep-unmatched');

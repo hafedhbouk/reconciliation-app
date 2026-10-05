@@ -16,8 +16,10 @@
                 <thead>
                     <tr>
                         <th>{{ __('Type') }}</th>
+                        <th>{{ __('Qualification') }}</th>
                         <th>{{ __('Statut') }}</th>
                         <th>{{ __('Source / Référence') }}</th>
+                        <th>{{ __('Lot') }}</th>
                         <th>{{ __('Assigné à') }}</th>
                         <th>{{ __('Date') }}</th>
                         <th>{{ __('Actions') }}</th>
@@ -33,12 +35,14 @@
                 $('#exceptions-table').DataTable({
                     processing: true,
                     serverSide: true,
-                    order: [[4, 'desc']],
+                    order: [[6, 'desc']],
                     ajax: '{{ route('admin.exceptions.data') }}',
                     columns: [
                         { data: 'type_label', name: 'type' },
+                        { data: 'qualification', name: 'qualification', orderable: false, searchable: false },
                         { data: 'status', name: 'status' },
                         { data: 'source_reference', name: 'source_reference', orderable: false, searchable: false },
+                        { data: 'batch_reference', name: 'batch_reference' },
                         { data: 'assigned_to', name: 'assignedTo.name', orderable: false },
                         { data: 'created_at', name: 'created_at' },
                         { data: 'actions', name: 'actions', orderable: false, searchable: false },
