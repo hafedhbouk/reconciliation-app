@@ -68,40 +68,62 @@ class TransactionNormalizer
      * instead of inserted-then-updated.
      *
      * @param  array<string,mixed>  $transactionRow  the row built by buildTransactionRow()
-     * @return array<string,mixed> {normalized_reference, normalized_amount_millimes, normalized_date, dedup_hash, matching_status}
+     * @return array<string,mixed> {normalized_reference, normalized_secondary_reference, normalized_amount_millimes, normalized_date, dedup_hash, matching_status}
      */
     public function computeNormalizedSnapshot(array $transactionRow): array
     {
-        // SMT n'a pas de colonne référence (spécification client : date + montant).
-        // Pour ces sources, on construit une clé composite date|montant afin que
-        // normalized_reference ne soit jamais null et que le moteur de matching
-        // puisse grouper dessus.
-        $reference = $transactionRow['external_reference']
-            ?? ($transactionRow['transaction_date'].'|'.$transactionRow['amount_millimes']);
-
         $payload = $transactionRow['raw_payload'] ?? [];
         if (is_string($payload)) {
             $payload = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
         }
         $authorization = $payload['num_autorisation'] ?? $payload['secondary_reference'] ?? null;
+        $dateAmountReference = $transactionRow['transaction_date'].'|'.$transactionRow['amount_millimes'];
+        $externalReference = $transactionRow['external_reference'] ?? null;
+        // normalized_reference : external_reference (ALPHA, WEB) > N° autorisation
+        // (BNA, aucune colonne référence) > date|montant (SMT).
+        $reference = $externalReference ?? $authorization ?? $dateAmountReference;
+        // normalized_secondary_reference : identifiant distinct de la référence
+        // principale (NUM_AUTO pour ALPHA, recu_paie pour WEB). Null pour BNA,
+        // dont l'autorisation est déjà dans normalized_reference.
+        $secondaryReference = ($externalReference !== null && $authorization !== null
+            && (string) $authorization !== (string) $externalReference) ? (string) $authorization : null;
+        // Keep the existing dedup hash stable for legacy BNA rows, whose
+        // normalized reference was date|amount before it became the authorization.
+        $dedupReference = $externalReference ?? $dateAmountReference;
         // Include the receipt/authorization: same date and amount alone do not
         // identify a BNA payment. Keep the old format for reference-only sources.
         $hash = hash('sha256', implode('|', [
             $transactionRow['source_id'],
-            $reference,
+            $dedupReference,
             $transactionRow['amount_millimes'],
             $transactionRow['transaction_date'],
-            ...($authorization !== null && ($transactionRow['external_reference'] ?? null) === null
+            ...($authorization !== null && $externalReference === null
                 ? ['authorization:'.(string) $authorization] : []),
         ]));
 
         return [
             'normalized_reference' => $reference,
+            'normalized_secondary_reference' => $secondaryReference,
             'normalized_amount_millimes' => $transactionRow['amount_millimes'],
             'normalized_date' => $transactionRow['transaction_date'],
             'dedup_hash' => $hash,
             'matching_status' => MatchingStatus::Unmatched->value,
         ];
+    }
+
+    /**
+     * Snapshot as stored in import_rows.normalized_data (shown on the import
+     * page): an absent secondary reference is omitted rather than shown as null.
+     *
+     * @param  array<string,mixed>  $snapshot  the array built by computeNormalizedSnapshot()
+     */
+    public function importRowNormalizedData(array $snapshot): array
+    {
+        if (($snapshot['normalized_secondary_reference'] ?? null) === null) {
+            unset($snapshot['normalized_secondary_reference']);
+        }
+
+        return $snapshot;
     }
 
     /**

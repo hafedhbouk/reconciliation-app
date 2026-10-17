@@ -3,6 +3,7 @@
 use App\Jobs\ProcessImportJob;
 use App\Models\Import;
 use App\Models\ImportRow;
+use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
@@ -11,6 +12,7 @@ use App\Models\User;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use App\Services\Import\TransactionNormalizer;
+use App\Services\Matching\RuleMatcher;
 use Illuminate\Support\Facades\Storage;
 
 function seedAlphaLikeMapping(Source $source): void
@@ -100,6 +102,91 @@ test('it processes a small CSV file end to end with per-row error isolation', fu
     expect($normalized->normalized_reference)->toBe('934516');
     expect($normalized->normalized_amount_millimes)->toBe(42000);
     expect($normalized->matching_status->value)->toBe('unmatched');
+});
+
+test('WEB imports persist the transformed receipt in both normalized snapshots', function () {
+    Storage::fake('local');
+    $normalizedReceipt = '748363';
+    $staleRawReceipt = '999999';
+    $user = User::factory()->create();
+    $source = Source::factory()->create(['code' => 'WEB', 'file_type' => 'csv']);
+    foreach ([
+        ['reference', 'reference', [['key' => 'trim'], ['key' => 'zero_pad', 'config' => ['length' => 9]]]],
+        ['secondary_reference', 'recu_paie', [
+            ['key' => 'trim'],
+            ['key' => 'strip_prefix_chars', 'config' => ['chars' => ['B', 'b']]],
+            ['key' => 'zero_pad', 'config' => ['length' => 6]],
+        ]],
+        ['amount', 'montant', [['key' => 'trim'], ['key' => 'fixed_width_millimes']]],
+        ['date', 'date_paiement', [['key' => 'date_parse', 'config' => ['format' => 'Y-m-d H:i:s', 'output' => 'date']]]],
+    ] as [$target, $column, $transforms]) {
+        SourceColumnMapping::query()->create([
+            'source_id' => $source->id,
+            'target_field' => $target,
+            'source_column' => $column,
+            'transform' => $transforms,
+            'is_required' => true,
+        ]);
+    }
+
+    $csv = "reference,recu_paie,montant,date_paiement\n219243610,b{$normalizedReceipt},000000747000,2026-05-01 00:00:14\n";
+    Storage::disk('local')->put('imports/web.csv', $csv);
+    $import = Import::query()->create([
+        'source_id' => $source->id,
+        'original_filename' => 'web.csv',
+        'stored_path' => 'imports/web.csv',
+        'file_hash' => hash('sha256', $csv),
+        'mime_type' => 'text/csv',
+        'size_bytes' => strlen($csv),
+        'status' => 'pending',
+        'imported_by' => $user->id,
+    ]);
+
+    app(ProcessImportJob::class, ['importId' => $import->id])->handle(
+        app(ImportRowReaderFactory::class),
+        app(MappingEngine::class),
+        app(TransactionNormalizer::class),
+    );
+
+    $importRow = ImportRow::query()->where('import_id', $import->id)->sole();
+    $normalized = NormalizedTransaction::query()->sole();
+    expect($importRow->normalized_data['normalized_secondary_reference'])->toBe($normalizedReceipt)
+        ->and($normalized->normalized_secondary_reference)->toBe($normalizedReceipt);
+
+    $normalized->transaction->update(['raw_payload' => ['reference' => '219243610', 'secondary_reference' => $staleRawReceipt]]);
+    $bna = Source::factory()->create(['code' => 'BNA']);
+    $bnaTransaction = Transaction::factory()->create([
+        'source_id' => $bna->id,
+        'external_reference' => null,
+        'amount_millimes' => 747000,
+        'transaction_date' => '2026-05-01',
+        'raw_payload' => ['num_autorisation' => $normalizedReceipt],
+    ]);
+    $bnaNormalized = NormalizedTransaction::factory()->create([
+        'transaction_id' => $bnaTransaction->id,
+        // BNA's normalized_reference is its N° autorisation.
+        'normalized_reference' => $normalizedReceipt,
+        'normalized_amount_millimes' => 747000,
+        'normalized_date' => '2026-05-01',
+    ]);
+    $rule = MatchingRule::factory()->create([
+        'source_a_id' => $source->id,
+        'source_b_id' => $bna->id,
+        'criteria' => [
+            'tolerance_amount_millimes' => 0,
+            'tolerance_days' => 0,
+            'excluded_status_raw' => ['a' => [], 'b' => []],
+            'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
+            'verify_fields' => ['amount', 'date'],
+            'excluded_non_numeric' => ['a' => ['secondary_reference'], 'b' => []],
+        ],
+    ]);
+
+    $summary = app(RuleMatcher::class)->match($rule, 'normalized-receipt-test');
+
+    expect($summary->matched)->toBe(1)
+        ->and($normalized->fresh()->matching_status->value)->toBe('matched')
+        ->and($bnaNormalized->fresh()->matching_status->value)->toBe('matched');
 });
 
 test('it marks the import completed when every row succeeds', function () {

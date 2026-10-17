@@ -284,10 +284,13 @@ test('a tolerance-consumed partial match produces a Partial status with reduced 
 test('WEB-BNA matches via secondary_reference (recu_paie) against num_autorisation', function () {
     $web = Source::factory()->create();
     $bna = Source::factory()->create();
+    $normalizedReceipt = '416779';
+    $staleRawReceipt = '999999';
 
-    // WEB recu_paie = 'b416779' → stripped b → '416779'; BNA num_autorisation = '416779'
+    // WEB normalized receipt is authoritative; raw_payload is deliberately stale.
     $ntWeb = makeNormalizedTx($web, '104725801', 16000, '2026-02-01');
-    $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
+    $ntWeb->update(['normalized_secondary_reference' => $normalizedReceipt]);
+    $ntWeb->transaction->raw_payload = ['secondary_reference' => $staleRawReceipt];
     $ntWeb->transaction->save();
 
     $ntBna = makeNormalizedTx($bna, '416779', 16000, '2026-02-01');
@@ -325,7 +328,8 @@ test('ALPHA-WEB matches via reference with num_autorisation-secondary_reference 
     $ntAlpha->transaction->save();
 
     $ntWeb = makeNormalizedTx($web, '104725801', 16000, '2026-02-01');
-    $ntWeb->transaction->raw_payload = ['secondary_reference' => '416779'];
+    $ntWeb->update(['normalized_secondary_reference' => '416779']);
+    $ntWeb->transaction->raw_payload = ['secondary_reference' => '999999'];
     $ntWeb->transaction->save();
 
     $rule = MatchingRule::factory()->create([

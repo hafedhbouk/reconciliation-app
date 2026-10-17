@@ -309,10 +309,16 @@ class RuleMatcher
     {
         $fields = $primary === 'date|amount' ? ['date', 'amount'] : (array) $primary;
         $grammar = DB::connection()->getQueryGrammar();
+        $sourceCode = strtoupper((string) DB::table('sources')->where('id', $sourceId)->value('code'));
         $expressions = array_map(fn ($field) => match ($field) {
             'date' => 'normalized_transactions.normalized_date',
             'amount' => 'normalized_transactions.normalized_amount_millimes',
             'reference' => 'normalized_transactions.normalized_reference',
+            // BNA : l'autorisation est la référence principale ; ALPHA : la secondaire.
+            'num_autorisation' => $sourceCode === 'BNA'
+                ? 'normalized_transactions.normalized_reference'
+                : 'COALESCE(normalized_transactions.normalized_secondary_reference, NULLIF('.$grammar->wrap('transactions.raw_payload->num_autorisation').", 'null'))",
+            'secondary_reference' => 'normalized_transactions.normalized_secondary_reference',
             default => 'NULLIF('.$grammar->wrap('transactions.raw_payload->'.$field).", 'null')",
         }, $fields);
         $concat = fn ($parts) => DB::getDriverName() === 'sqlite' ? implode(' || ', $parts) : 'CONCAT('.implode(', ', $parts).')';
@@ -435,6 +441,7 @@ class RuleMatcher
         $rows = NormalizedTransaction::query()
             ->fromActiveImports()
             ->join('transactions', 'transactions.id', '=', 'normalized_transactions.transaction_id')
+            ->join('sources', 'sources.id', '=', 'transactions.source_id')
             ->where('transactions.source_id', $sourceId)
             ->when(! $allStatuses, fn ($query) => $query->where('normalized_transactions.matching_status', MatchingStatus::Unmatched->value))
             ->when($allStatuses, fn ($query) => $query->with('transaction.source'))
@@ -443,7 +450,7 @@ class RuleMatcher
                 $inner->whereNull('transactions.raw_payload->status_raw')
                     ->orWhereNotIn('transactions.raw_payload->status_raw', $excludedStatusRaw);
             }))
-            ->select('normalized_transactions.*', 'transactions.raw_payload')
+            ->select('normalized_transactions.*', 'transactions.raw_payload', 'sources.code as transaction_source_code')
             ->get();
 
         if ($excludedNonNumeric !== []) {
@@ -495,6 +502,14 @@ class RuleMatcher
             return (string) $nt->normalized_reference;
         }
 
+        if ($primaryKey === 'num_autorisation') {
+            return (string) $this->fieldValue($nt, $primaryKey);
+        }
+
+        if ($primaryKey === 'secondary_reference') {
+            return (string) $nt->normalized_secondary_reference;
+        }
+
         if (is_array($primaryKey)) {
             $payload = $this->rawPayload($nt);
             $parts = [];
@@ -504,6 +519,10 @@ class RuleMatcher
                     $parts[] = $nt->normalized_date->format('Y-m-d').'|'.$nt->normalized_amount_millimes;
                 } elseif ($field === 'reference') {
                     $parts[] = (string) $nt->normalized_reference;
+                } elseif ($field === 'num_autorisation') {
+                    $parts[] = (string) $this->fieldValue($nt, $field);
+                } elseif ($field === 'secondary_reference') {
+                    $parts[] = (string) $nt->normalized_secondary_reference;
                 } else {
                     $parts[] = (string) ($payload[$field] ?? '');
                 }
@@ -652,17 +671,31 @@ class RuleMatcher
     }
 
     /**
-     * Resolve a field value from a normalized transaction. 'amount' and
-     * 'date' map to normalized columns; everything else is read from the
-     * transaction's raw_payload (transformed fields).
+     * Resolve a field value from a normalized transaction. 'amount', 'date',
+     * 'num_autorisation' and 'secondary_reference' map to normalized columns;
+     * everything else is read from the transaction's raw_payload.
      */
     private function fieldValue(NormalizedTransaction $nt, string $field): mixed
     {
         return match ($field) {
             'amount' => $nt->normalized_amount_millimes,
             'date' => $nt->normalized_date?->format('Y-m-d'),
+            // BNA : l'autorisation est la référence principale ; ALPHA : la secondaire.
+            'num_autorisation' => $this->sourceCode($nt) === 'BNA'
+                ? $nt->normalized_reference
+                : ($nt->normalized_secondary_reference ?? $this->payloadField($nt, $field)),
+            'secondary_reference' => $nt->normalized_secondary_reference,
             default => $this->payloadField($nt, $field),
         };
+    }
+
+    private function sourceCode(NormalizedTransaction $nt): string
+    {
+        return strtoupper((string) (
+            $nt->getAttribute('transaction_source_code')
+            ?? $nt->transaction?->source?->code
+            ?? ''
+        ));
     }
 
     private function payloadField(NormalizedTransaction $nt, string $field): mixed

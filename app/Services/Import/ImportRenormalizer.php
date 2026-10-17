@@ -59,7 +59,7 @@ class ImportRenormalizer
                             unset($normalizedPatch['matching_status']);
                             $rowPatch = [
                                 'transformed_data' => json_encode($mapped, JSON_THROW_ON_ERROR),
-                                'normalized_data' => json_encode($snapshot, JSON_THROW_ON_ERROR),
+                                'normalized_data' => json_encode($this->normalizer->importRowNormalizedData($snapshot), JSON_THROW_ON_ERROR),
                             ];
                             $this->write($stream, ['rows' => [
                                 'transactions' => ['before' => (array) $transaction, 'patch' => $transactionPatch],

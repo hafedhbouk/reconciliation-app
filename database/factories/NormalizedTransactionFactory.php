@@ -19,6 +19,7 @@ class NormalizedTransactionFactory extends Factory
         return [
             'transaction_id' => Transaction::factory(),
             'normalized_reference' => (string) fake()->unique()->numerify('######'),
+            'normalized_secondary_reference' => null,
             'normalized_amount_millimes' => fake()->numberBetween(1000, 500000),
             'normalized_date' => fake()->dateTimeBetween('-30 days', 'now')->format('Y-m-d'),
             'dedup_hash' => fake()->sha256(),

@@ -114,4 +114,67 @@ test('SMT source file (semicolon-delimited payment-gateway export) imports clean
     expect($normalized->normalized_reference)->toBe('2026-02-28|458000');
     expect($normalized->normalized_amount_millimes)->toBe(458000);
     expect($normalized->normalized_date->format('Y-m-d'))->toBe('2026-02-28');
+    // SMT has no authorization column: secondary reference must stay null.
+    expect($normalized->normalized_secondary_reference)->toBeNull();
+});
+
+test('BNA source file maps N° autorisation into normalized_reference and leaves secondary_reference null', function () {
+    Storage::fake('local');
+    seedRealSources();
+
+    $source = Source::query()->where('code', 'BNA')->firstOrFail();
+    // The real file is XLSX; a CSV with the same headers exercises the same mappings.
+    $source->update(['file_type' => 'csv', 'config' => ['csv_delimiter' => ';']]);
+
+    $csv = "Date;Terminal;N° compte;Montant (TND);N° autorisation;Libellé opération;Numéro du terminal;Type de la transaction\n"
+        .'31/07/2026;STEG ECOM TND;1200115006381;103.000;331533;WEB8233i310726;0389471517;Vente Web';
+
+    $import = runImport($source, 'bna_sample.csv', $csv);
+
+    expect($import->status->value)->toBe('completed');
+    expect($import->success_rows)->toBe(1);
+    expect($import->error_rows)->toBe(0);
+
+    $normalized = NormalizedTransaction::query()->sole();
+    // BNA has no reference column: the N° autorisation must become the
+    // primary normalized_reference (not the old date|amount fallback).
+    expect($normalized->normalized_reference)->toBe('331533');
+    expect($normalized->normalized_secondary_reference)->toBeNull();
+    expect($normalized->normalized_amount_millimes)->toBe(103000);
+    expect($normalized->normalized_date->format('Y-m-d'))->toBe('2026-07-31');
+
+    // The import page must not repeat the authorization as a secondary reference.
+    $shown = $import->rows()->sole()->normalized_data;
+    expect($shown['normalized_reference'])->toBe('331533')
+        ->and($shown)->not->toHaveKey('normalized_secondary_reference');
+});
+
+test('ALPHA source file keeps reference as primary and NUM_AUTO as normalized_secondary_reference', function () {
+    Storage::fake('local');
+    seedRealSources();
+
+    $source = Source::query()->where('code', 'ALPHA')->firstOrFail();
+    // The real file is XLSX; a CSV with the same headers exercises the same mappings.
+    $source->update(['file_type' => 'csv', 'config' => ['csv_delimiter' => ';']]);
+
+    $csv = "CANAL;DAT_ENC;NUM_AUTO;REFERENCE;MONTANT_ENCAISS\n"
+        .'WEB;01/05/2026;b697464;185113460;000000989000';
+
+    $import = runImport($source, 'alpha_sample.csv', $csv);
+
+    expect($import->status->value)->toBe('completed');
+    expect($import->success_rows)->toBe(1);
+    expect($import->error_rows)->toBe(0);
+
+    $normalized = NormalizedTransaction::query()->sole();
+    // ALPHA exposes both REFERENCE and NUM_AUTO: REFERENCE stays the primary
+    // normalized_reference, NUM_AUTO is exposed as normalized_secondary_reference.
+    expect($normalized->normalized_reference)->toBe('185113460');
+    expect($normalized->normalized_secondary_reference)->toBe('697464');
+    expect($normalized->normalized_amount_millimes)->toBe(989000);
+    expect($normalized->normalized_date->format('Y-m-d'))->toBe('2026-05-01');
+
+    $shown = $import->rows()->sole()->normalized_data;
+    expect($shown['normalized_reference'])->toBe('185113460')
+        ->and($shown['normalized_secondary_reference'])->toBe('697464');
 });

@@ -31,17 +31,19 @@ function fileComparisonImport(string $code): Import
 
 function fileComparisonRow(Import $import, string $reference = '123456789', ?string $authorization = '001234', string $date = '2026-02-01', int $amount = 16000, string $status = 'unmatched'): NormalizedTransaction
 {
-    $authorizationField = in_array($import->source->code, ['WEB', 'STEG']) ? 'secondary_reference' : 'num_autorisation';
+    $sourceCode = strtoupper($import->source->code);
+    $authorizationField = in_array($sourceCode, ['WEB', 'STEG']) ? 'secondary_reference' : 'num_autorisation';
     $transaction = Transaction::factory()->create([
         'import_id' => $import->id,
         'source_id' => $import->source_id,
-        'external_reference' => $reference,
+        'external_reference' => $sourceCode === 'BNA' ? null : $reference,
         'raw_payload' => [$authorizationField => $authorization, 'reference' => $reference],
     ]);
 
     return NormalizedTransaction::factory()->create([
         'transaction_id' => $transaction->id,
-        'normalized_reference' => $reference,
+        'normalized_reference' => $sourceCode === 'BNA' ? ($authorization ?? $date.'|'.$amount) : $reference,
+        'normalized_secondary_reference' => in_array($import->source->code, ['WEB', 'STEG']) ? $authorization : null,
         'normalized_date' => $date,
         'normalized_amount_millimes' => $amount,
         'matching_status' => $status,
@@ -163,13 +165,28 @@ test('all source pairs compare complete rows in either direction and isolate the
     expect($result->status->value)->toBe('matched');
     expect($result->matchingDetails->pluck('normalized_transaction_id')->all())->toEqualCanonicalizing([$exactA->id, $exactB->id]);
     expect($outside->fresh()->matching_status->value)->toBe('unmatched');
-    expect($oldRule->fresh()->criteria)->toBe($originalCriteria);
+    // JSON storage may reorder keys; only the content must be unchanged.
+    expect($oldRule->fresh()->criteria)->toEqual($originalCriteria);
     expect($result->matchingRule->is_active)->toBeFalse();
 })->with([
     ['ALPHA', 'BNA'], ['ALPHA', 'WEB'], ['ALPHA', 'STEG'],
     ['ALPHA', 'SMT'], ['SMT', 'BNA'], ['WEB', 'SMT'], ['STEG', 'SMT'],
     ['WEB', 'BNA'], ['STEG', 'BNA'],
 ])->with([false, true]);
+
+test('file comparison uses the normalized WEB receipt instead of raw payload', function () {
+    $web = fileComparisonImport('WEB');
+    $bna = fileComparisonImport('BNA');
+    $webRow = fileComparisonRow($web, reference: '123456789', authorization: '001234');
+    $webRow->transaction->update(['raw_payload' => ['secondary_reference' => '999999']]);
+    $bnaRow = fileComparisonRow($bna, reference: '987654321', authorization: '001234');
+
+    $snapshot = runFileComparison($web, $bna);
+
+    expect(MatchingResult::where('status', 'matched')->sole()->matchingDetails->pluck('normalized_transaction_id')->all())
+        ->toEqualCanonicalizing([$webRow->id, $bnaRow->id]);
+    expect($snapshot->result_a)->toBe([])->and($snapshot->result_b)->toBe([]);
+});
 
 test('Alpha BNA differences display authorization fields and compare on authorization date and amount', function () {
     actingAsAdmin();

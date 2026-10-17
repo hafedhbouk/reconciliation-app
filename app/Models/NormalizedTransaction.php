@@ -7,8 +7,8 @@ namespace App\Models;
  *
  * Contrairement à Transaction (qui conserve les données brutes et le payload
  * complet), NormalizedTransaction ne garde que les champs nécessaires au
- * matching : référence normalisée, montant en millimes, date et un hash de
- * dédoublonnage (dedup_hash). Le champ matching_status reflète l'état du
+ * matching : référence principale et secondaire, montant en millimes, date
+ * et hash de dédoublonnage (dedup_hash). Le champ matching_status reflète l'état du
  * rapprochement (unmatched, matched, conflict) et est mis à jour par les
  * jobs de matching.
  */
@@ -29,6 +29,7 @@ class NormalizedTransaction extends Model
     protected $fillable = [
         'transaction_id',
         'normalized_reference',
+        'normalized_secondary_reference',
         'normalized_amount_millimes',
         'normalized_date',
         'dedup_hash',

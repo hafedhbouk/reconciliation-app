@@ -182,7 +182,7 @@ class ProcessImportJob implements ShouldQueue
 
                     $importRowsInsert[$rowNumber] = $base + [
                         'transformed_data' => json_encode($transformed),
-                        'normalized_data' => json_encode($snapshot),
+                        'normalized_data' => json_encode($normalizer->importRowNormalizedData($snapshot)),
                         'status' => ImportRowStatus::Imported->value,
                         'error_message' => null,
                     ];

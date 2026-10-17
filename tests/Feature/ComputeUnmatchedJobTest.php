@@ -20,9 +20,14 @@ test('file differences use the requested key in both directions regardless of ma
             ],
         ]);
 
+        // Same shape as TransactionNormalizer: BNA's authorization is its
+        // primary reference, the other sources keep it as secondary reference.
+        $isBna = $import->source->code === 'BNA';
+
         return NormalizedTransaction::factory()->create([
             'transaction_id' => $transaction->id,
-            'normalized_reference' => $reference,
+            'normalized_reference' => $isBna ? $authorization : $reference,
+            'normalized_secondary_reference' => $isBna ? null : $authorization,
             'normalized_date' => $date,
             'normalized_amount_millimes' => $amount,
             'matching_status' => $status,

@@ -144,7 +144,9 @@ test('BNA normalized hashes include authorization', function () {
     $base = ['source_id' => 1, 'external_reference' => null, 'transaction_date' => '2026-05-01', 'amount_millimes' => 10000];
     $a = $normalizer->computeNormalizedSnapshot($base + ['raw_payload' => json_encode(['num_autorisation' => '001111'])]);
     $b = $normalizer->computeNormalizedSnapshot($base + ['raw_payload' => json_encode(['num_autorisation' => '002222'])]);
-    expect($a['dedup_hash'])->not->toBe($b['dedup_hash']);
+    expect($a['normalized_reference'])->toBe('001111')
+        ->and($a['dedup_hash'])->toBe(hash('sha256', '1|2026-05-01|10000|10000|2026-05-01|authorization:001111'))
+        ->and($a['dedup_hash'])->not->toBe($b['dedup_hash']);
 });
 
 test('SMT duplicate alerts remain explicitly potential duplicates', function () {
