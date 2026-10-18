@@ -1,3 +1,6 @@
+{{--
+    Composant <x-modal> : fenêtre modale Bootstrap (ex. confirmation de suppression du compte).
+--}}
 @props([
     'name',
     'show' => false,

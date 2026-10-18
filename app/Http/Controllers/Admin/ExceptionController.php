@@ -9,6 +9,8 @@ namespace App\Http\Controllers\Admin;
  * (doublons, dépassements de tolérance, non-rapprochés). L'export est
  * limité pour XLSX/PDF pour les mêmes raisons de mémoire que
  * SearchController.
+ *
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
@@ -47,6 +49,7 @@ class ExceptionController extends Controller
 
         return DataTables::of($exceptions)
             ->addColumn('type_label', fn (ExceptionRecord $exception) => $this->typeLabel($exception))
+            // « Qualification » : seulement pour les non-trouvés, qui peuvent être marqués « attendus ».
             ->addColumn('qualification', fn (ExceptionRecord $exception) => $exception->type === ExceptionType::Unmatched
                 ? ($exception->is_expected ? __('Attendu') : __('À traiter'))
                 : '—')
@@ -79,14 +82,17 @@ class ExceptionController extends Controller
         ]);
     }
 
+    /** Enregistre les modifications d'une exception (statut, type, assignation, commentaire…). */
     public function update(UpdateExceptionRequest $request, ExceptionRecord $exception): RedirectResponse
     {
         $data = $request->validated();
         $type = $data['type'] ?? $exception->type->value;
+        // « Attendu » n'a de sens que pour un non-trouvé : on le remet à faux pour les autres types.
         if ($type !== ExceptionType::Unmatched->value) {
             $data['is_expected'] = false;
         }
 
+        // Passage à « Résolu » : on note qui a résolu et quand (une seule fois).
         if (($data['status'] ?? null) === ExceptionStatus::Resolved->value && $exception->status !== ExceptionStatus::Resolved) {
             $data['resolved_by'] = $request->user()->id;
             $data['resolved_at'] = now();
@@ -134,6 +140,7 @@ class ExceptionController extends Controller
         return Excel::download($export, "exceptions.{$format}", $writerType);
     }
 
+    /** Texte « SOURCE / référence » de la transaction concernée, ex. « BNA / 504190 ». */
     private function sourceReferenceSnapshot(ExceptionRecord $exception): string
     {
         $nt = $exception->normalizedTransaction;
@@ -152,6 +159,7 @@ class ExceptionController extends Controller
             : $exception->type->label();
     }
 
+    /** Les 8 premiers caractères de l'identifiant du lot (assez pour le reconnaître à l'écran). */
     private function batchReferenceSnapshot(ExceptionRecord $exception): string
     {
         $batchReference = $exception->batch_reference ?? $exception->matchingResult?->batch_reference;

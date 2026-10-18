@@ -9,6 +9,10 @@ namespace App\Http\Controllers\Admin;
  * canal et statut de matching. L'export est limité en taille pour XLSX
  * et PDF (limite de mémoire PhpSpreadsheet/dompdf), seuls les CSV
  * restent illimités.
+ *
+ * Les droits sont vérifiés avec une permission simple ('search.viewAny'),
+ * sans Policy, car la recherche n'est pas liée à un modèle précis.
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 use App\Exports\GenericTableExport;
 use App\Http\Controllers\Controller;
@@ -26,6 +30,7 @@ use Yajra\DataTables\Facades\DataTables;
 
 class SearchController extends Controller
 {
+    /** Page de recherche (le tableau est rempli en JavaScript par data()). */
     public function index(): View
     {
         $this->authorize('search.viewAny');
@@ -35,6 +40,7 @@ class SearchController extends Controller
         ]);
     }
 
+    /** Données JSON du tableau de résultats (voir ImportController::data pour DataTables). */
     public function data(Request $request)
     {
         $this->authorize('search.viewAny');
@@ -51,6 +57,7 @@ class SearchController extends Controller
             ->toJson();
     }
 
+    /** Export immédiat (téléchargé directement par le navigateur) des résultats de recherche. */
     public function export(Request $request, string $format): BinaryFileResponse
     {
         $this->authorize('search.viewAny');
@@ -146,6 +153,8 @@ class SearchController extends Controller
 
     /**
      * Téléchargement sécurisé par token (pas d'auth requise).
+     * Correction : la route est dans le groupe 'auth' de routes/web.php, il faut
+     * donc AUSSI être connecté. Le jeton empêche de deviner le lien d'un autre export.
      */
     public function downloadExport(string $token): BinaryFileResponse
     {
@@ -164,6 +173,10 @@ class SearchController extends Controller
         return response()->download($path, "recherche.{$export->format}");
     }
 
+    /**
+     * Requête de recherche, partagée par l'affichage et les exports.
+     * Chaque filtre n'est appliqué que s'il est rempli (->when). 'like' + "%texte%" = « contient ».
+     */
     private function buildQuery(Request $request): Builder
     {
         $validated = $request->validate([
@@ -191,6 +204,7 @@ class SearchController extends Controller
             ->orderByDesc('id');
     }
 
+    /** Convertit le format demandé ('csv', 'xlsx', 'pdf') en type de fichier de la bibliothèque Excel. */
     private function writerType(string $format): string
     {
         return match ($format) {

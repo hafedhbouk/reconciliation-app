@@ -1,3 +1,6 @@
+{{--
+    Page « Banques ». Données fournies par BankController::index. Liste paginée avec boutons modifier / supprimer.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

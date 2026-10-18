@@ -33,6 +33,8 @@ use Yajra\DataTables\Facades\DataTables;
  * - Affichage détaillé d'un résultat (côtés A et B, exceptions liées)
  * - Suppression d'un résultat (avec suppression en cascade des détails et exceptions)
  * - Export complet aux formats CSV, Excel et PDF sans limite de lignes
+ *
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 class MatchingResultController extends Controller
 {
@@ -41,8 +43,10 @@ class MatchingResultController extends Controller
         $this->authorizeResource(MatchingResult::class, 'matching_result');
     }
 
+    /** Page liste des résultats, avec les listes déroulantes de filtres (lots et règles). */
     public function index(): View
     {
+        // Liste des lots distincts, du plus récent au plus ancien.
         $batches = MatchingResult::query()
             ->select('batch_reference', 'matched_at')
             ->distinct()
@@ -56,12 +60,14 @@ class MatchingResultController extends Controller
         return view('admin.matching-results.index', compact('batches', 'rules'));
     }
 
+    /** Données JSON du tableau (voir ImportController::data pour DataTables). */
     public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
 
         $results = MatchingResult::query()->with(['matchingRule', 'matchedByUser'])->select('matching_results.*');
 
+        // filled() = le paramètre est présent ET non vide. Chaque filtre rempli ajoute une condition.
         if ($request->filled('batch_reference')) {
             $results->where('batch_reference', $request->input('batch_reference'));
         }
@@ -95,8 +101,13 @@ class MatchingResultController extends Controller
             ->toJson();
     }
 
+    /**
+     * Détail d'un résultat : transactions des côtés A et B, exceptions liées,
+     * et lignes restées sans partenaire (50 par page et par côté).
+     */
     public function show(MatchingResult $matchingResult, Request $request): View
     {
+        // load() charge les relations d'un objet déjà récupéré (« eager loading »).
         $matchingResult->load([
             'matchingRule.sourceA',
             'matchingRule.sourceB',
@@ -109,6 +120,8 @@ class MatchingResultController extends Controller
 
         if ($run = $matchingResult->comparisonRun) {
             // Exclusives belong to this execution, not to the global row status.
+            // (Résultat d'une comparaison de fichiers : on affiche les id mémorisés
+            // par la comparaison, découpés « à la main » en pages de 50.)
             $load = function ($ids, $side) use ($request) {
                 $ids ??= [];
                 $page = max(1, (int) $request->query('page_'.$side, 1));
@@ -121,6 +134,7 @@ class MatchingResultController extends Controller
             $unmatchedA = $load($run->unmatched_a_ids, 'a');
             $unmatchedB = $load($run->unmatched_b_ids, 'b');
         } else {
+            // Résultat d'une règle globale : transactions actuellement non rapprochées de chaque source.
             $load = fn ($sourceId, $side) => NormalizedTransaction::query()->fromActiveImports()
                 ->with('transaction.source')
                 ->whereHas('transaction', fn ($q) => $q->where('source_id', $sourceId))
@@ -145,6 +159,9 @@ class MatchingResultController extends Controller
 
         $matchingRuleName = $matchingResult->matchingRule?->name ?? __('Rapprochement manuel');
 
+        // Annuler un rapprochement : supprimer le résultat (soft delete) puis
+        // recalculer le statut des transactions, qui redeviennent « non rapprochées »
+        // si aucun autre résultat ne les couvre.
         DB::transaction(function () use ($matchingResult) {
             $ids = $matchingResult->matchingDetails()->pluck('normalized_transaction_id');
             $statuses = app(TransactionStatus::class);
@@ -164,6 +181,7 @@ class MatchingResultController extends Controller
     public function export(string $format): BinaryFileResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
+        // abort_unless(condition, 404) : affiche « page introuvable » si la condition est fausse.
         abort_unless(in_array($format, ['csv', 'xlsx', 'pdf'], true), 404);
 
         $query = MatchingResult::query()
@@ -207,6 +225,7 @@ class MatchingResultController extends Controller
             'format' => $request->input('format'),
             'status' => 'pending',
             'filters' => $filters,
+            // Jeton aléatoire de 64 caractères, impossible à deviner, utilisé dans le lien de téléchargement.
             'download_token' => Str::random(64),
         ]);
 
@@ -222,6 +241,7 @@ class MatchingResultController extends Controller
     {
         $this->authorize('viewAny', MatchingExport::class);
 
+        // Sans le droit de voir tous les exports, l'utilisateur ne voit que les siens.
         $exports = MatchingExport::query()
             ->when($request->user()->cannot('viewAny', MatchingExport::class), fn ($q) => $q->where('user_id', $request->user()->id))
             ->orderByDesc('id')
@@ -232,6 +252,8 @@ class MatchingResultController extends Controller
 
     /**
      * Téléchargement sécurisé par token (pas d'auth requise).
+     * Correction : la route est dans le groupe 'auth' de routes/web.php, il faut
+     * donc AUSSI être connecté. Le jeton empêche de deviner le lien d'un autre export.
      */
     public function downloadExport(string $token): BinaryFileResponse
     {
@@ -249,11 +271,13 @@ class MatchingResultController extends Controller
 
         $prefix = ($export->filters['type'] ?? null) === 'unmatched' ? 'differences' : 'matching-results';
 
+        // Envoie le fichier au navigateur, sous un nom lisible (ex. matching-results.xlsx).
         return response()->download($path, "{$prefix}.{$export->format}");
     }
 
     /**
      * Construit l'export synchrone pour un query donné.
+     * (Mêmes colonnes que GenerateMatchingExportJob, voir ce fichier pour le détail.)
      */
     private function buildExport(Builder $query, string $format): BinaryFileResponse
     {

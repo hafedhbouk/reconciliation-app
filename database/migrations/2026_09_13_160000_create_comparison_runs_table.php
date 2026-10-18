@@ -4,6 +4,11 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Crée la table comparison_runs (une exécution de comparaison de deux fichiers)
+ * et relie matching_results à la comparaison qui les a produits (comparison_run_id).
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     public function up(): void

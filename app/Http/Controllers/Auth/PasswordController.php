@@ -8,6 +8,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
+/**
+ * Changement du mot de passe depuis la page « Mon profil » (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class PasswordController extends Controller
 {
     /**

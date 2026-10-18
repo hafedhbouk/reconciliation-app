@@ -1,3 +1,8 @@
+{{--
+    Écran de mapping d'une source : pour chaque champ interne (référence, montant, date…),
+    la colonne du fichier à lire et la transformation à appliquer.
+    Les en-têtes du dernier fichier importé sont proposés. Données : SourceMappingController::edit.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Association des colonnes') }} — {{ $source->code }}</h2>

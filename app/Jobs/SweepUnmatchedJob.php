@@ -8,6 +8,9 @@ namespace App\Jobs;
  * Chaque normalized_transaction en statut Unmatched se voit créer une
  * exception de type Unmatched, sauf si une exception ouverte/en revue
  * existe déjà. Peut être limité à une source spécifique via sourceId.
+ *
+ * Le travail réel est fait par App\Services\Matching\UnmatchedSweeper.
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;

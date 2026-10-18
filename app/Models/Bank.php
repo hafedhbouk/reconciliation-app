@@ -9,6 +9,7 @@ namespace App\Models;
  * Le code (ex: ALPHA, BNA) est l'identifiant métier ; le swift_code est
  * conservé pour traçabilité mais n'est pas exploité par le moteur de
  * rapprochement.
+ * (Les notions fillable, casts, relations et traits sont expliquées dans app/Models/Import.php.)
  */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
@@ -24,7 +25,7 @@ class Bank extends Model
     protected $fillable = [
         'code',
         'name',
-        'swift_code',
+        'swift_code', // code international de la banque (BIC)
         'is_active',
         'notes',
     ];
@@ -36,6 +37,7 @@ class Bank extends Model
         ];
     }
 
+    /** Les sources (fichiers) émises par cette banque. */
     public function sources(): HasMany
     {
         return $this->hasMany(Source::class);

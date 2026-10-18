@@ -1,3 +1,7 @@
+{{--
+    Rapprochement manuel : deux listes de transactions non rapprochées (côté A, côté B),
+    recherche en AJAX (ReconciliationController::search), cases à cocher, puis validation.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Rapprochement manuel') }}</h2>

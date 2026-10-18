@@ -11,6 +11,28 @@ namespace App\Http\Controllers\Admin;
  *  - Déclenchement du ProcessImportJob
  *  - Garantie d'idempotie : un import ne peut être lancé qu'une seule fois
  *    (guard atomique sur job_dispatched_at)
+ *
+ * ---------------------------------------------------------------------------
+ * GUIDE DÉBUTANT : comment lire un contrôleur (valable pour app/Http/Controllers)
+ * ---------------------------------------------------------------------------
+ * - Le parcours d'une requête : le navigateur demande une URL ->
+ *   routes/web.php associe l'URL à une méthode de contrôleur -> la méthode
+ *   prépare les données -> elle renvoie une vue (page HTML), une
+ *   redirection, ou du JSON.
+ * - Les noms de méthodes suivent la convention « ressource » de Laravel :
+ *     index   GET    /admin/imports          liste
+ *     create  GET    /admin/imports/create   formulaire de création
+ *     store   POST   /admin/imports          enregistrement du formulaire
+ *     show    GET    /admin/imports/{id}     détail
+ *     edit / update / destroy               modification et suppression
+ * - view('admin.imports.show', [...]) affiche resources/views/admin/imports/show.blade.php
+ *   en lui passant des variables.
+ * - redirect()->route(...)->with('status', '...') redirige vers une autre page
+ *   et y affiche un message une seule fois (message « flash »).
+ * - Les droits d'accès sont vérifiés par les Policies (app/Policies), via
+ *   authorizeResource() ou $this->authorize().
+ * - Les données des formulaires sont validées par les Form Requests
+ *   (app/Http/Requests) AVANT d'arriver dans la méthode.
  */
 use App\Enums\ImportStatus;
 use App\Http\Controllers\Controller;
@@ -35,27 +57,42 @@ use Yajra\DataTables\Facades\DataTables;
 
 class ImportController extends Controller
 {
+    /**
+     * authorizeResource relie automatiquement chaque méthode standard (index,
+     * show, store…) à la méthode correspondante de ImportPolicy (viewAny,
+     * view, create…). Sans le droit, l'utilisateur reçoit une erreur 403.
+     */
     public function __construct()
     {
         $this->authorizeResource(Import::class, 'import');
     }
 
+    /** Page liste des imports. Le tableau est rempli ensuite en JavaScript par data(). */
     public function index(): View
     {
         return view('admin.imports.index');
     }
 
+    /**
+     * Données du tableau de la liste, au format attendu par DataTables
+     * (bibliothèque JavaScript de tableaux avec tri, recherche et pagination côté serveur).
+     */
     public function data(): JsonResponse
     {
         $this->authorize('viewAny', Import::class);
 
         $imports = Import::query()->with(['source', 'importedByUser'])->select('imports.*');
+        // Empreinte du mapping actuel de chaque source, calculée une seule fois par source.
         $mappingHashes = [];
 
+        // addColumn ajoute des colonnes calculées ; rawColumns indique celles qui
+        // contiennent du HTML (sinon il serait affiché comme du texte).
         return DataTables::of($imports)
             ->addColumn('source', fn (Import $import) => $import->source?->code)
             ->addColumn('status', function (Import $import) use (&$mappingHashes) {
                 $badge = sprintf('<span class="badge %s">%s</span>', $import->status->badgeClass(), $import->status->label());
+                // Badge « Mapping à vérifier » si le mapping de la source a changé depuis l'import.
+                // e() échappe le texte pour l'insérer sans risque dans du HTML.
                 if ($import->source && $import->processed_rows > 0) {
                     $versions = app(ImportMappingVersion::class);
                     $mappingHashes[$import->source_id] ??= $versions->hash($versions->capture($import->source));
@@ -73,6 +110,7 @@ class ImportController extends Controller
             ->toJson();
     }
 
+    /** Formulaire de dépôt d'un fichier (seules les sources actives sont proposées). */
     public function create(): View
     {
         return view('admin.imports.create', [
@@ -80,6 +118,16 @@ class ImportController extends Controller
         ]);
     }
 
+    /**
+     * Réception du fichier déposé. Étapes :
+     *   1. avertir si un fichier identique (même empreinte) a déjà été importé ;
+     *   2. ranger le fichier sur le disque sous un nom unique ;
+     *   3. créer la ligne Import (statut « pending ») ;
+     *   4. vérifier les colonnes, sinon renvoyer vers l'écran de mapping ;
+     *   5. figer le mapping et lancer le traitement en arrière-plan.
+     *
+     * StoreImportRequest a déjà validé le formulaire (type et taille du fichier…).
+     */
     public function store(StoreImportRequest $request, ImportRowReaderFactory $readers, MappingEngine $engine): RedirectResponse
     {
         $source = Source::query()->findOrFail($request->validated('source_id'));
@@ -88,6 +136,8 @@ class ImportController extends Controller
 
         $duplicate = Import::query()->where('file_hash', $hash)->first();
 
+        // Doublon : on revient au formulaire avec un avertissement. Si l'utilisateur
+        // soumet à nouveau (case confirmed_duplicate), l'import continue quand même.
         if ($duplicate && ! $request->boolean('confirmed_duplicate')) {
             return back()->withInput()->with(
                 'duplicate_warning',
@@ -97,6 +147,8 @@ class ImportController extends Controller
             );
         }
 
+        // Nom de fichier aléatoire (UUID) : pas de collision possible, et le nom
+        // choisi par l'utilisateur n'est jamais utilisé comme chemin sur le disque.
         $directory = "imports/{$source->code}";
         $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
         $storedPath = $file->storeAs($directory, $filename, 'local');
@@ -135,15 +187,23 @@ class ImportController extends Controller
 
         app(ImportMappingVersion::class)->freeze($import);
         $import->update(['job_dispatched_at' => now()]);
+        // Mise en file d'attente : le worker fera le traitement (voir ProcessImportJob).
         ProcessImportJob::dispatch($import->id);
 
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import lancé avec succès.'));
     }
 
+    /**
+     * Page de détail d'un import (ex. /admin/imports/9).
+     *
+     * « Route model binding » : Laravel lit l'id dans l'URL et fournit
+     * directement l'objet Import correspondant (erreur 404 s'il n'existe pas).
+     */
     public function show(Import $import, Request $request): View
     {
         $import->load(['source', 'importedByUser']);
 
+        // Lignes du fichier, 25 par page, filtrables par statut (?status=error dans l'URL).
         $rows = ImportRow::query()
             ->where('import_id', $import->id)
             ->when($request->query('status'), fn ($query, $status) => $query->where('status', $status))
@@ -152,18 +212,27 @@ class ImportController extends Controller
             ->withQueryString();
 
         $mappingState = app(ImportMappingVersion::class)->state($import);
+        // « Grand livre » : nombre de lignes et montant total par statut de rapprochement.
         $ledger = DB::table('normalized_transactions as n')->join('transactions as t', 't.id', '=', 'n.transaction_id')
             ->where('t.import_id', $import->id)->whereNull('t.deleted_at')->whereNull('n.deleted_at')
             ->selectRaw('n.matching_status, COUNT(*) AS rows_count, SUM(n.normalized_amount_millimes) AS amount_millimes')
             ->groupBy('n.matching_status')->get();
+        // Les 5 dernières comparaisons de fichiers impliquant cet import.
         $runs = ComparisonRun::with(['importA', 'importB'])->where(fn ($q) => $q->where('import_a_id', $import->id)->orWhere('import_b_id', $import->id))
             ->orderByDesc('id')->paginate(5, ['*'], 'runs_page')->withQueryString();
+        // Bouton « Reprendre » : import en échec, ou bloqué en « processing » sans signe de vie depuis 5 minutes.
         $canResume = in_array($import->status->value, ['failed', 'processing'], true)
             && ($import->status->value === 'failed' || ($import->heartbeat_at ?? $import->updated_at)->lt(now()->subMinutes(5)));
 
+        // compact('import', 'rows') crée le tableau ['import' => $import, 'rows' => $rows, ...].
         return view('admin.imports.show', compact('import', 'rows', 'mappingState', 'ledger', 'runs', 'canResume'));
     }
 
+    /**
+     * Lance un import resté en attente (ex. après correction du mapping), ou
+     * reprend un import en échec ou bloqué. Les lignes déjà enregistrées ne
+     * sont pas refaites (voir ProcessImportJob::processChunk).
+     */
     public function process(Import $import, ImportRowReaderFactory $readers, MappingEngine $engine): RedirectResponse
     {
         $this->authorize('create', Import::class);
@@ -225,6 +294,10 @@ class ImportController extends Controller
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import relancé avec succès.'));
     }
 
+    /**
+     * Supprime un import (soft delete). Ses transactions restent en base mais
+     * sont ignorées partout grâce au scope fromActiveImports().
+     */
     public function destroy(Import $import): RedirectResponse
     {
         $this->authorize('delete', $import);
@@ -234,6 +307,7 @@ class ImportController extends Controller
         return redirect()->route('admin.imports.index')->with('status', __('Import supprimé avec succès.'));
     }
 
+    /** Durée lisible du traitement, ex. « 11 minutes » (diffForHumans de Carbon). */
     private function formatDuration(Import $import): string
     {
         if (! $import->started_at) {

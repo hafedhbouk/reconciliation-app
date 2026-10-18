@@ -42,6 +42,8 @@ class RightCharsTransform implements TransformPrimitive
             throw new TransformException("Impossible d'extraire {$length} caractères à droite de '{$value}' (longueur insuffisante).");
         }
 
+        // Une position négative compte depuis la fin : -9 = les 9 derniers caractères.
+        // Les fonctions mb_* gèrent correctement les caractères accentués (UTF-8).
         return mb_substr($trimmed, -$length);
     }
 }

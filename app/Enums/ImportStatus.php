@@ -2,6 +2,16 @@
 
 namespace App\Enums;
 
+/**
+ * État global d'un import de fichier (table imports).
+ *
+ * Cycle de vie : Pending (fichier déposé, job en file d'attente)
+ *   -> Processing (ProcessImportJob lit le fichier)
+ *   -> Completed (toutes les lignes sont valides)
+ *      ou PartiallyCompleted (certaines lignes sont en erreur)
+ *      ou Failed (le fichier entier est inutilisable, ex. colonnes manquantes).
+ * (Voir ExceptionStatus pour l'explication des enums.)
+ */
 enum ImportStatus: string
 {
     case Pending = 'pending';
@@ -10,6 +20,7 @@ enum ImportStatus: string
     case Failed = 'failed';
     case PartiallyCompleted = 'partially_completed';
 
+    /** Libellé français affiché dans l'interface. */
     public function label(): string
     {
         return match ($this) {
@@ -21,6 +32,7 @@ enum ImportStatus: string
         };
     }
 
+    /** Classe CSS Bootstrap du badge coloré. */
     public function badgeClass(): string
     {
         return match ($this) {

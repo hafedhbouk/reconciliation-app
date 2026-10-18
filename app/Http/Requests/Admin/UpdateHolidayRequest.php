@@ -5,6 +5,10 @@ namespace App\Http\Requests\Admin;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation de la modification d'un jour férié (voir UpdateBankRequest pour ->ignore()).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateHolidayRequest extends BaseFormRequest
 {
     public function rules(): array

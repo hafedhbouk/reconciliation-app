@@ -18,6 +18,17 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
+/**
+ * Rapproche deux FICHIERS précis choisis par l'utilisateur (« comparaison de fichiers »).
+ *
+ * Étapes :
+ *   1. verrouiller les deux imports (deux comparaisons simultanées des mêmes fichiers attendent leur tour) ;
+ *   2. créer ou mettre à jour une règle technique « Fichiers : ALPHA ↔ BNA », INACTIVE
+ *      (elle ne sera donc jamais lancée par « Lancer tout »), avec les critères de FileComparisonRules ;
+ *   3. lancer RuleMatcher::match() sur ces deux fichiers ;
+ *   4. prévenir l'utilisateur avec le résumé chiffré.
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
+ */
 class RunAdHocMatchingJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -35,6 +46,7 @@ class RunAdHocMatchingJob implements ShouldQueue
 
     public function handle(RuleMatcher $matcher): void
     {
+        // La transaction renvoie un tableau [règle, résumé], qu'on « déstructure » en deux variables.
         [$rule, $summary] = DB::transaction(function () use ($matcher) {
             $imports = Import::query()->whereIn('id', [$this->importAId, $this->importBId])
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
@@ -49,6 +61,7 @@ class RunAdHocMatchingJob implements ShouldQueue
 
             // Keep file comparisons separate from configurable global rules.
             // Always use the requested fields, including when an older rule exists.
+            // updateOrCreate(critères de recherche, valeurs) : met à jour la règle portant ce nom, ou la crée.
             $rule = MatchingRule::query()->updateOrCreate(
                 ['name' => 'Fichiers : '.$sourceA->code.' ↔ '.$sourceB->code],
                 [

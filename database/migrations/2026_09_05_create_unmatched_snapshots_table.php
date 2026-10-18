@@ -4,6 +4,11 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Crée la table unmatched_snapshots : cache des écarts entre deux fichiers
+ * (un seul cache par couple de fichiers, d'où l'index unique).
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     public function up(): void

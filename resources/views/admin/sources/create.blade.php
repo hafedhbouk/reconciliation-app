@@ -1,3 +1,6 @@
+{{--
+    Page « Nouvelle source ». Données fournies par SourceController::create. Formulaire : composant <x-admin.sources.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouvelle source') }}</h2>

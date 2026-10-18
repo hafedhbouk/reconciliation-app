@@ -4,6 +4,12 @@ namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseFormRequest;
 
+/**
+ * Validation du formulaire de mapping d'une source.
+ * 'mappings.*.source_column' : règle appliquée à chaque ligne du tableau mappings
+ * (une ligne par champ interne, ex. mappings[amount][source_column]).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateSourceMappingRequest extends BaseFormRequest
 {
     public function rules(): array

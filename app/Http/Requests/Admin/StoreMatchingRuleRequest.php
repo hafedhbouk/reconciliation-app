@@ -6,6 +6,12 @@ use App\Enums\MatchingCardinality;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation du formulaire de création d'une règle de rapprochement.
+ * Les champs tolérance et statuts exclus sont ensuite regroupés dans le JSON criteria
+ * par MatchingRuleController::mapAttributes().
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreMatchingRuleRequest extends BaseFormRequest
 {
     public function rules(): array

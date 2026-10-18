@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.users.form> : champs du formulaire utilisateur et choix des rôles (voir components/admin/banks/form).
+--}}
 @props(['user' => null, 'roles' => []])
 
 <div class="mb-3">

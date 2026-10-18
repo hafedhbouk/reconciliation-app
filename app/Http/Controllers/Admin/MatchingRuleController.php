@@ -10,6 +10,11 @@ namespace App\Http\Controllers\Admin;
  *  - Lancer toutes les règles actives (Bus::chain séquentiel par priorité)
  *  - Lancer la détection de doublons
  *  - Lancer le balayage des non-rapprochés
+ *
+ * Chaque lancement crée un « lot » (batchReference = identifiant UUID
+ * aléatoire) : tous les résultats et exceptions produits portent ce lot, ce
+ * qui permet de les retrouver ou de les filtrer ensuite.
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMatchingRuleRequest;
@@ -48,6 +53,11 @@ class MatchingRuleController extends Controller
         ]);
     }
 
+    /**
+     * Page « Maintenance » : détection des doublons et balayage des non-rapprochés.
+     * Avec ?preview=1, on affiche d'abord combien d'exceptions SERAIENT créées,
+     * sans rien créer (aperçu avant confirmation).
+     */
     public function maintenance(Request $request, DuplicateDetector $detector, UnmatchedSweeper $sweeper): View
     {
         $this->authorize('update', MatchingRule::class);
@@ -80,6 +90,7 @@ class MatchingRuleController extends Controller
         ]);
     }
 
+    /** Données JSON du tableau des règles (voir ImportController::data pour DataTables). */
     public function data(): JsonResponse
     {
         $this->authorize('viewAny', MatchingRule::class);
@@ -134,10 +145,16 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle de rapprochement supprimée avec succès.'));
     }
 
+    /**
+     * Bouton « Lancer » d'une règle. On peut la limiter à deux fichiers
+     * précis (import_a_id et import_b_id, l'un n'allant pas sans l'autre).
+     */
     public function run(MatchingRule $matchingRule, Request $request): RedirectResponse
     {
         $this->authorize('update', $matchingRule);
 
+        // Règles de validation : le fichier A doit exister, être terminé, et
+        // appartenir à la source A de la règle (même chose pour B).
         $request->validate([
             'import_a_id' => ['nullable', 'required_with:import_b_id', 'integer', 'different:import_b_id',
                 Rule::exists('imports', 'id')->where('source_id', $matchingRule->source_a_id)->where('status', 'completed')],
@@ -153,6 +170,7 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
     }
 
+    /** « Comparer deux fichiers » : deux imports terminés, de sources différentes. */
     public function runAdHoc(Request $request): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
@@ -179,6 +197,7 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $importA->original_filename, 'b' => $importB->original_filename]));
     }
 
+    /** Bouton « Lancer tout » : toutes les règles actives, l'une après l'autre. */
     public function runAll(): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
@@ -205,11 +224,13 @@ class MatchingRuleController extends Controller
             $jobs[] = new NotifyMatchingBatchCompleteJob($batchReference, auth()->id());
         }
 
+        // Bus::chain : les jobs s'exécutent dans l'ordre, chacun après la fin du précédent.
         Bus::chain($jobs)->dispatch();
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Toutes les règles actives ont été lancées, par ordre de priorité.'));
     }
 
+    /** Lance la détection des doublons (filtres facultatifs : source, fichier, période). */
     public function detectDuplicates(Request $request): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
@@ -228,6 +249,7 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Détection des doublons lancée (lot :batch).', ['batch' => $batchReference]));
     }
 
+    /** Lance le balayage des non-rapprochés (mêmes filtres que la détection des doublons). */
     public function sweepUnmatched(Request $request): RedirectResponse
     {
         $this->authorize('update', MatchingRule::class);
@@ -246,6 +268,10 @@ class MatchingRuleController extends Controller
         return redirect()->route('admin.matching-rules.index')->with('status', __('Balayage des non-rapprochés lancé (lot :batch).', ['batch' => $batchReference]));
     }
 
+    /**
+     * Valide les filtres de maintenance. Si une source ET un fichier sont choisis,
+     * le fichier doit appartenir à cette source, sinon on renvoie une erreur de formulaire.
+     */
     private function validateMaintenanceFilters(Request $request): array
     {
         $validated = $request->validate([
@@ -274,6 +300,8 @@ class MatchingRuleController extends Controller
      */
     private function mapAttributes(array $validated): array
     {
+        // Le formulaire donne les statuts exclus en texte « Commission, Frais » :
+        // explode découpe sur les virgules, trim retire les espaces, array_filter retire les vides.
         $excludedA = array_values(array_filter(array_map('trim', explode(',', $validated['excluded_status_raw_a'] ?? ''))));
         $excludedB = array_values(array_filter(array_map('trim', explode(',', $validated['excluded_status_raw_b'] ?? ''))));
 

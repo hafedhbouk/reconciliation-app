@@ -1,3 +1,7 @@
+{{--
+    Composant <x-admin.banks.form> : champs du formulaire banque, partagés par create et edit.
+    old('code', $bank?->code) : la valeur saisie après une erreur, sinon celle de la banque (vide à la création).
+--}}
 @props(['bank' => null])
 
 <div class="mb-3">

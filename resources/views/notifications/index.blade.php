@@ -1,3 +1,6 @@
+{{--
+    Liste des notifications de l'utilisateur (la « cloche »), avec « tout marquer comme lu ».
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

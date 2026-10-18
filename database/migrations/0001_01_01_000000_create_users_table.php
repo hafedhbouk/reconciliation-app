@@ -4,6 +4,13 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Tables de base des comptes (fournies par Laravel) :
+ * - users                 : les utilisateurs (voir app/Models/User.php) ;
+ * - password_reset_tokens : jetons des liens « mot de passe oublié » ;
+ * - sessions              : sessions de connexion en cours.
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     /**

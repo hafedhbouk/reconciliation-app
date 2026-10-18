@@ -1,3 +1,6 @@
+{{--
+    Page « Nouvelle règle de rapprochement ». Données fournies par MatchingRuleController::create. Formulaire : composant <x-admin.matching-rules.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouvelle règle de rapprochement') }}</h2>

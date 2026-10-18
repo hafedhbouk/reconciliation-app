@@ -44,6 +44,14 @@ use Throwable;
  *          raisonnables (< ~50k lignes) pour ne pas exploser la
  *          memory_limit du worker
  * - pdf : idem, limité aux volumes raisonnables
+ *
+ * Remarque : malgré la phrase « est notifié » ci-dessus, aucune notification
+ * n'est envoyée aujourd'hui ; l'utilisateur suit l'avancement sur la page « Exports ».
+ *
+ * Deux types d'export passent par ce job :
+ *   - les résultats de rapprochement (cas par défaut, filtrés comme à l'écran) ;
+ *   - les écarts d'une comparaison de fichiers (filters.type = 'unmatched'), voir handleUnmatched().
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
 class GenerateMatchingExportJob implements ShouldQueue
 {
@@ -82,6 +90,8 @@ class GenerateMatchingExportJob implements ShouldQueue
         $disk = 'local';
         $directory = 'exports/matching-results';
 
+        // Requête des résultats. with([...]) précharge les relations en quelques requêtes
+        // groupées, au lieu d'une requête par résultat (problème dit « N+1 »).
         $query = MatchingResult::query()
             ->with([
                 'matchingRule',
@@ -90,6 +100,7 @@ class GenerateMatchingExportJob implements ShouldQueue
             ])
             ->orderByDesc('id');
 
+        // On rejoue les filtres choisis par l'utilisateur à l'écran.
         if (! empty($filters['matching_rule_id'])) {
             $query->where('matching_rule_id', $filters['matching_rule_id']);
         }
@@ -110,11 +121,15 @@ class GenerateMatchingExportJob implements ShouldQueue
             $query->where('status', $filters['status']);
         }
 
+        // Fonction utilitaire : les transactions d'un côté ('a' ou 'b') d'un résultat.
         $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
             ->where('side', $side)
             ->map(fn ($detail) => $detail->normalizedTransaction)
             ->filter();
 
+        // GenericTableExport reçoit : la requête, les titres de colonnes, et une fonction
+        // qui transforme un résultat en ligne du fichier. Un groupe de plusieurs
+        // transactions est affiché sur une seule ligne, valeurs séparées par « ; ».
         $export = new GenericTableExport(
             $query,
             [
@@ -151,6 +166,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                 'pdf' => ExcelFormat::DOMPDF,
             };
 
+            // Excel::store (paquet maatwebsite/excel) génère le fichier et l'écrit sur le disque.
             Excel::store($export, "{$directory}/{$fileName}", $disk, $writerType);
 
             $this->matchingExport->update([
@@ -164,10 +180,12 @@ class GenerateMatchingExportJob implements ShouldQueue
                 'error_message' => $e->getMessage(),
             ]);
 
+            // On relance l'erreur pour que Laravel enregistre le job comme échoué.
             throw $e;
         }
     }
 
+    /** Appelée par Laravel si le job échoue : l'export passe en « échec » avec le message. */
     public function failed(Throwable $e): void
     {
         $this->matchingExport->update([
@@ -176,6 +194,7 @@ class GenerateMatchingExportJob implements ShouldQueue
         ]);
     }
 
+    /** Export des écarts d'une comparaison de fichiers (lignes présentes d'un seul côté). */
     private function handleUnmatched(string $format, int $snapshotId): void
     {
         $snapshot = UnmatchedSnapshot::query()->with(['importA', 'importB'])->findOrFail($snapshotId);
@@ -195,6 +214,10 @@ class GenerateMatchingExportJob implements ShouldQueue
                 $row['source'] ?? '', $row['reference'] ?? $row['primary_key_value'] ?? '',
                 (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? ''];
         };
+        // Sécurité (« injection de formule ») : une cellule qui commence par =, +, - ou @
+        // serait exécutée comme une formule par Excel. On la préfixe d'une apostrophe
+        // pour qu'elle reste du texte. Exception : la colonne 6, les montants
+        // (entiers éventuellement négatifs), qu'on laisse en nombre.
         $rows = $query->get()->map($map)->map(function (array $values): array {
             return array_map(function ($value, $index) {
                 $value = (string) $value;

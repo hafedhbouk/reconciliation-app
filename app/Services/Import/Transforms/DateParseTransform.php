@@ -22,13 +22,20 @@ class DateParseTransform implements TransformPrimitive
         return TransformType::DateParse->value;
     }
 
+    /**
+     * Exemple : valeur '15/05/2026', config ['format' => 'd/m/Y'] => '2026-05-15'.
+     * Lettres de format : d = jour, m = mois, Y = année sur 4 chiffres,
+     * H:i:s = heures:minutes:secondes.
+     */
     public function apply(mixed $value, array $config, array $rawRow): mixed
     {
+        // `?? throw` : si le format n'est pas configuré, on arrête avec un message clair.
         $format = $config['format'] ?? throw new TransformException('Le paramètre "format" est requis pour date_parse.');
-        $output = $config['output'] ?? 'date';
+        $output = $config['output'] ?? 'date'; // 'date' (sans heure) ou 'datetime'
         $trimmed = trim((string) $value);
 
         try {
+            // Carbon est la bibliothèque de dates utilisée par Laravel.
             $parsed = Carbon::createFromFormat($format, $trimmed);
         } catch (\Throwable $e) {
             throw new TransformException("Impossible d'analyser '{$value}' au format '{$format}'.", previous: $e);

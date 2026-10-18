@@ -1,3 +1,6 @@
+{{--
+    Page « Devises ». Données fournies par CurrencyController::index. Même principe que admin/banks/index.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

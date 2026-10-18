@@ -6,6 +6,11 @@ use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
+/**
+ * Validation de la modification d'un utilisateur. Le mot de passe est facultatif
+ * (vide = inchangé). Voir UpdateBankRequest pour ->ignore().
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateUserRequest extends BaseFormRequest
 {
     public function rules(): array

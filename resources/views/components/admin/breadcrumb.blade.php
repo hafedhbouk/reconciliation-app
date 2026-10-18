@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.breadcrumb> : le fil d'Ariane (Accueil > Imports > …). Le dernier élément n'est pas un lien.
+--}}
 @props(['items' => []])
 
 <nav aria-label="breadcrumb" class="mb-3">

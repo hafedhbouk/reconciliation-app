@@ -1,3 +1,6 @@
+{{--
+    Page « Rôles & Permissions ». Données fournies par RoleController::index.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

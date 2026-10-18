@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/**
+ * Demande de ressaisir le mot de passe avant une action sensible (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class ConfirmablePasswordController extends Controller
 {
     /**

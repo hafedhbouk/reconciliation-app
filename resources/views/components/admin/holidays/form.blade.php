@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.holidays.form> : champs du formulaire jour férié (voir components/admin/banks/form).
+--}}
 @props(['holiday' => null])
 
 <div class="mb-3">

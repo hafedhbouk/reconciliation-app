@@ -4,6 +4,11 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Crée la table notifications (fournie par Laravel) : les messages de la cloche.
+ * morphs('notifiable') crée notifiable_type + notifiable_id (le destinataire).
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     /**

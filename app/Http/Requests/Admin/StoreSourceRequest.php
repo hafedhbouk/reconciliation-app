@@ -4,6 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseFormRequest;
 
+/**
+ * Validation de la création d'une source (code unique, type de fichier csv/xls/xlsx).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreSourceRequest extends BaseFormRequest
 {
     public function rules(): array

@@ -1,3 +1,6 @@
+{{--
+    Page « Mon profil » (Laravel Breeze) : regroupe les trois formulaires du dossier partials.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold">

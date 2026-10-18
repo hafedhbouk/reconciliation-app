@@ -27,6 +27,13 @@ use Throwable;
  *          raisonnables (< ~50k lignes) pour ne pas exploser la
  *          memory_limit du worker
  * - pdf : idem, limité aux volumes raisonnables
+ *
+ * Remarque : comme pour GenerateMatchingExportJob, aucune notification n'est
+ * envoyée aujourd'hui ; l'export apparaît sur la page « Exports » de la recherche.
+ *
+ * Même structure que GenerateMatchingExportJob (voir ce fichier pour les détails),
+ * mais exporte les transactions trouvées par l'écran « Recherche ».
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
 class GenerateSearchExportJob implements ShouldQueue
 {
@@ -109,6 +116,11 @@ class GenerateSearchExportJob implements ShouldQueue
     }
 
     /**
+     * Reconstruit la requête de l'écran de recherche à partir des filtres enregistrés.
+     *
+     * ->when($valeur, fn ($query, $valeur) => ...) n'ajoute le filtre que si
+     * la valeur est remplie. 'like' + "%texte%" = « contient texte ».
+     *
      * @param array<string,mixed> $filters
      */
     private function buildQuery(array $filters): \Illuminate\Database\Eloquent\Builder

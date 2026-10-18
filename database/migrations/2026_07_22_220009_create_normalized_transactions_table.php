@@ -4,6 +4,12 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Crée la table normalized_transactions : la version simplifiée de chaque transaction,
+ * utilisée par le rapprochement (une par transaction, d'où unique() sur transaction_id).
+ * La colonne normalized_secondary_reference est ajoutée plus tard (migration du 2026_10_16).
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     public function up(): void

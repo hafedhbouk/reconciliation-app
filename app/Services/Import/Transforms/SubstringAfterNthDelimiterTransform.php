@@ -33,12 +33,15 @@ class SubstringAfterNthDelimiterTransform implements TransformPrimitive
         $n = $config['n'] ?? 1;
         $length = $config['length'] ?? null;
 
+        // explode découpe le texte : 'a,b,c123' -> ['a', 'b', 'c123'].
         $parts = explode($delimiter, (string) $value);
 
         if (count($parts) <= $n) {
             throw new TransformException("Impossible de trouver le {$n}-ième séparateur '{$delimiter}' dans '{$value}'.");
         }
 
+        // On garde tout ce qui suit le n-ième séparateur (n = 2 : 'c123'),
+        // en recollant les morceaux suivants s'il y a d'autres séparateurs.
         $remainder = implode($delimiter, array_slice($parts, $n));
 
         return $length !== null ? mb_substr($remainder, 0, $length) : $remainder;

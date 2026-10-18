@@ -4,6 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseFormRequest;
 
+/**
+ * Validation de la création d'un rôle : nom unique, permissions existantes.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreRoleRequest extends BaseFormRequest
 {
     public function rules(): array

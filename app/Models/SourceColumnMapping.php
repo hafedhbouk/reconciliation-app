@@ -9,6 +9,15 @@ namespace App\Models;
  * cible (ex: "reference"), la série de transforms à appliquer (trim,
  * zero_pad, etc.) et si la colonne est obligatoire. L'ordre (sort_order)
  * détermine la séquence d'application des transforms dans le MappingEngine.
+ *
+ * Exemple réel (BNA) :
+ *   source_column = 'N° autorisation', target_field = 'num_autorisation',
+ *   transform = [{"key": "trim"}, {"key": "zero_pad", "config": {"length": 6}}]
+ * Les valeurs par défaut sont créées par database/seeders/SourceColumnMappingSeeder.php
+ * et modifiables dans l'écran « Mapping » d'une source.
+ *
+ * (Les notions fillable, casts, relations et traits sont expliquées en
+ * détail dans app/Models/Import.php.)
  */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
@@ -23,10 +32,10 @@ class SourceColumnMapping extends Model
 
     protected $fillable = [
         'source_id',
-        'target_field',
-        'source_column',
-        'transform',
-        'is_required',
+        'target_field',   // champ interne (valeur de App\Enums\MappingTargetField)
+        'source_column',  // nom exact de la colonne dans le fichier
+        'transform',      // liste ordonnée des transformations à appliquer
+        'is_required',    // si vrai, une ligne sans cette valeur est rejetée
         'sort_order',
     ];
 

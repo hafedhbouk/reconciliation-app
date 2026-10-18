@@ -1,3 +1,6 @@
+{{--
+    Formulaire de changement de mot de passe.
+--}}
 <section>
     <header class="mb-3">
         <h2 class="fs-5 fw-medium">

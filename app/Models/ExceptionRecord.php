@@ -10,6 +10,12 @@ namespace App\Models;
  * et erreurs de parsing. Le cycle de vie est géré par le statut (Open,
  * InReview, Resolved) et les champs assigned_to / resolved_by permettent
  * le workflow de revue manuelle.
+ *
+ * Pourquoi « ExceptionRecord » et pas « Exception » ? Parce que `Exception`
+ * est déjà une classe de base de PHP (les erreurs). D'où aussi
+ * `$table = 'exceptions'` : sans cette ligne, Laravel chercherait une table
+ * « exception_records ».
+ * (Les notions fillable, casts, relations et traits sont expliquées dans app/Models/Import.php.)
  */
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
@@ -28,13 +34,13 @@ class ExceptionRecord extends Model
     protected $table = 'exceptions';
 
     protected $fillable = [
-        'normalized_transaction_id',
-        'matching_result_id',
+        'normalized_transaction_id', // transaction concernée (cas d'une seule transaction)
+        'matching_result_id',        // ou résultat de rapprochement concerné (cas d'un groupe)
         'batch_reference',
-        'type',
-        'status',
-        'is_expected',
-        'assigned_to',
+        'type',                      // voir App\Enums\ExceptionType
+        'status',                    // voir App\Enums\ExceptionStatus
+        'is_expected',               // l'écart est connu et normal (ex. frais bancaires)
+        'assigned_to',               // utilisateur chargé de l'analyser
         'resolution_comment',
         'resolved_by',
         'resolved_at',
@@ -70,6 +76,7 @@ class ExceptionRecord extends Model
         return $this->belongsTo(User::class, 'resolved_by');
     }
 
+    /** Pièces jointes (justificatifs). La clé étrangère s'appelle exception_id. */
     public function attachments(): HasMany
     {
         return $this->hasMany(ExceptionAttachment::class, 'exception_id');

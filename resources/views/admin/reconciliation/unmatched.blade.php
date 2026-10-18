@@ -1,3 +1,7 @@
+{{--
+    Écarts entre deux fichiers : choix des fichiers A et B, état du calcul (en cours / terminé),
+    lignes présentes d'un seul côté et exports. Données : ReconciliationController::unmatched.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Transactions non rapprochées par fichier importé') }}</h2>

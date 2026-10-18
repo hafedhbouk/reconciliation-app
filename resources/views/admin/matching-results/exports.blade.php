@@ -1,3 +1,6 @@
+{{--
+    Liste des exports de résultats (statut, format, lien de téléchargement). Données : MatchingResultController::exports.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Exports de rapprochement') }}</h2>

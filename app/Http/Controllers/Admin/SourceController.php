@@ -11,6 +11,11 @@ use App\Models\Source;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
+/**
+ * Gestion des sources de fichiers : ALPHA, BNA, WEB, SMT (Administration > Sources).
+ * Même structure CRUD que BankController : voir ce fichier pour les explications.
+ * Le mapping des colonnes d'une source se gère à part, dans SourceMappingController.
+ */
 class SourceController extends Controller
 {
     public function __construct()
@@ -56,6 +61,7 @@ class SourceController extends Controller
         return redirect()->route('admin.sources.index')->with('status', __('Source supprimée avec succès.'));
     }
 
+    /** Listes déroulantes communes aux formulaires de création et de modification. */
     private function formData(): array
     {
         return [

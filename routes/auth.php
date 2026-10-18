@@ -1,5 +1,14 @@
 <?php
 
+/*
+| Routes d'authentification, fournies par Laravel Breeze (incluses à la fin de web.php).
+|   - groupe 'guest' : pages accessibles seulement si l'on N'est PAS connecté
+|     (connexion, inscription, mot de passe oublié) ;
+|   - groupe 'auth'  : vérification d'email, confirmation et changement de
+|     mot de passe, déconnexion.
+| 'throttle:6,1' = 6 tentatives par minute au maximum (protection anti-abus).
+*/
+
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;

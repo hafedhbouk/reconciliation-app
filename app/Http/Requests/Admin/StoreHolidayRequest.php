@@ -5,6 +5,10 @@ namespace App\Http\Requests\Admin;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation de la création d'un jour férié : une seule entrée par date et par pays.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreHolidayRequest extends BaseFormRequest
 {
     public function rules(): array

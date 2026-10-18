@@ -4,6 +4,11 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Crée la table matching_details : relie un résultat à chacune de ses transactions,
+ * avec le côté ('a' ou 'b'). Une transaction n'apparaît qu'une fois par résultat (index unique).
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     public function up(): void

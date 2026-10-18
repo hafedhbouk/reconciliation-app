@@ -9,6 +9,10 @@ use Illuminate\Notifications\Notification;
  * tout" batch, duplicate detection, unmatched sweep) rather than one
  * notification class per trigger -- they're all the same shape: a title and
  * a short list of summary lines.
+ *
+ * (En français : une seule classe pour toutes les fins de traitement de
+ * rapprochement, avec un titre et quelques lignes de résumé.
+ * Le fonctionnement des notifications est expliqué dans ImportProcessedNotification.)
  */
 class MatchingActionCompletedNotification extends Notification
 {

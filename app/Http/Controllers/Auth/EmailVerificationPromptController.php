@@ -7,6 +7,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
+/**
+ * Affiche la page « Vérifiez votre adresse email » si elle ne l'est pas encore (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class EmailVerificationPromptController extends Controller
 {
     /**

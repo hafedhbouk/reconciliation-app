@@ -1,3 +1,6 @@
+{{--
+    Page « Nouvel utilisateur ». Données fournies par UserController::create. Formulaire : composant <x-admin.users.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouvel utilisateur') }}</h2>

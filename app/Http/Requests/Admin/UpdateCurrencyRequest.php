@@ -5,6 +5,10 @@ namespace App\Http\Requests\Admin;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation du formulaire de modification d'une devise (voir UpdateBankRequest pour ->ignore()).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateCurrencyRequest extends BaseFormRequest
 {
     public function rules(): array

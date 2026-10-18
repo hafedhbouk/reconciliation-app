@@ -1,3 +1,6 @@
+{{--
+    Page « nouveau mot de passe », depuis le lien reçu par email (Laravel Breeze).
+--}}
 <x-guest-layout>
     <form method="POST" action="{{ route('password.store') }}">
         @csrf

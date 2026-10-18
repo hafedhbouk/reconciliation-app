@@ -1,3 +1,6 @@
+{{--
+    Formulaire de modification du nom et de l'email.
+--}}
 <section>
     <header class="mb-3">
         <h2 class="fs-5 fw-medium">

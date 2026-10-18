@@ -1,3 +1,7 @@
+{{--
+    Page « Modifier la banque ». Données fournies par BankController::edit.
+    Même formulaire que la création, prérempli ; @method('PUT') car c'est une modification.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Modifier la banque') }}</h2>

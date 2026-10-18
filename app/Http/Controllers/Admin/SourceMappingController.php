@@ -8,6 +8,11 @@ namespace App\Http\Controllers\Admin;
  * Permet aux utilisateurs de définir, pour chaque Source, quelle colonne
  * du fichier correspond à quel champ métier, et quelles transformations
  * appliquer (trim, zero-pad, parsing de date, conversion millimes, etc.).
+ *
+ * Le formulaire affiche une ligne par champ interne (MappingTargetField).
+ * Pour aider l'utilisateur, on lit les en-têtes du dernier fichier importé
+ * de la source et on les propose dans une liste déroulante.
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 use App\Enums\MappingTargetField;
 use App\Enums\TransformType;
@@ -30,6 +35,8 @@ class SourceMappingController extends Controller
     {
         $this->authorize('update', $source);
 
+        // Fichier de référence pour lire les en-têtes : celui passé dans l'URL (?import=12),
+        // sinon le dernier import de la source.
         $importId = $request->query('import');
         $referenceImport = $importId
             ? Import::query()->where('source_id', $source->id)->find($importId)
@@ -41,10 +48,12 @@ class SourceMappingController extends Controller
                 $reader = $readers->make($source);
                 $detectedHeaders = $reader->headers(Storage::path($referenceImport->stored_path), $source->config ?? []);
             } catch (Throwable) {
+                // Fichier illisible ou supprimé : on affiche simplement le formulaire sans suggestions.
                 $detectedHeaders = [];
             }
         }
 
+        // keyBy('target_field') : collection indexée par le nom du champ, ex. $mappings['amount'].
         $mappings = SourceColumnMapping::query()
             ->where('source_id', $source->id)
             ->get()
@@ -60,6 +69,12 @@ class SourceMappingController extends Controller
         ]);
     }
 
+    /**
+     * Enregistre le formulaire de mapping. Pour chaque champ interne :
+     *   - colonne laissée vide -> le mapping est supprimé ;
+     *   - sinon il est créé ou mis à jour (updateOrCreate).
+     * Le tout dans une transaction : soit tout est enregistré, soit rien.
+     */
     public function update(UpdateSourceMappingRequest $request, Source $source): RedirectResponse
     {
         $this->authorize('update', $source);
@@ -67,6 +82,7 @@ class SourceMappingController extends Controller
         $submitted = $request->validated('mappings', []);
 
         DB::transaction(function () use ($submitted, $source) {
+            // MappingTargetField::cases() = la liste de tous les cas de l'enum, dans l'ordre.
             foreach (MappingTargetField::cases() as $index => $field) {
                 $data = $submitted[$field->value] ?? null;
                 $sourceColumn = trim((string) ($data['source_column'] ?? ''));
@@ -93,6 +109,7 @@ class SourceMappingController extends Controller
 
         });
 
+        // Si on est arrivé ici depuis un import bloqué, on y retourne pour pouvoir le relancer.
         $importId = $request->input('import_id');
 
         if ($importId) {
@@ -104,7 +121,14 @@ class SourceMappingController extends Controller
             ->with('status', __('Mapping mis à jour avec succès.'));
     }
 
-    /** @return array<int,array<string,mixed>> */
+    /**
+     * Construit la liste des transformations à partir des champs du formulaire.
+     * On commence toujours par 'trim', puis on ajoute la transformation choisie
+     * avec ses paramètres. Exemple de résultat :
+     *   [['key' => 'trim'], ['key' => 'date_parse', 'config' => ['format' => 'd/m/Y', 'output' => 'date']]]
+     *
+     * @return array<int,array<string,mixed>>
+     */
     private function buildTransformSteps(MappingTargetField $field, ?array $data): array
     {
         $steps = [['key' => TransformType::Trim->value]];

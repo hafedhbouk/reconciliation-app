@@ -7,11 +7,16 @@ use App\Models\Source;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validation du formulaire de dépôt d'un fichier à importer.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreImportRequest extends BaseFormRequest
 {
     public function rules(): array
     {
         return [
+            // La source doit exister ET être active.
             'source_id' => ['required', Rule::exists('sources', 'id')->where('is_active', true)],
             // Defense-in-depth alongside the custom per-source extension
             // check below -- 'mimes' validates by real content-based mime
@@ -24,6 +29,10 @@ class StoreImportRequest extends BaseFormRequest
         ];
     }
 
+    /**
+     * Contrôle supplémentaire : l'extension du fichier doit correspondre au
+     * type de la source (un CSV ne peut pas être déposé pour BNA, qui attend un Excel).
+     */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {

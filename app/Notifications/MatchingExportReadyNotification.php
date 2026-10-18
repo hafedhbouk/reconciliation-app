@@ -8,6 +8,11 @@ namespace App\Notifications;
  * Contient le statut de l'export (complété ou échoué), l'URL de
  * téléchargement sécurisée par token et, en cas d'erreur, le message
  * correspondant. Stockée en base pour le tableau de bord.
+ *
+ * Remarque : cette classe n'est envoyée nulle part pour l'instant. Les jobs
+ * d'export mettent à jour matching_exports, et l'utilisateur consulte la page
+ * « Exports » pour télécharger son fichier.
+ * (Le fonctionnement des notifications est expliqué dans ImportProcessedNotification.)
  */
 use App\Models\MatchingExport;
 use Illuminate\Notifications\Notification;

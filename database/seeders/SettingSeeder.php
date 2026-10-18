@@ -5,6 +5,12 @@ namespace Database\Seeders;
 use App\Models\Setting;
 use Illuminate\Database\Seeder;
 
+/**
+ * Crée les paramètres par défaut (tolérances de rapprochement, formats d'affichage).
+ * Attention : updateOrCreate remet aussi la VALEUR par défaut, donc relancer ce seeder
+ * écrase les valeurs modifiées dans Administration > Paramètres.
+ * (Le fonctionnement des seeders est expliqué dans DatabaseSeeder.php.)
+ */
 class SettingSeeder extends Seeder
 {
     public function run(): void

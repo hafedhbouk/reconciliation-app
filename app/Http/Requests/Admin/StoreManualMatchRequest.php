@@ -7,10 +7,16 @@ use App\Http\Requests\BaseFormRequest;
 use App\Models\NormalizedTransaction;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 
+/**
+ * Validation d'un rapprochement manuel : au moins une transaction de chaque
+ * côté, aucune transaction des deux côtés à la fois, et toutes encore non rapprochées.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreManualMatchRequest extends BaseFormRequest
 {
     public function rules(): array
     {
+        // 'array', 'min:1' : une liste d'au moins un élément ; '.*' => 'distinct' : pas de doublon dans la liste.
         return [
             'normalized_transaction_ids_a' => ['required', 'array', 'min:1'],
             'normalized_transaction_ids_a.*' => ['integer', 'distinct'],
@@ -33,6 +39,8 @@ class StoreManualMatchRequest extends BaseFormRequest
 
             $allIds = $idsA->merge($idsB);
 
+            // On compte, par paquets de 1 000 id, combien sont encore non rapprochées :
+            // toutes doivent l'être (le contrôleur refait la vérification sous verrou).
             $unmatchedCount = 0;
             foreach ($allIds->chunk(1000) as $chunk) {
                 $unmatchedCount += NormalizedTransaction::query()

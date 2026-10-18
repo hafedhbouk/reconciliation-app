@@ -13,6 +13,11 @@ use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 use Yajra\DataTables\Facades\DataTables;
 
+/**
+ * Gestion des comptes utilisateurs et de leurs rôles (Administration > Utilisateurs).
+ * Même structure CRUD que BankController ; la liste utilise DataTables
+ * (voir ImportController::data).
+ */
 class UserController extends Controller
 {
     public function __construct()
@@ -53,11 +58,14 @@ class UserController extends Controller
             'matricule' => $request->validated('matricule'),
             'portable' => $request->validated('portable'),
             'email' => $request->validated('email'),
+            // Hash::make chiffre le mot de passe (bcrypt) : il n'est jamais stocké en clair.
             'password' => Hash::make($request->validated('password')),
             'is_active' => $request->boolean('is_active', true),
+            // Un compte créé par un administrateur est considéré comme vérifié.
             'email_verified_at' => now(),
         ]);
 
+        // syncRoles (paquet spatie/laravel-permission) : remplace les rôles de l'utilisateur par ceux cochés.
         $user->syncRoles($request->validated('roles', []));
 
         return redirect()->route('admin.users.index')->with('status', __('Utilisateur créé avec succès.'));
@@ -80,6 +88,7 @@ class UserController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ];
 
+        // Mot de passe laissé vide dans le formulaire : on garde l'ancien.
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->validated('password'));
         }
@@ -92,6 +101,7 @@ class UserController extends Controller
 
     public function destroy(User $user): RedirectResponse
     {
+        // Protection : un administrateur ne peut pas supprimer son propre compte.
         if ($user->id === auth()->id()) {
             return redirect()->route('admin.users.index')->with('status', __('Vous ne pouvez pas supprimer votre propre compte.'));
         }

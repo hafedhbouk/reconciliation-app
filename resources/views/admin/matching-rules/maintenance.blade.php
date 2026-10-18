@@ -1,3 +1,7 @@
+{{--
+    Page « Contrôles après rapprochement » : détection des doublons et balayage des non-rapprochés,
+    avec filtres et aperçu du nombre d'exceptions avant lancement. Données : MatchingRuleController::maintenance.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

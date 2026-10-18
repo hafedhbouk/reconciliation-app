@@ -10,8 +10,20 @@ use PhpOffice\PhpSpreadsheet\Cell\StringValueBinder;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
+/**
+ * Fichier d'export des écarts entre deux fichiers (CSV, Excel ou PDF).
+ *
+ * Particularités :
+ *   - StringValueBinder : toutes les cellules sont écrites en TEXTE. Ainsi
+ *     Excel ne transforme pas une référence « 000123 » en nombre 123 ;
+ *   - CSV au format attendu par Excel en français : séparateur « ; » et BOM
+ *     (marqueur qui signale l'encodage UTF-8, pour que les accents s'affichent correctement) ;
+ *   - mise en page PDF : A4 paysage, colonnes de largeur fixe, petite police.
+ * Les lignes sont préparées par GenerateMatchingExportJob::handleUnmatched().
+ */
 class UnmatchedExport extends StringValueBinder implements FromArray, WithCustomCsvSettings, WithCustomValueBinder, WithStyles
 {
+    /** @param  array  $rows  première ligne = titres, puis une ligne par écart */
     public function __construct(private array $rows) {}
 
     public function array(): array
@@ -39,6 +51,7 @@ class UnmatchedExport extends StringValueBinder implements FromArray, WithCustom
 
         $sheet->getStyle($sheet->calculateWorksheetDimension())->getFont()->setSize(9);
 
+        // Ligne 1 (les titres) en gras.
         return [1 => ['font' => ['bold' => true]]];
     }
 }

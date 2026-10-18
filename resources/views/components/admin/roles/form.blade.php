@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.roles.form> : nom du rôle et cases à cocher des permissions, groupées par module.
+--}}
 @props(['role' => null, 'permissions' => []])
 
 @php

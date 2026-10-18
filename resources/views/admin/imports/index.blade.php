@@ -1,3 +1,6 @@
+{{--
+    Liste des imports. Tableau DataTables rempli par ImportController::data.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

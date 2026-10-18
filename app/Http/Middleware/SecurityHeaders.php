@@ -11,6 +11,11 @@ namespace App\Http\Middleware;
  * inline (@push, scripts de layout). Ce compromis est documenté et
  * reflète le modèle de menace d'un outil interne (pas un site public
  * acceptant du HTML utilisateur).
+ *
+ * Pour un débutant : un « middleware » est un filtre placé autour de chaque
+ * requête. $next($request) laisse la requête continuer jusqu'au contrôleur ;
+ * on modifie ensuite la réponse avant qu'elle reparte vers le navigateur.
+ * Il est branché dans bootstrap/app.php.
  */
 use Closure;
 use Illuminate\Http\Request;
@@ -32,9 +37,13 @@ class SecurityHeaders
     {
         $response = $next($request);
 
+        // Interdit d'afficher l'application dans une iframe d'un autre site (protection anti « clickjacking »).
         $response->headers->set('X-Frame-Options', 'DENY');
+        // Empêche le navigateur de « deviner » le type d'un fichier différemment de ce qu'annonce le serveur.
         $response->headers->set('X-Content-Type-Options', 'nosniff');
+        // Limite les informations d'URL envoyées aux autres sites quand on clique sur un lien.
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        // CSP : liste des origines autorisées pour les scripts, styles, images… ('self' = notre propre site).
         $response->headers->set('Content-Security-Policy', implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'unsafe-inline'",

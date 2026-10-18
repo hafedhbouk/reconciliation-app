@@ -9,6 +9,10 @@ namespace App\Http\Controllers\Admin;
  * rapprochements manuels (matching sans règle, avec confiance humaine).
  * L'action "Sélectionner tout" est plafonnée à 500 lignes pour éviter
  * des requêtes trop lourdes côté client et serveur.
+ *
+ * Gère aussi l'écran « Écarts entre fichiers » (méthodes unmatched,
+ * refreshUnmatched et exportAsync).
+ * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
 use App\Enums\MatchingResultStatus;
 use App\Enums\MatchingStatus;
@@ -35,6 +39,7 @@ use Illuminate\Support\Str;
 
 class ReconciliationController extends Controller
 {
+    /** Page du rapprochement manuel : deux listes de transactions non rapprochées à cocher. */
     public function index(): View
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -44,6 +49,12 @@ class ReconciliationController extends Controller
         ]);
     }
 
+    /**
+     * Écran « Écarts entre fichiers ». Quand deux fichiers sont choisis :
+     *   - si aucun calcul n'existe, on en crée un et on lance ComputeUnmatchedJob ;
+     *   - tant que le calcul tourne, la page affiche « en cours » ;
+     *   - une fois terminé, on affiche les lignes exclusives de chaque côté.
+     */
     public function unmatched(Request $request): View
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -96,6 +107,7 @@ class ReconciliationController extends Controller
         ]);
     }
 
+    /** Bouton « Recalculer » : remet le cache à zéro et relance le calcul des écarts. */
     public function refreshUnmatched(Request $request): RedirectResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -130,6 +142,10 @@ class ReconciliationController extends Controller
         ]);
     }
 
+    /**
+     * Export des écarts en arrière-plan. Excel et PDF sont limités à 1 000 lignes
+     * (trop lourds au-delà) ; le CSV n'a pas de limite.
+     */
     public function exportAsync(Request $request, UnmatchedSnapshot $snapshot): RedirectResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -161,6 +177,11 @@ class ReconciliationController extends Controller
     /** Hard cap on how many rows a single "select all" can pull in at once. */
     private const SELECT_ALL_LIMIT = 500;
 
+    /**
+     * Recherche appelée en JavaScript (AJAX) par l'écran de rapprochement manuel.
+     * Renvoie une page de 15 transactions, ou, avec all=1, les id de toutes
+     * les transactions trouvées (500 au maximum) pour « Sélectionner tout ».
+     */
     public function search(Request $request): JsonResponse
     {
         $this->authorize('viewAny', MatchingResult::class);
@@ -202,7 +223,11 @@ class ReconciliationController extends Controller
         return response()->json($rows);
     }
 
-    /** @param array<string,mixed> $filters */
+    /**
+     * Requête des transactions non rapprochées, avec les filtres facultatifs de recherche.
+     *
+     * @param array<string,mixed> $filters
+     */
     private function filteredUnmatchedQuery(array $filters)
     {
         return NormalizedTransaction::query()
@@ -217,6 +242,11 @@ class ReconciliationController extends Controller
             ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('normalized_date', '<=', $date));
     }
 
+    /**
+     * Crée un rapprochement manuel à partir des transactions cochées (côté A et côté B).
+     * On vérifie d'abord, sous verrou, que chaque transaction est encore
+     * disponible : un collègue a pu la rapprocher pendant ce temps.
+     */
     public function store(StoreManualMatchRequest $request): RedirectResponse
     {
         $this->authorize('create', MatchingResult::class);

@@ -6,6 +6,23 @@ use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Crée les permissions et les rôles de l'application (paquet spatie/laravel-permission).
+ *
+ * Permissions : pour chaque ressource de RESOURCES, une permission par action de ABILITIES,
+ * ex. « imports.viewAny », « imports.create »… (vérifiées par les Policies, voir app/Policies/BasePolicy.php).
+ * Rôles :
+ * - super-admin      : tous les droits, accordés par Gate::before dans AppServiceProvider ;
+ * - admin            : toutes les permissions ;
+ * - auditor          : lecture seule, journal d'audit compris ;
+ * - operator         : imports, mapping des sources, rapprochements manuels, exceptions ;
+ * - directeur        : consultation de tout, sans modification ;
+ * - chef-departement : tous les droits métier et les utilisateurs, mais pas les rôles ;
+ * - agent-execution  : imports, lancement des rapprochements, traitement des exceptions.
+ * syncPermissions remplace les permissions du rôle : relancer ce seeder annule
+ * les changements faits à la main sur ces rôles dans l'interface.
+ * (Le fonctionnement des seeders est expliqué dans DatabaseSeeder.php.)
+ */
 class RolePermissionSeeder extends Seeder
 {
     private const RESOURCES = [

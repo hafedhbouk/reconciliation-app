@@ -1,3 +1,6 @@
+{{--
+    Page « Modifier l'utilisateur ». Données fournies par UserController::edit. Formulaire : composant <x-admin.users.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Modifier l\'utilisateur') }}</h2>

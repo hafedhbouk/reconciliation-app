@@ -1,3 +1,6 @@
+{{--
+    Boutons « voir » et « supprimer » d'une ligne de la liste des imports (insérés par ImportController::data).
+--}}
 <a href="{{ route('admin.imports.show', $import) }}" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-eye"></i>
 </a>

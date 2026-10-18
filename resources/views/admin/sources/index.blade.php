@@ -1,3 +1,6 @@
+{{--
+    Page « Sources ». Données fournies par SourceController::index. Liste avec lien vers le mapping de chaque source.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

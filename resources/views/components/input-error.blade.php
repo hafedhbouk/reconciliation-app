@@ -1,3 +1,6 @@
+{{--
+    Composant <x-input-error> : liste des messages d'erreur de validation d'un champ.
+--}}
 @props(['messages'])
 
 @if ($messages)

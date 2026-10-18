@@ -1,3 +1,7 @@
+{{--
+    Boutons d'une règle dans la liste : lancer (sur tout, ou sur deux fichiers choisis), modifier, supprimer.
+    Attention : le bloc PHP ci-dessous fait des requêtes pour chaque ligne du tableau.
+--}}
 @can('matching-rules.update')
     @php
         $importsA = $rule->sourceA->imports()->where('status', 'completed')->orderByDesc('created_at')->get();

@@ -5,6 +5,11 @@ namespace App\Http\Requests\Admin;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation du formulaire de modification d'une banque.
+ * Rule::unique(...)->ignore(...) : le code reste unique, sans compter la banque modifiée elle-même.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateBankRequest extends BaseFormRequest
 {
     public function rules(): array

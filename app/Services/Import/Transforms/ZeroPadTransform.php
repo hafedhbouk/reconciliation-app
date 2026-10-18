@@ -31,10 +31,12 @@ class ZeroPadTransform implements TransformPrimitive
         $value = (string) $value;
         $length = $config['length'] ?? null;
 
+        // Rien à faire si aucune longueur n'est configurée ou si la valeur est déjà assez longue.
         if ($length === null || mb_strlen($value) >= $length) {
             return $value;
         }
 
+        // Ajoute des '0' à gauche jusqu'à la longueur voulue : '3512' (length 6) -> '003512'.
         return str_pad($value, $length, '0', STR_PAD_LEFT);
     }
 }

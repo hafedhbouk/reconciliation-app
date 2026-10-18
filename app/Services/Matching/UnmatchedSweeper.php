@@ -28,11 +28,16 @@ use Illuminate\Support\Facades\DB;
  */
 class UnmatchedSweeper
 {
+    /** Nombre d'exceptions qui seraient créées (aperçu affiché avant confirmation). */
     public function previewCount(?int $sourceId = null, ?int $importId = null, ?string $dateFrom = null, ?string $dateTo = null): int
     {
         return $this->candidates($sourceId, $importId, $dateFrom, $dateTo)->count();
     }
 
+    /**
+     * Crée les exceptions Unmatched et renvoie leur nombre.
+     * Tous les filtres sont facultatifs (null = pas de filtre).
+     */
     public function sweep(
         ?int $sourceId = null,
         ?int $importId = null,
@@ -45,10 +50,11 @@ class UnmatchedSweeper
         $created = 0;
 
         $this->candidates($sourceId, $importId, $dateFrom, $dateTo)
-            ->select('normalized_transactions.id')
+            ->select('normalized_transactions.id') // on n'a besoin que des id
             ->chunkById($chunkSize, function ($rows) use (&$created, $batchReference) {
                 $now = now();
 
+                // Prépare une ligne d'exception par transaction du paquet.
                 $inserts = $rows->map(fn ($row) => [
                     'normalized_transaction_id' => $row->id,
                     'matching_result_id' => null,
@@ -61,6 +67,7 @@ class UnmatchedSweeper
                     'updated_at' => $now,
                 ])->all();
 
+                // Une seule requête INSERT pour tout le paquet.
                 DB::table('exceptions')->insert($inserts);
                 $created += count($inserts);
             });
@@ -68,6 +75,10 @@ class UnmatchedSweeper
         return $created;
     }
 
+    /**
+     * Requête des transactions concernées : non rapprochées, et sans exception
+     * ouverte, en revue, ou déjà de type Unmatched.
+     */
     private function candidates(?int $sourceId, ?int $importId, ?string $dateFrom, ?string $dateTo): Builder
     {
         return NormalizedTransaction::query()
@@ -83,6 +94,7 @@ class UnmatchedSweeper
             ->when($dateFrom !== null, fn ($query) => $query->whereDate('normalized_date', '>=', $dateFrom))
             ->when($dateTo !== null, fn ($query) => $query->whereDate('normalized_date', '<=', $dateTo))
             ->where('matching_status', MatchingStatus::Unmatched->value)
+            // whereDoesntHave : garde les transactions qui n'ont AUCUNE exception répondant à cette condition.
             ->whereDoesntHave('exceptions', fn ($query) => $query->where(function ($inner) {
                 $inner->whereIn('status', [ExceptionStatus::Open->value, ExceptionStatus::InReview->value])
                     ->orWhere('type', ExceptionType::Unmatched->value);

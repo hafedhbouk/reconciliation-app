@@ -12,6 +12,14 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
+/**
+ * Calcule en arrière-plan les écarts entre deux fichiers (lignes présentes d'un seul côté).
+ *
+ * Contrairement à RunAdHocMatchingJob, ce job ne crée AUCUN rapprochement
+ * et ne change aucun statut : il remplit seulement le cache UnmatchedSnapshot
+ * affiché sur l'écran « Écarts entre fichiers ».
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
+ */
 class ComputeUnmatchedJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -31,8 +39,10 @@ class ComputeUnmatchedJob implements ShouldQueue
         $snapshot->update(['status' => 'processing', 'started_at' => now()]);
 
         try {
+            // RuleMatcher remplit le cache et passe le statut à « completed » quand il a fini.
             app(RuleMatcher::class)->refreshFileDifferences($snapshot->importA, $snapshot->importB);
         } catch (Throwable $e) {
+            // En cas d'erreur : on l'écrit dans le journal, et on l'affiche sur le cache pour l'utilisateur.
             $this->failed($e);
             $snapshot->update([
                 'status' => 'failed',
@@ -42,6 +52,7 @@ class ComputeUnmatchedJob implements ShouldQueue
         }
     }
 
+    /** Écrit l'erreur dans le journal de Laravel (storage/logs/laravel.log). */
     public function failed(Throwable $e): void
     {
         Log::error('ComputeUnmatchedJob failed', [

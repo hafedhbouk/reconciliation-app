@@ -25,6 +25,11 @@ use Maatwebsite\Excel\Concerns\WithMapping;
  * class has no resource-specific knowledge, mirroring the "generic engine
  * over per-case code" precedent set by the Phase 2 mapping engine and the
  * Phase 3 matching engine.
+ *
+ * Avec le paquet maatwebsite/excel, chaque interface implémentée ajoute une capacité :
+ *   - FromQuery    : les lignes viennent d'une requête, lue par morceaux (pas tout en mémoire) ;
+ *   - WithHeadings : la première ligne du fichier contient les titres de colonnes ;
+ *   - WithMapping  : chaque résultat de la requête est transformé en ligne via map().
  */
 class GenericTableExport implements FromQuery, WithHeadings, WithMapping
 {
@@ -50,6 +55,7 @@ class GenericTableExport implements FromQuery, WithHeadings, WithMapping
 
     public function map($row): array
     {
+        // Appelle la fonction fournie par l'appelant (les parenthèses autour de $this->mapRow sont nécessaires).
         return ($this->mapRow)($row);
     }
 }

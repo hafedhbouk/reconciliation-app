@@ -1,3 +1,6 @@
+{{--
+    Composant <x-auth-session-status> : message de succès des pages de connexion (Laravel Breeze).
+--}}
 @props(['status'])
 
 @if ($status)

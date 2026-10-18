@@ -1,3 +1,6 @@
+{{--
+    Page « confirmez votre mot de passe » avant une action sensible (Laravel Breeze).
+--}}
 <x-guest-layout>
     <div class="mb-3 small text-secondary">
         {{ __('This is a secure area of the application. Please confirm your password before continuing.') }}

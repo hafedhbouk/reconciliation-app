@@ -29,8 +29,9 @@ class StripPrefixCharsTransform implements TransformPrimitive
     public function apply(mixed $value, array $config, array $rawRow): mixed
     {
         $value = (string) $value;
-        $chars = $config['chars'] ?? [];
+        $chars = $config['chars'] ?? []; // ex. ['b', 'B'] pour le NUM_AUTO d'ALPHA
 
+        // $value[0] = premier caractère. Exemple : 'b697464' -> '697464', mais '697464' reste inchangé.
         if ($value !== '' && in_array($value[0], $chars, true)) {
             return substr($value, 1);
         }

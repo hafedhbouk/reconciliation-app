@@ -1,3 +1,6 @@
+{{--
+    Page « Modifier la devise ». Données fournies par CurrencyController::edit. Même principe que admin/banks/edit.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Modifier la devise') }}</h2>

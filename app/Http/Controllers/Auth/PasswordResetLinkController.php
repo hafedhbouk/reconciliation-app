@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/**
+ * Formulaire « Mot de passe oublié » : envoie le lien de réinitialisation par email (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class PasswordResetLinkController extends Controller
 {
     /**

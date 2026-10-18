@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.topbar> : barre du haut (bouton menu mobile, notifications, thème clair/sombre, menu utilisateur).
+--}}
 <nav class="navbar navbar-expand bg-body border-bottom px-3">
     <div class="container-fluid px-0 justify-content-between">
         <div class="d-flex align-items-center gap-2">

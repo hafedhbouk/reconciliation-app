@@ -1,3 +1,6 @@
+{{--
+    Liste du journal d'audit. Le tableau est rempli en JavaScript (DataTables) via la route admin.audit-logs.data.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Journal d\'audit') }}</h2>

@@ -8,6 +8,11 @@ use App\Models\Setting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
+/**
+ * Paramètres de l'application (Administration > Paramètres).
+ * On ne crée ni ne supprime de paramètre ici : ils viennent de SettingSeeder ;
+ * l'écran permet seulement de modifier leur valeur.
+ */
 class SettingController extends Controller
 {
     public function __construct()
@@ -34,6 +39,10 @@ class SettingController extends Controller
         return redirect()->route('admin.settings.index')->with('status', __('Paramètre mis à jour avec succès.'));
     }
 
+    /**
+     * Un formulaire envoie toujours du texte : on convertit la valeur selon le type
+     * du paramètre ('5' -> 5 pour un entier, 'on'/'1' -> true pour un booléen).
+     */
     private function castValue(string $type, mixed $value): mixed
     {
         return match ($type) {

@@ -7,6 +7,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation de la page « Mon profil » (Laravel Breeze) : l'email reste unique,
+ * en ignorant l'utilisateur connecté lui-même.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class ProfileUpdateRequest extends FormRequest
 {
     /**

@@ -1,3 +1,6 @@
+{{--
+    Liste des exports de recherche de l'utilisateur. Données : SearchController::exports.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Mes exports de recherche') }}</h2>

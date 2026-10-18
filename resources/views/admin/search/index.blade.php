@@ -1,3 +1,7 @@
+{{--
+    Recherche multicritère dans toutes les transactions, avec exports.
+    Tableau DataTables rempli par SearchController::data.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

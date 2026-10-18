@@ -1,3 +1,6 @@
+{{--
+    Page « Paramètres ». Données fournies par SettingController::index. Une carte par groupe de paramètres.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Paramètres') }}</h2>

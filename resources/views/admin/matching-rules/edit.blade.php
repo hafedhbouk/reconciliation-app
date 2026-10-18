@@ -1,3 +1,6 @@
+{{--
+    Page « Modifier la règle de rapprochement ». Données fournies par MatchingRuleController::edit. Formulaire : composant <x-admin.matching-rules.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Modifier la règle de rapprochement') }}</h2>

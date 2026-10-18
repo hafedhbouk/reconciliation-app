@@ -10,6 +10,9 @@ namespace App\Jobs;
  * notification par règle (6 notifications pour un clic), il produit un
  * résumé consolidé : statuts des MatchingResult et nombre total
  * d'exceptions créées pendant le batch.
+ *
+ * Bus::chain = une « chaîne » de jobs exécutés l'un après l'autre, chacun
+ * ne démarrant que si le précédent a réussi (voir MatchingRuleController::runAll).
  */
 use App\Models\ExceptionRecord;
 use App\Models\MatchingResult;
@@ -40,12 +43,14 @@ class NotifyMatchingBatchCompleteJob implements ShouldQueue
 
     public function handle(): void
     {
+        // Nombre de résultats du lot par statut, ex. ['matched' => 1200, 'conflict' => 15].
         $results = MatchingResult::query()
             ->where('batch_reference', $this->batchReference)
             ->selectRaw('status, count(*) as c')
             ->groupBy('status')
             ->pluck('c', 'status');
 
+        // Début du lot = date du premier résultat ; on compte les exceptions créées depuis.
         $batchStartedAt = MatchingResult::query()
             ->where('batch_reference', $this->batchReference)
             ->min('matched_at');

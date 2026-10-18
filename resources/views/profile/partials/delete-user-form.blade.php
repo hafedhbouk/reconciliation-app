@@ -1,3 +1,6 @@
+{{--
+    Formulaire de suppression de son propre compte (confirmation par mot de passe).
+--}}
 <section>
     <header class="mb-3">
         <h2 class="fs-5 fw-medium">

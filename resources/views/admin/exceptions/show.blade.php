@@ -1,3 +1,7 @@
+{{--
+    Détail d'une exception : transaction concernée, formulaire de traitement
+    (statut, type, assignation, commentaire) et pièces jointes. Données : ExceptionController::show.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Exception') }} #{{ $exception->id }}</h2>

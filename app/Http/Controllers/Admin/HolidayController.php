@@ -9,6 +9,10 @@ use App\Models\Holiday;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
+/**
+ * Gestion des jours fériés (Administration > Jours fériés).
+ * Même structure CRUD que BankController : voir ce fichier pour les explications.
+ */
 class HolidayController extends Controller
 {
     public function __construct()

@@ -5,6 +5,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
+/**
+ * Fiabilise les imports et les comparaisons :
+ * - un numéro de ligne unique par import (pour pouvoir reprendre un import sans doublon) ;
+ * - copie figée du mapping, signe de vie du job, empreinte du fichier en cours ;
+ * - table unmatched_snapshot_rows pour stocker les écarts ligne par ligne.
+ * La migration vérifie d'abord qu'aucune donnée existante ne viole la nouvelle contrainte.
+ * (Le fonctionnement des migrations est expliqué dans 2026_07_22_220006_create_imports_table.php.)
+ */
 return new class extends Migration
 {
     public function up(): void

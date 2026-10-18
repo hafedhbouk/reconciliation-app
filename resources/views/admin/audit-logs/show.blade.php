@@ -1,3 +1,6 @@
+{{--
+    Détail d'une entrée d'audit : auteur, action, valeurs avant / après.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Détail de l\'audit') }}</h2>

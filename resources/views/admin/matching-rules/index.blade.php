@@ -1,3 +1,7 @@
+{{--
+    Liste des règles de rapprochement, avec « Lancer tout » et « Comparer deux fichiers ».
+    Tableau DataTables rempli par MatchingRuleController::data.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <div class="d-flex justify-content-between align-items-center">

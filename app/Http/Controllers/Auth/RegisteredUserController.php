@@ -13,6 +13,10 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/**
+ * Inscription d'un nouvel utilisateur (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class RegisteredUserController extends Controller
 {
     /**

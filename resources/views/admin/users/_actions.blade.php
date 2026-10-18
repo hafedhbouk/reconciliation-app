@@ -1,3 +1,6 @@
+{{--
+    Boutons modifier / supprimer d'un utilisateur (on ne peut pas se supprimer soi-même).
+--}}
 @can('users.update')
     <a href="{{ route('admin.users.edit', $user) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-pencil"></i>

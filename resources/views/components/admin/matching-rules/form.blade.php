@@ -1,3 +1,7 @@
+{{--
+    Composant <x-admin.matching-rules.form> : champs d'une règle. Les valeurs du JSON criteria
+    (tolérances, statuts exclus) sont « dépliées » en champs simples dans le bloc PHP.
+--}}
 @props(['rule' => null, 'sources' => []])
 
 @php

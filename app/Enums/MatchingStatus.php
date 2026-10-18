@@ -2,6 +2,14 @@
 
 namespace App\Enums;
 
+/**
+ * Statut de rapprochement d'UNE transaction (colonne normalized_transactions.matching_status).
+ *
+ * Toute transaction importée commence en Unmatched. Le moteur de
+ * rapprochement (RuleMatcher) la passe ensuite en Matched, Partial ou
+ * Conflict ; un utilisateur peut aussi la marquer Ignored.
+ * (Voir ExceptionStatus pour l'explication des enums.)
+ */
 enum MatchingStatus: string
 {
     case Unmatched = 'unmatched';
@@ -10,6 +18,7 @@ enum MatchingStatus: string
     case Conflict = 'conflict';
     case Ignored = 'ignored';
 
+    /** Libellé français affiché dans l'interface. */
     public function label(): string
     {
         return match ($this) {
@@ -21,6 +30,7 @@ enum MatchingStatus: string
         };
     }
 
+    /** Classe CSS Bootstrap du badge coloré. */
     public function badgeClass(): string
     {
         return match ($this) {

@@ -1,3 +1,7 @@
+{{--
+    Tableau des totaux d'une comparaison de fichiers : lignes et montants par catégorie
+    (total, rapprochées, conflits, exclusives). Inclus avec @include dans d'autres vues.
+--}}
 <div class="table-responsive">
     <table class="table table-sm mb-0">
         <thead><tr><th>{{ __('Catégorie') }}</th><th>{{ __('Lignes') }}</th><th>{{ __('Montant (millimes)') }}</th></tr></thead>

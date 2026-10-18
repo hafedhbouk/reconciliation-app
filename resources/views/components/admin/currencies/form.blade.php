@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.currencies.form> : champs du formulaire devise (voir components/admin/banks/form).
+--}}
 @props(['currency' => null])
 
 <div class="mb-3">

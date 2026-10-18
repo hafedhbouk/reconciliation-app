@@ -6,6 +6,10 @@ use App\Enums\MatchingCardinality;
 use App\Http\Requests\BaseFormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation du formulaire de modification d'une règle (mêmes champs que StoreMatchingRuleRequest).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class UpdateMatchingRuleRequest extends BaseFormRequest
 {
     public function rules(): array

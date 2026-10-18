@@ -1,3 +1,6 @@
+{{--
+    Page « Nouveau rôle ». Données fournies par RoleController::create. Formulaire : composant <x-admin.roles.form>.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouveau rôle') }}</h2>

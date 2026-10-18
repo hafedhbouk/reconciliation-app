@@ -14,6 +14,10 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/**
+ * Formulaire « Choisir un nouveau mot de passe », depuis le lien reçu par email (Laravel Breeze).
+ * Voir AuthenticatedSessionController pour la présentation du dossier Auth.
+ */
 class NewPasswordController extends Controller
 {
     /**

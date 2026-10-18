@@ -9,6 +9,10 @@ use App\Models\Currency;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
+/**
+ * Gestion des devises (Administration > Devises).
+ * Même structure CRUD que BankController : voir ce fichier pour les explications.
+ */
 class CurrencyController extends Controller
 {
     public function __construct()

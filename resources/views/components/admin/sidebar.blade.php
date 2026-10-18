@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.sidebar> : le menu latéral. Chaque lien n'est affiché qu'avec la permission correspondante (@can).
+--}}
 <nav class="admin-sidebar bg-body-tertiary border-end d-flex flex-column p-3" style="width: 260px; min-width: 260px;">
     <a href="{{ route('dashboard') }}" class="d-flex flex-column align-items-center mb-4 text-decoration-none text-body">
         <x-application-logo style="height: 10rem; width: auto; max-width: 100%;" class="mb-2" />

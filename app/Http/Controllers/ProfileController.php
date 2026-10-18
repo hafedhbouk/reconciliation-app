@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
+/**
+ * Page « Mon profil » : chaque utilisateur modifie ses propres informations.
+ * (Contrôleur fourni par Laravel Breeze, le kit d'authentification utilisé par le projet.)
+ */
 class ProfileController extends Controller
 {
     /**
@@ -26,8 +30,10 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        // fill() modifie l'objet en mémoire sans encore l'enregistrer.
         $request->user()->fill($request->validated());
 
+        // isDirty('email') = l'email a changé : il faudra à nouveau le vérifier.
         if ($request->user()->isDirty('email')) {
             $request->user()->email_verified_at = null;
         }
@@ -42,6 +48,7 @@ class ProfileController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Confirmation par le mot de passe actuel ('current_password') avant de supprimer le compte.
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);
@@ -52,6 +59,7 @@ class ProfileController extends Controller
 
         $user->delete();
 
+        // On détruit la session et on régénère le jeton anti-CSRF (bonne pratique de sécurité).
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

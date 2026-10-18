@@ -9,6 +9,7 @@ namespace App\Models;
  * en millimes (unité de compte) pour éviter les erreurs d'arrondi liées
  * aux flottants. La conversion decimalString -> millimes utilise cette
  * précision dans DecimalStringToMillimesTransform.
+ * (Les notions fillable, casts, relations et traits sont expliquées dans app/Models/Import.php.)
  */
 use App\Models\Concerns\Auditable;
 use App\Models\Concerns\HasUserstamps;
@@ -22,10 +23,10 @@ class Currency extends Model
     use Auditable, HasFactory, HasUserstamps, SoftDeletes;
 
     protected $fillable = [
-        'iso_code',
+        'iso_code',       // code international à 3 lettres, ex. 'TND'
         'name',
         'symbol',
-        'decimal_places',
+        'decimal_places', // 3 pour le dinar (1 TND = 1000 millimes)
         'is_active',
     ];
 

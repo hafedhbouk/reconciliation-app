@@ -10,6 +10,8 @@ namespace App\Jobs;
  * d'envoyer une notification à l'utilisateur déclencheur à la fin du
  * traitement ; MatchingResult.matched_by reste null car le matching
  * automatique n'a pas d'opérateur humain.
+ *
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
 use App\Models\MatchingRule;
 use App\Models\User;
@@ -44,6 +46,8 @@ class RunMatchingRuleJob implements ShouldQueue
     {
         $rule = MatchingRule::query()->findOrFail($this->matchingRuleId);
 
+        // Deux fichiers précis demandés : on délègue à la comparaison de fichiers,
+        // exécutée immédiatement ici (handle() appelé directement, sans repasser par la file).
         if ($this->importIdA !== null && $this->importIdB !== null) {
             (new RunAdHocMatchingJob($this->importIdA, $this->importIdB, $this->batchReference, $this->notifyUserId))->handle($matcher);
 

@@ -8,6 +8,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
 
+/**
+ * Consultation du journal d'audit (lecture seule : on ne modifie jamais l'audit).
+ * Les entrées sont créées automatiquement (voir app/Observers/AuditObserver.php).
+ */
 class AuditLogController extends Controller
 {
     public function __construct()
@@ -35,6 +39,7 @@ class AuditLogController extends Controller
         return DataTables::of($logs)
             ->addColumn('user', fn (AuditLog $log) => $log->user?->name ?? __('Système'))
             ->addColumn('date', fn (AuditLog $log) => $log->created_at->format('d/m/Y H:i:s'))
+            // class_basename('App\Models\Import') = 'Import' -> affiché « Import #9 ».
             ->addColumn('subject', fn (AuditLog $log) => $log->auditable_type
                 ? class_basename($log->auditable_type).' #'.$log->auditable_id
                 : '—')

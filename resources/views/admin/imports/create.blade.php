@@ -1,3 +1,8 @@
+{{--
+    Formulaire de dépôt d'un fichier : choix de la source et du fichier.
+    Si le même fichier a déjà été importé, un avertissement s'affiche (session duplicate_warning)
+    et une case permet de confirmer. Envoyé à ImportController::store.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouvel import') }}</h2>

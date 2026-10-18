@@ -1,3 +1,6 @@
+{{--
+    Page de connexion (Laravel Breeze). Envoyée à AuthenticatedSessionController::store.
+--}}
 <x-guest-layout>
     <x-auth-session-status :status="session('status')" />
 

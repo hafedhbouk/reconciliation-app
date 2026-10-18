@@ -1,3 +1,7 @@
+{{--
+    Page « Nouvelle banque ». Données fournies par BankController::create.
+    Le formulaire lui-même est le composant <x-admin.banks.form> (components/admin/banks/form.blade.php).
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Nouvelle banque') }}</h2>

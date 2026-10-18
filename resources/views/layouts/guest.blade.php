@@ -1,3 +1,7 @@
+{{--
+    Mise en page des pages publiques (connexion, mot de passe oublié), via <x-guest-layout>.
+    La syntaxe Blade est expliquée dans layouts/app.blade.php.
+--}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-bs-theme="light">
     <head>

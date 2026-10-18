@@ -1,3 +1,8 @@
+{{--
+    Détail d'un import (ex. /admin/imports/9) : informations du fichier, bouton reprendre/relancer,
+    bilan par statut de rapprochement, dernières comparaisons, puis chaque ligne du fichier
+    avec ses données brutes, transformées et normalisées. Données : ImportController::show.
+--}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Import') }} — {{ $import->original_filename }}</h2>

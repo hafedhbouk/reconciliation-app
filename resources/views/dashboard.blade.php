@@ -1,3 +1,7 @@
+{{--
+    Tableau de bord : chiffres clés et graphiques. Données calculées par DashboardMetricsService
+    (via DashboardController) ; le bloc PHP ci-dessous prépare quelques pourcentages.
+--}}
 @php
     use App\Enums\ExceptionType;
     use App\Enums\MatchingResultStatus;

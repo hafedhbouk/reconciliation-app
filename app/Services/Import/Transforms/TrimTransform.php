@@ -18,6 +18,7 @@ class TrimTransform implements TransformPrimitive
         return TransformType::Trim->value;
     }
 
+    /** Exemple : 'WEB0618i150526              ' -> 'WEB0618i150526' ; '   ' -> null. */
     public function apply(mixed $value, array $config, array $rawRow): mixed
     {
         $trimmed = trim((string) $value);

@@ -10,13 +10,19 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * Pièces jointes d'une exception : ajout, téléchargement, suppression.
+ * Les droits sont ceux de l'exception elle-même (voir ExceptionRecordPolicy).
+ */
 class ExceptionAttachmentController extends Controller
 {
+    /** Ajoute une pièce jointe (type et taille déjà validés par StoreExceptionAttachmentRequest). */
     public function store(StoreExceptionAttachmentRequest $request, ExceptionRecord $exception): RedirectResponse
     {
         $this->authorize('update', $exception);
 
         $file = $request->file('file');
+        // store() range le fichier sous un nom aléatoire, dans un dossier propre à l'exception.
         $path = $file->store("exceptions/{$exception->id}", 'local');
 
         $exception->attachments()->create([
@@ -35,6 +41,8 @@ class ExceptionAttachmentController extends Controller
     {
         $this->authorize('view', $exception);
 
+        // Sécurité : la pièce jointe doit appartenir à l'exception de l'URL,
+        // sinon on pourrait télécharger celle d'une autre exception en changeant l'id.
         abort_unless($attachment->exception_id === $exception->id, 404);
 
         return Storage::disk($attachment->disk)->download($attachment->path, $attachment->original_name);

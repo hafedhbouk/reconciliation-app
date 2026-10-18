@@ -1,3 +1,6 @@
+{{--
+    Composant <x-admin.sources.form> : champs du formulaire source (voir components/admin/banks/form).
+--}}
 @props(['source' => null, 'banks' => [], 'currencies' => []])
 
 <div class="mb-3">

@@ -4,6 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Http\Requests\BaseFormRequest;
 
+/**
+ * Validation du formulaire de création d'une devise (code ISO de 3 lettres, unique).
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class StoreCurrencyRequest extends BaseFormRequest
 {
     public function rules(): array

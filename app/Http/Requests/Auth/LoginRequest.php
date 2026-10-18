@@ -10,6 +10,13 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Validation et traitement du formulaire de connexion (fourni par Laravel Breeze).
+ *
+ * Protection anti « force brute » : après 5 essais ratés pour le même
+ * email depuis la même adresse IP, la connexion est bloquée quelques minutes.
+ * (Les Form Requests sont expliqués dans app/Http/Requests/BaseFormRequest.php.)
+ */
 class LoginRequest extends FormRequest
 {
     /**
@@ -42,7 +49,10 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        // Auth::attempt compare le mot de passe saisi au mot de passe chiffré en base.
+        // 'remember' = case « Se souvenir de moi ».
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+            // Échec : on compte un essai raté.
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
@@ -50,6 +60,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Succès : on remet le compteur d'essais à zéro.
         RateLimiter::clear($this->throttleKey());
     }
 
@@ -78,6 +89,7 @@ class LoginRequest extends FormRequest
 
     /**
      * Get the rate limiting throttle key for the request.
+     * (Clé du compteur d'essais : « email|adresse IP ».)
      */
     public function throttleKey(): string
     {

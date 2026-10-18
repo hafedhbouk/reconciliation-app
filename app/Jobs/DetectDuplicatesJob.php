@@ -9,6 +9,10 @@ namespace App\Jobs;
  * toutes les sources ou une source spécifique, selon le paramètre
  * sourceId. Un résumé (groupes trouvés, exceptions créées) est notifié
  * à l'utilisateur si notifyUserId est fourni.
+ *
+ * Le travail réel est fait par App\Services\Matching\DuplicateDetector :
+ * le job ne fait que l'exécuter en arrière-plan puis prévenir l'utilisateur.
+ * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
@@ -48,6 +52,8 @@ class DetectDuplicatesJob implements ShouldQueue
             batchReference: $this->batchReference,
         );
 
+        // Notification dans la cloche de l'utilisateur. __('...') traduit le texte ;
+        // :count est remplacé par la valeur donnée dans le tableau.
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
                 __('Détection des doublons terminée'),

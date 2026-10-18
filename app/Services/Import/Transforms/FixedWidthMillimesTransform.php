@@ -29,6 +29,8 @@ class FixedWidthMillimesTransform implements TransformPrimitive
     {
         $trimmed = trim((string) $value);
 
+        // La valeur ne doit contenir que des chiffres, avec un signe moins facultatif.
+        // Exemple ALPHA : '000000989000' -> 989000 (les zéros de tête disparaissent avec le (int)).
         if (! preg_match('/^-?\d+$/', $trimmed)) {
             throw new TransformException("Valeur non numérique pour un montant déjà en millimes : '{$value}'");
         }
