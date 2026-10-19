@@ -10,6 +10,4 @@ use RuntimeException;
  * lignes pour le format demandé. Le contrôleur l'attrape pour afficher un
  * message à l'utilisateur au lieu d'une page d'erreur.
  */
-class UnmatchedExportUnavailableException extends RuntimeException
-{
-}
+class UnmatchedExportUnavailableException extends RuntimeException {}

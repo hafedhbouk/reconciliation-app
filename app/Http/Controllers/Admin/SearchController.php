@@ -21,7 +21,10 @@ use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
@@ -95,7 +98,7 @@ class SearchController extends Controller
      * Lance un export asynchrone pour les gros volumes.
      * Crée un enregistrement MatchingExport et dispatche le job de génération.
      */
-    public function exportAsync(Request $request): \Illuminate\Http\RedirectResponse
+    public function exportAsync(Request $request): RedirectResponse
     {
         $this->authorize('search.viewAny');
         $request->validate([
@@ -127,7 +130,7 @@ class SearchController extends Controller
             'status' => 'pending',
             'filters' => $filters,
             'type' => 'search',
-            'download_token' => \Illuminate\Support\Str::random(64),
+            'download_token' => Str::random(64),
         ]);
 
         GenerateSearchExportJob::dispatch($matchingExport);
@@ -164,7 +167,7 @@ class SearchController extends Controller
             abort(404);
         }
 
-        $path = \Illuminate\Support\Facades\Storage::path($export->file_path);
+        $path = Storage::path($export->file_path);
 
         if (! file_exists($path)) {
             abort(404);

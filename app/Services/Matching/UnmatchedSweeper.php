@@ -44,8 +44,7 @@ class UnmatchedSweeper
         ?string $dateFrom = null,
         ?string $dateTo = null,
         ?string $batchReference = null,
-    ): int
-    {
+    ): int {
         $chunkSize = config('matching.chunk_size', 1000);
         $created = 0;
 

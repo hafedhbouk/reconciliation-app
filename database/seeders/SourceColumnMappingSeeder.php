@@ -121,7 +121,7 @@ class SourceColumnMappingSeeder extends Seeder
 
         $this->upsert($source, 'reference', 'reference', [
             ['key' => 'trim'],
-                ['key' => 'zero_pad', 'config' => ['length' => 9]],
+            ['key' => 'zero_pad', 'config' => ['length' => 9]],
         ], required: true, order: 1);
 
         // recu_paie is the cross-source matching key against BNA's

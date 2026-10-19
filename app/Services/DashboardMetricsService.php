@@ -7,6 +7,7 @@ use App\Models\Import;
 use App\Models\MatchingResult;
 use App\Models\Source;
 use App\Models\Transaction;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -127,7 +128,7 @@ class DashboardMetricsService
                 return $trend;
             }
 
-            $from = \Illuminate\Support\Carbon::parse($maxDate)->subDays($days - 1)->startOfDay();
+            $from = Carbon::parse($maxDate)->subDays($days - 1)->startOfDay();
 
             $rows = Transaction::query()
                 ->where('transaction_date', '>=', $from->format('Y-m-d'))

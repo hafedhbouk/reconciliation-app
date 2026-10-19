@@ -38,8 +38,7 @@ class DuplicateDetector
         ?string $dateTo = null,
         bool $preview = false,
         ?string $batchReference = null,
-    ): DuplicateScanSummary
-    {
+    ): DuplicateScanSummary {
         $seen = [];            // clés déjà rencontrées : la première occurrence est « l'originale »
         $duplicateGroups = []; // clés qui apparaissent au moins deux fois
         $exceptionsCreated = 0;

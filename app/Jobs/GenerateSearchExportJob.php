@@ -6,10 +6,10 @@ use App\Exports\GenericTableExport;
 use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Excel as ExcelFormat;
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
@@ -121,9 +121,9 @@ class GenerateSearchExportJob implements ShouldQueue
      * ->when($valeur, fn ($query, $valeur) => ...) n'ajoute le filtre que si
      * la valeur est remplie. 'like' + "%texte%" = « contient texte ».
      *
-     * @param array<string,mixed> $filters
+     * @param  array<string,mixed>  $filters
      */
-    private function buildQuery(array $filters): \Illuminate\Database\Eloquent\Builder
+    private function buildQuery(array $filters): Builder
     {
         return NormalizedTransaction::query()
             ->with('transaction.source')

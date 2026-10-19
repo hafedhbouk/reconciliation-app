@@ -104,15 +104,13 @@ test('maintenance actions dispatch the previewed scope with a batch reference', 
     $this->post(route('admin.matching-rules.detect-duplicates'), $filters)->assertRedirect();
     $this->post(route('admin.matching-rules.sweep-unmatched'), $filters)->assertRedirect();
 
-    Bus::assertDispatched(DetectDuplicatesJob::class, fn ($job) =>
-        $job->sourceId === $source->id
+    Bus::assertDispatched(DetectDuplicatesJob::class, fn ($job) => $job->sourceId === $source->id
         && $job->importId === $import->id
         && $job->dateFrom === '2026-05-01'
         && $job->dateTo === '2026-05-31'
         && $job->batchReference !== null
     );
-    Bus::assertDispatched(SweepUnmatchedJob::class, fn ($job) =>
-        $job->sourceId === $source->id
+    Bus::assertDispatched(SweepUnmatchedJob::class, fn ($job) => $job->sourceId === $source->id
         && $job->importId === $import->id
         && $job->dateFrom === '2026-05-01'
         && $job->dateTo === '2026-05-31'

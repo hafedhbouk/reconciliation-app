@@ -4,9 +4,9 @@ namespace App\Services\Matching;
 
 use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
-use App\Models\NormalizedTransaction;
-use App\Models\ExceptionRecord;
 use App\Enums\MatchingStatus;
+use App\Models\ExceptionRecord;
+use App\Models\NormalizedTransaction;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 

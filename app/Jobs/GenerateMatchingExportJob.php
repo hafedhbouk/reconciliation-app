@@ -15,9 +15,9 @@ namespace App\Jobs;
  *          raisonnables (< ~50k lignes)
  * - pdf : idem, limité aux volumes raisonnables
  */
+use App\Exceptions\UnmatchedExportUnavailableException;
 use App\Exports\GenericTableExport;
 use App\Exports\UnmatchedExport;
-use App\Exceptions\UnmatchedExportUnavailableException;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\UnmatchedSnapshot;

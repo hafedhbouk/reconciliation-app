@@ -4,6 +4,7 @@ use App\Enums\ExceptionStatus;
 use App\Enums\ExceptionType;
 use App\Enums\MatchingStatus;
 use App\Models\ExceptionRecord;
+use App\Models\Import;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Models\Transaction;
@@ -91,8 +92,8 @@ test('re-sweeping immediately is idempotent', function () {
 
 test('unmatched preview is read-only and actual sweep respects file and date filters', function () {
     $source = Source::factory()->create();
-    $import = \App\Models\Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
-    $otherImport = \App\Models\Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    $import = Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
+    $otherImport = Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']);
     $selected = makeSweepTx($source, MatchingStatus::Unmatched);
     $selected->transaction->update(['import_id' => $import->id]);
     $selected->update(['normalized_date' => '2026-05-15']);

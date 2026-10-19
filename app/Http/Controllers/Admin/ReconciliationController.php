@@ -32,10 +32,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Illuminate\Support\Str;
 
 class ReconciliationController extends Controller
 {
@@ -226,7 +226,7 @@ class ReconciliationController extends Controller
     /**
      * Requête des transactions non rapprochées, avec les filtres facultatifs de recherche.
      *
-     * @param array<string,mixed> $filters
+     * @param  array<string,mixed>  $filters
      */
     private function filteredUnmatchedQuery(array $filters)
     {
