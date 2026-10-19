@@ -11,6 +11,9 @@ namespace App\Services\Matching;
  * 3. Branche de tolérance 3 voies : match exact, conflit (un seul critère
  *    respecté) ou sans signal (aucun critère respecté).
  *
+ * Aucune ligne n'est écartée à cause du format de sa clé : une autorisation
+ * peut contenir des lettres (ex. M2K5RA), c'est un code valide.
+ *
  * Un chemin rapide multiset vérifie l'égalité parfaite des paires
  * (montant, date) pour éviter les faux conflits quand une référence est
  * réutilisée sur plusieurs dates distinctes.
@@ -119,16 +122,14 @@ class RuleMatcher
         $toleranceDays = (int) ($criteria['tolerance_days'] ?? 0);
         $excludedA = $criteria['excluded_status_raw']['a'] ?? [];
         $excludedB = $criteria['excluded_status_raw']['b'] ?? [];
-        $excludedNonNumericA = $criteria['excluded_non_numeric']['a'] ?? [];
-        $excludedNonNumericB = $criteria['excluded_non_numeric']['b'] ?? [];
         $primaryKeyA = $criteria['primary_key']['a'] ?? 'reference';
         $primaryKeyB = $criteria['primary_key']['b'] ?? 'reference';
         $verifyFields = $criteria['verify_fields'] ?? [];
 
         // Étape 1 : transactions non rapprochées de chaque côté, regroupées par clé.
         // Résultat : ['697464' => [transactions…], '111111' => [...]].
-        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA, $importIdA, false, $excludedNonNumericA);
-        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB, $importIdB, false, $excludedNonNumericB);
+        $candidatesA = $this->loadCandidates($rule->source_a_id, $excludedA, $primaryKeyA, $importIdA);
+        $candidatesB = $this->loadCandidates($rule->source_b_id, $excludedB, $primaryKeyB, $importIdB);
 
         $matched = 0;
         $conflicts = 0;
@@ -195,10 +196,8 @@ class RuleMatcher
         $primaryA = $criteria['primary_key']['a'];
         $primaryB = $criteria['primary_key']['b'];
         $verifyFields = $criteria['verify_fields'] ?? [];
-        $excludedNonNumericA = $criteria['excluded_non_numeric']['a'] ?? [];
-        $excludedNonNumericB = $criteria['excluded_non_numeric']['b'] ?? [];
 
-        return DB::transaction(function () use ($rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults, $criteria, $excludedNonNumericA, $excludedNonNumericB) {
+        return DB::transaction(function () use ($rule, $batchReference, $importIdA, $importIdB, $primaryA, $primaryB, $verifyFields, $persistResults, $criteria) {
             // Serialize file jobs (including inverse pairs) before loading candidates.
             $imports = Import::query()->whereIn('id', [$importIdA, $importIdB])->orderBy('id')->lockForUpdate()->get();
             if ($imports->count() !== 2) {
@@ -229,8 +228,8 @@ class RuleMatcher
             DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)->delete();
             $storage = app(SnapshotRows::class);
             // $a et $b sont des « générateurs » : ils fournissent les groupes un par un, triés par clé.
-            $a = $this->fileGroups($rule->source_a_id, $primaryA, $importIdA, $excludedNonNumericA);
-            $b = $this->fileGroups($rule->source_b_id, $primaryB, $importIdB, $excludedNonNumericB);
+            $a = $this->fileGroups($rule->source_a_id, $primaryA, $importIdA);
+            $b = $this->fileGroups($rule->source_b_id, $primaryB, $importIdB);
             $matched = $conflicts = $considered = 0;
             $exclusiveIds = ['a' => [], 'b' => []]; // id des lignes présentes d'un seul côté
             $buffers = ['a' => [], 'b' => []];      // lignes exclusives en attente d'écriture (par 500)
@@ -388,8 +387,13 @@ class RuleMatcher
      *   3. On relit cette table triée par clé, par pages de 1 000, et on renvoie
      *      (`yield`) chaque groupe de lignes de même clé.
      * La table temporaire est supprimée à la fin (bloc finally).
+     *
+     * Les groupes doivent sortir dans l'ordre exact du tri SQL : la fusion de
+     * matchFiles en dépend. Ne jamais modifier la clé d'une ligne après le tri
+     * (une clé « empreinte|suffixe » se range après « empreinte » et la ligne
+     * de même clé de l'autre fichier ne serait plus trouvée).
      */
-    private function fileGroups(int $sourceId, string|array $primary, int $importId, array $excludedNonNumeric = []): \Generator
+    private function fileGroups(int $sourceId, string|array $primary, int $importId): \Generator
     {
         $fields = $primary === 'date|amount' ? ['date', 'amount'] : (array) $primary;
         // La « grammar » sait écrire une colonne JSON dans le dialecte SQL de la base (MySQL ou SQLite).
@@ -461,20 +465,14 @@ class RuleMatcher
                     if ($row === null) {
                         throw new \RuntimeException('Une transaction a changé pendant la comparaison.');
                     }
-                    $entryKey = $entry->comparison_key;
-                    // Une ligne dont un champ doit être numérique mais ne l'est pas reçoit
-                    // une clé unique : elle restera seule, donc « exclusive ».
-                    $current = $this->hasExcludedNonNumeric($row, $excludedNonNumeric)
-                        ? $entryKey.'|missing:'.$row->id
-                        : $entryKey;
+                    $current = $entry->comparison_key;
                     // La clé change : le groupe précédent est complet, on le renvoie.
                     if ($previous !== null && $previous !== $current) {
                         yield $previous => $group;
                         $group = collect();
                     }
                     $group->push($row);
-                    $previous = $current;
-                    $lastKey = $entryKey;
+                    $previous = $lastKey = $current;
                     $lastId = $row->id;
                 }
             } while ($page->count() === $pageSize);
@@ -484,18 +482,6 @@ class RuleMatcher
         } finally {
             DB::statement(($sqlite ? 'DROP TABLE ' : 'DROP TEMPORARY TABLE ').$table);
         }
-    }
-
-    /** Vrai si l'un des champs donnés n'est pas composé uniquement de chiffres (ex. autorisation « ABC12 »). */
-    private function hasExcludedNonNumeric(NormalizedTransaction $transaction, array $fields): bool
-    {
-        foreach ($fields as $field) {
-            if (! preg_match('/^\d+$/', (string) $this->fieldValue($transaction, $field))) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -539,12 +525,11 @@ class RuleMatcher
      * Filtres appliqués :
      *   - seulement les transactions non rapprochées (sauf si $allStatuses) ;
      *   - seulement l'import demandé, si $importId est fourni ;
-     *   - sans les types bruts exclus (ex. « Commission » pour BNA) ;
-     *   - sans les lignes dont un champ devant être numérique ne l'est pas.
+     *   - sans les types bruts exclus (ex. « Commission » pour BNA).
      *
      * @return Collection<string,Collection<int,NormalizedTransaction>> keyed by the configured primary key
      */
-    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false, array $excludedNonNumeric = []): Collection
+    private function loadCandidates(int $sourceId, array $excludedStatusRaw, string|array $primaryKey, ?int $importId = null, bool $allStatuses = false): Collection
     {
         $rows = NormalizedTransaction::query()
             ->fromActiveImports()
@@ -562,18 +547,6 @@ class RuleMatcher
             // pour ne pas refaire une requête par transaction ensuite.
             ->select('normalized_transactions.*', 'transactions.raw_payload', 'sources.code as transaction_source_code')
             ->get();
-
-        if ($excludedNonNumeric !== []) {
-            $rows = $rows->reject(function (NormalizedTransaction $nt) use ($excludedNonNumeric): bool {
-                foreach ($excludedNonNumeric as $field) {
-                    if (! preg_match('/^\d+$/', (string) $this->fieldValue($nt, $field))) {
-                        return true;
-                    }
-                }
-
-                return false;
-            });
-        }
 
         // groupBy : range les transactions dans des « tiroirs » selon la valeur renvoyée (la clé).
         $grouped = $rows->groupBy(function (NormalizedTransaction $nt) use ($primaryKey, $allStatuses) {

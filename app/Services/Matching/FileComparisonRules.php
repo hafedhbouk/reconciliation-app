@@ -19,6 +19,10 @@ use InvalidArgumentException;
  *   - WEB ↔ BNA      : recu_paie ↔ N° autorisation
  * STEG est un autre nom de la source WEB, traité de la même façon.
  *
+ * Une autorisation peut contenir des lettres (ex. M2K5RA, T46053) : c'est un
+ * code valide, présent tel quel dans ALPHA, BNA et WEB. Aucune ligne n'est
+ * donc mise de côté à cause du format de son autorisation ou de son reçu.
+ *
  * Le tableau renvoyé a la même forme que MatchingRule::criteria
  * (voir app/Models/MatchingRule.php).
  */
@@ -35,8 +39,6 @@ class FileComparisonRules
 
         // Champs toujours comparés après le regroupement.
         $verify = ['amount', 'date'];
-        // Champs dont la valeur doit être purement numérique pour participer (sinon la ligne est mise de côté).
-        $excludedNonNumeric = ['a' => [], 'b' => []];
         if (in_array('SMT', $codes, true)) {
             $primary = ['a' => 'date|amount', 'b' => 'date|amount'];
         } elseif (in_array('ALPHA', $codes, true) && in_array('WEB', $codes, true)) {
@@ -46,7 +48,6 @@ class FileComparisonRules
                 'a' => $codes[0] === 'ALPHA' ? 'num_autorisation' : 'secondary_reference',
                 'b' => $codes[1] === 'ALPHA' ? 'num_autorisation' : 'secondary_reference',
             ];
-            $excludedNonNumeric[$codes[0] === 'ALPHA' ? 'b' : 'a'] = ['secondary_reference'];
         } else {
             // BNA has no equivalent of ALPHA's REFERENCE.
             // (Couples restants : ALPHA ↔ BNA et WEB ↔ BNA, regroupés sur l'autorisation.)
@@ -54,11 +55,6 @@ class FileComparisonRules
                 'a' => $codes[0] === 'WEB' ? 'secondary_reference' : 'num_autorisation',
                 'b' => $codes[1] === 'WEB' ? 'secondary_reference' : 'num_autorisation',
             ];
-        }
-        // Pour ALPHA ↔ BNA, une autorisation non numérique (ex. invalide) ne peut pas être rapprochée.
-        if (in_array('ALPHA', $codes, true) && in_array('BNA', $codes, true)) {
-            $excludedNonNumeric['a'] = ['num_autorisation'];
-            $excludedNonNumeric['b'] = ['num_autorisation'];
         }
 
         return [
@@ -68,7 +64,6 @@ class FileComparisonRules
             'excluded_status_raw' => ['a' => [], 'b' => []],
             'primary_key' => $primary,
             'verify_fields' => $verify,
-            'excluded_non_numeric' => $excludedNonNumeric,
         ];
     }
 }

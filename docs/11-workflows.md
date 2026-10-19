@@ -158,10 +158,10 @@ sequenceDiagram
 
 | Règle | Source A | Source B | Clé primaire | Vérification |
 |-------|----------|----------|--------------|--------------|
-| ALPHA-BNA | ALPHA | BNA | num_autorisation numérique | amount, date; autorisations non numériques exclues |
+| ALPHA-BNA | ALPHA | BNA | num_autorisation | amount, date |
 | SMT-BNA | SMT | BNA | date\|amount (composite) | - |
-| WEB-BNA | WEB/STEG | BNA | secondary_reference numérique (recu_paie) vs num_autorisation | amount, date; recu_paie alphanumérique exclu |
-| ALPHA-WEB | ALPHA | WEB/STEG | reference + num_autorisation vs reference + secondary_reference numérique | amount, date; recu_paie alphanumérique exclu |
+| WEB-BNA | WEB/STEG | BNA | secondary_reference (recu_paie) vs num_autorisation | amount, date |
+| ALPHA-WEB | ALPHA | WEB/STEG | reference + num_autorisation vs reference + secondary_reference | amount, date |
 | ALPHA-SMT | ALPHA | SMT | date\|amount (composite) | - |
 | WEB-SMT | WEB | SMT | date\|amount (composite) | - |
 

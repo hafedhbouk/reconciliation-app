@@ -178,7 +178,6 @@ test('WEB imports persist the transformed receipt in both normalized snapshots',
             'excluded_status_raw' => ['a' => [], 'b' => []],
             'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
             'verify_fields' => ['amount', 'date'],
-            'excluded_non_numeric' => ['a' => ['secondary_reference'], 'b' => []],
         ],
     ]);
 

@@ -124,7 +124,7 @@
 | **Code** | `WEB` (affiché "WEB / STEG") |
 | **Type fichier** | `csv` |
 | **Référence** | `reference` (reference, zero-padded 9 digits) |
-| **Référence secondaire** | `secondary_reference` (recu_paie, b/B stripped, zero-padded 6; valeurs non numériques exclues du matching) |
+| **Référence secondaire** | `secondary_reference` (recu_paie, b/B stripped, zero-padded 6; peut contenir des lettres, ex. `M2K5RA`) |
 | **Montant** | `amount` (montant, fixed_width_millimes) |
 | **Date** | `date` (date_paiement, normalized for storage and displayed `jj/mm/aaaa`) |
 | **Session** | `session` (session, trim) — champ non-core, stocké dans raw_payload |
@@ -147,8 +147,8 @@
 |-----------|--------|
 | **Source A** | ALPHA |
 | **Source B** | BNA |
-| **Clé primaire** | `num_autorisation` numérique |
-| **Vérification** | `amount` + `date`; valeurs non numériques exclues du matching |
+| **Clé primaire** | `num_autorisation` (peut contenir des lettres, ex. `M2K5RA`) |
+| **Vérification** | `amount` + `date` |
 | **Tolérance** | Configurable (amount_millimes, days) |
 
 ### SMT-BNA

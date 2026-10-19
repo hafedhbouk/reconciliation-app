@@ -187,7 +187,9 @@ des rapprochements déjà effectués avec d'autres fichiers. Le bouton
 
 Pour Alpha–BNA, `REFERENCE` est informative : aucun champ équivalent
 n'est fourni côté BNA. Les dates sont comparées au jour et les montants
-en millimes, après les transformations configurées à l'import.
+en millimes, après les transformations configurées à l'import. Une
+autorisation ou un reçu contenant des lettres (ex. `M2K5RA`) est comparé
+comme les autres : aucune ligne n'est écartée à cause de son format.
 
 - **Rapproché** : tous les champs attendus correspondent, ligne par ligne.
 - **Conflit** : l'identifiant existe des deux côtés, mais le reçu, la date

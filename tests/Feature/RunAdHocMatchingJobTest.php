@@ -438,9 +438,6 @@ test('seeded matching rules keep the requested common fields for every source pa
     expect($rules['ALPHA ↔ BNA']->criteria['primary_key'])->toBe([
         'a' => 'num_autorisation', 'b' => 'num_autorisation',
     ])->and($rules['ALPHA ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date'])
-        ->and($rules['ALPHA ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
-            'a' => ['num_autorisation'], 'b' => ['num_autorisation'],
-        ])
         ->and($rules['ALPHA ↔ WEB']->criteria['primary_key'])->toBe([
             'a' => ['reference', 'num_autorisation'],
             'b' => ['reference', 'secondary_reference'],
@@ -457,46 +454,40 @@ test('seeded matching rules keep the requested common fields for every source pa
         ->and($rules['WEB ↔ BNA']->criteria['primary_key'])->toBe([
             'a' => 'secondary_reference', 'b' => 'num_autorisation',
         ])->and($rules['WEB ↔ BNA']->criteria['verify_fields'])->toBe(['amount', 'date']);
-    expect($rules['ALPHA ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
-        'a' => ['num_autorisation'], 'b' => ['num_autorisation'],
-    ])
-        ->and($rules['WEB ↔ BNA']->criteria['excluded_non_numeric'])->toBe([
-            'a' => ['secondary_reference'], 'b' => [],
-        ])->and($rules['ALPHA ↔ WEB']->criteria['excluded_non_numeric'])->toBe([
-            'a' => [], 'b' => ['secondary_reference'],
-        ]);
+    expect($rules->every(fn (MatchingRule $rule) => ! array_key_exists('excluded_non_numeric', $rule->criteria)))->toBeTrue();
 });
 
-test('non-numeric WEB receipts are excluded from receipt-based matching', function () {
-    $web = fileComparisonImport('WEB');
-    $bna = fileComparisonImport('BNA');
-    $webRow = fileComparisonRow($web, authorization: 'ND3PNV');
-    fileComparisonRow($bna, authorization: 'ND3PNV');
-    $rule = MatchingRule::factory()->create([
-        'source_a_id' => $web->source_id,
-        'source_b_id' => $bna->source_id,
-        'criteria' => [
-            'primary_key' => ['a' => 'secondary_reference', 'b' => 'num_autorisation'],
-            'verify_fields' => ['amount', 'date'],
-            'excluded_non_numeric' => ['a' => ['secondary_reference'], 'b' => []],
-        ],
-    ]);
+test('seeded global rules match alphanumeric authorizations and receipts', function (string $ruleName) {
+    $this->seed([CurrencySeeder::class, BankSeeder::class, SourceSeeder::class, MatchingRuleSeeder::class]);
+    $rule = MatchingRule::query()->where('name', $ruleName)->sole();
+    $rows = collect([$rule->sourceA, $rule->sourceB])->map(fn (Source $source) => fileComparisonRow(
+        Import::factory()->create(['source_id' => $source->id, 'status' => 'completed']),
+        '258271480', 'M2K5RA', '2026-07-01', 27000,
+    ));
 
-    $summary = app(RuleMatcher::class)->match($rule, 'invalid-receipt-test');
+    $summary = app(RuleMatcher::class)->match($rule, 'alphanumeric-authorization-test');
 
-    expect($summary->matched)->toBe(0)
-        ->and($webRow->fresh()->matching_status->value)->toBe('unmatched')
-        ->and(MatchingResult::count())->toBe(0);
-});
+    expect($summary->matched)->toBe(1)
+        ->and($rows->map(fn (NormalizedTransaction $row) => $row->fresh()->matching_status->value)->all())
+        ->toBe(['matched', 'matched']);
+})->with(['ALPHA ↔ BNA', 'WEB ↔ BNA', 'ALPHA ↔ WEB']);
 
-test('non-numeric ALPHA-BNA authorizations remain exclusive in file comparison', function () {
-    $alpha = fileComparisonImport('ALPHA');
-    $bna = fileComparisonImport('BNA');
-    $alphaRow = fileComparisonRow($alpha, authorization: 'ND3PNV');
-    fileComparisonRow($bna, authorization: 'ND3PNV');
-    $snapshot = runFileComparison($alpha, $bna);
+test('alphanumeric authorizations are compared like numeric ones in file comparison', function (string $codeA, string $codeB, bool $reverse) {
+    $a = fileComparisonImport($codeA);
+    $b = fileComparisonImport($codeB);
+    // Real July 2026 rows, present in ALPHA, BNA and WEB. Reference 223197471
+    // was paid twice: once with an alphanumeric authorization, once numeric.
+    foreach ([['258271480', 'M2K5RA', '2026-07-01', 27000],
+        ['617025330', 'T46053', '2026-07-31', 146000],
+        ['223197471', '00UNAR', '2026-07-08', 14000],
+        ['223197471', '380930', '2026-07-21', 14000]] as [$reference, $authorization, $date, $amount]) {
+        fileComparisonRow($a, $reference, $authorization, $date, $amount);
+        fileComparisonRow($b, $reference, $authorization, $date, $amount);
+    }
 
-    expect(MatchingResult::count())->toBe(0)
-        ->and(array_column($snapshot->result_a, 'id'))->toBe([$alphaRow->id])
-        ->and($snapshot->result_b)->toHaveCount(1);
-});
+    $snapshot = runFileComparison($a, $b, $reverse);
+
+    expect(MatchingResult::where('status', 'matched')->count())->toBe(4)
+        ->and($snapshot->result_a)->toBe([])
+        ->and($snapshot->result_b)->toBe([]);
+})->with([['ALPHA', 'BNA'], ['ALPHA', 'WEB'], ['ALPHA', 'STEG'], ['WEB', 'BNA'], ['STEG', 'BNA']])->with([false, true]);

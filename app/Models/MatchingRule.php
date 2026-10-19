@@ -17,8 +17,7 @@ namespace App\Models;
  *     "tolerance_days": 0,                     // écart de dates accepté
  *     "excluded_status_raw": {"a": [], "b": ["Commission"]}, // lignes BNA ignorées
  *     "primary_key": {"a": "num_autorisation", "b": "num_autorisation"}, // clé de regroupement
- *     "verify_fields": ["amount", "date"],     // champs contrôlés après regroupement
- *     "excluded_non_numeric": {...}            // clés non numériques écartées
+ *     "verify_fields": ["amount", "date"]      // champs contrôlés après regroupement
  *   }
  *
  * (Les notions fillable, casts, relations et traits sont expliquées en
