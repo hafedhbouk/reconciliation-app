@@ -327,9 +327,16 @@ class RuleMatcher
                     // Il ne reste des lignes que d'un côté : elles sont « exclusives » (sans partenaire).
                     foreach (['a' => $remainingA, 'b' => $remainingB] as $side => $remaining) {
                         $tally($side, 'exclusive', $remaining);
+                        [$groupHere, $groupThere] = $side === 'a' ? [$groupA, $groupB] : [$groupB, $groupA];
                         foreach ($remaining as $nt) {
                             $exclusiveIds[$side][] = $nt->id;
-                            $buffers[$side][] = $this->fileSnapshotRow($nt, $side === 'a' ? $primaryA : $primaryB);
+                            $row = $this->fileSnapshotRow($nt, $side === 'a' ? $primaryA : $primaryB);
+                            // Même clé dans l'autre fichier (lignes toutes rapprochées ailleurs) :
+                            // on garde de quoi expliquer l'écart à l'écran.
+                            if ($groupThere->isNotEmpty()) {
+                                $row['same_key'] = $this->sameKeyNote($nt, $side, $groupHere, $groupThere, $verifyFields, $side === 'a' ? $primaryB : $primaryA);
+                            }
+                            $buffers[$side][] = $row;
                             if (count($buffers[$side]) >= 500) {
                                 $storage->insert($snapshot->id, $side, $buffers[$side]);
                                 $buffers[$side] = [];
@@ -516,6 +523,32 @@ class RuleMatcher
             'amount_millimes' => $nt->normalized_amount_millimes,
             'date' => $nt->normalized_date?->format('d/m/Y'),
             'primary_key_value' => $this->primaryKeyValue($nt, $primaryKey),
+        ];
+    }
+
+    /**
+     * Explique une ligne exclusive dont la clé existe aussi dans l'autre fichier.
+     * Les lignes de l'autre fichier sont alors toutes rapprochées avec d'autres
+     * lignes de ce fichier ; deux cas :
+     *   - doublon : la même ligne (même signature) figure plus de fois ici que là-bas ;
+     *   - autre(s) transaction(s) de même clé, ex. une autorisation réutilisée un
+     *     autre jour pour un autre montant (les 5 premières sont gardées pour l'affichage).
+     *
+     * @param  Collection<int,NormalizedTransaction>  $groupHere  lignes de même clé de ce côté
+     * @param  Collection<int,NormalizedTransaction>  $groupThere  lignes de même clé de l'autre côté
+     * @return array{count:int,duplicate:?array{here:int,there:int},rows:array<int,array>}
+     */
+    private function sameKeyNote(NormalizedTransaction $nt, string $side, Collection $groupHere, Collection $groupThere, array $verifyFields, string|array $primaryThere): array
+    {
+        $signature = $this->fileSignature($nt, $side, $verifyFields);
+        $identical = fn (Collection $rows, string $rowsSide) => $rows
+            ->filter(fn ($row) => $this->fileSignature($row, $rowsSide, $verifyFields) === $signature)->count();
+        $there = $identical($groupThere, $side === 'a' ? 'b' : 'a');
+
+        return [
+            'count' => $groupThere->count(),
+            'duplicate' => $there > 0 ? ['here' => $identical($groupHere, $side), 'there' => $there] : null,
+            'rows' => $groupThere->take(5)->map(fn ($row) => $this->fileSnapshotRow($row, $primaryThere))->values()->all(),
         ];
     }
 

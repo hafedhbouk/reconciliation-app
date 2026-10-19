@@ -219,6 +219,37 @@ test('Alpha BNA differences display authorization fields and compare on authoriz
         ->assertDontSee('2026-05-15|109000');
 });
 
+test('differences explain rows whose key also exists in the other file', function () {
+    actingAsAdmin();
+    $alpha = fileComparisonImport('ALPHA');
+    $bna = fileComparisonImport('BNA');
+    // Real July 2026 cases: BNA reused 722057 on 29/07 for another payment,
+    // and ALPHA contains 708379 twice for a single BNA row.
+    fileComparisonRow($alpha, '232736060', '722057', '2026-07-02', 90000);
+    fileComparisonRow($bna, '232736060', '722057', '2026-07-02', 90000);
+    $reused = fileComparisonRow($bna, '232736060', '722057', '2026-07-29', 202000);
+    fileComparisonRow($alpha, '805565440', '708379', '2026-07-02', 48000);
+    $duplicate = fileComparisonRow($alpha, '805565440', '708379', '2026-07-02', 48000);
+    fileComparisonRow($bna, '805565440', '708379', '2026-07-02', 48000);
+    $alone = fileComparisonRow($alpha, '111111111', '111111', '2026-07-05', 10000);
+
+    $snapshot = runFileComparison($alpha, $bna);
+
+    $rows = collect([...$snapshot->result_a, ...$snapshot->result_b])->keyBy('id');
+    expect($rows->keys()->sort()->values()->all())->toBe([$reused->id, $duplicate->id, $alone->id])
+        ->and($rows[$reused->id]['same_key'])->toMatchArray(['count' => 1, 'duplicate' => null])
+        ->and($rows[$reused->id]['same_key']['rows'][0])->toMatchArray([
+            'num_autorisation' => '722057', 'date' => '02/07/2026', 'amount_millimes' => 90000,
+        ])
+        ->and($rows[$duplicate->id]['same_key']['duplicate'])->toBe(['here' => 2, 'there' => 1])
+        ->and($rows[$alone->id])->not->toHaveKey('same_key');
+
+    $this->get(route('admin.reconciliation.unmatched', ['import_a_id' => $alpha->id, 'import_b_id' => $bna->id]))
+        ->assertOk()
+        ->assertSee('↳ aussi dans '.$alpha->source->name.' : 722057 · 02/07/2026 · 90000 (autre transaction, rapprochée avec une autre ligne '.$bna->source->name.')')
+        ->assertSee('↳ Même ligne présente 2 fois dans '.$alpha->source->name.' et 1 fois dans '.$bna->source->name.' : une occurrence reste sans correspondance.');
+});
+
 test('Alpha WEB differences display reference and receipt fields used by the comparison', function () {
     actingAsAdmin();
     $alpha = fileComparisonImport('ALPHA');
