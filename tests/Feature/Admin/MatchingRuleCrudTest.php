@@ -76,6 +76,39 @@ test('admin can update a matching rule', function () {
     $this->assertDatabaseHas('matching_rules', ['id' => $rule->id, 'priority' => 99]);
 });
 
+test('updating a rule through the form keeps the criteria the form does not edit', function () {
+    actingAsAdmin();
+    $rule = MatchingRule::factory()->create(['criteria' => [
+        'tolerance_amount_millimes' => 0,
+        'tolerance_days' => 0,
+        'excluded_status_raw' => ['a' => [], 'b' => ['Commission']],
+        'primary_key' => ['a' => 'num_autorisation', 'b' => 'num_autorisation'],
+        'verify_fields' => ['amount', 'date'],
+    ]]);
+
+    $this->put(route('admin.matching-rules.update', $rule), [
+        'name' => $rule->name,
+        'source_a_id' => $rule->source_a_id,
+        'source_b_id' => $rule->source_b_id,
+        'cardinality' => 'N:M',
+        'priority' => 99,
+        'is_active' => 1,
+        'tolerance_amount_millimes' => 500,
+        'tolerance_days' => 1,
+        'excluded_status_raw_a' => '',
+        'excluded_status_raw_b' => 'Commission, Fee',
+    ])->assertRedirect(route('admin.matching-rules.index'));
+
+    // JSON storage may reorder keys; only the content must match.
+    expect($rule->fresh()->criteria)->toEqual([
+        'tolerance_amount_millimes' => 500,
+        'tolerance_days' => 1,
+        'excluded_status_raw' => ['a' => [], 'b' => ['Commission', 'Fee']],
+        'primary_key' => ['a' => 'num_autorisation', 'b' => 'num_autorisation'],
+        'verify_fields' => ['amount', 'date'],
+    ]);
+});
+
 test('admin can soft delete a matching rule', function () {
     actingAsAdmin();
     $rule = MatchingRule::factory()->create();

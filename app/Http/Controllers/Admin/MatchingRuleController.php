@@ -133,7 +133,7 @@ class MatchingRuleController extends Controller
 
     public function update(UpdateMatchingRuleRequest $request, MatchingRule $matchingRule): RedirectResponse
     {
-        $matchingRule->update($this->mapAttributes($request->validated()));
+        $matchingRule->update($this->mapAttributes($request->validated(), $matchingRule->criteria ?? []));
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle de rapprochement mise à jour avec succès.'));
     }
@@ -297,8 +297,14 @@ class MatchingRuleController extends Controller
      * Builds the `criteria` JSON column from discrete form fields, mirroring
      * SourceMappingController's pattern of assembling a structured value
      * from a flat form payload.
+     *
+     * Le formulaire ne gère que les tolérances et les statuts exclus : les
+     * autres critères de la règle (clé de rapprochement, champs vérifiés…)
+     * sont conservés, sinon la règle retomberait sur la clé « référence ».
+     *
+     * @param  array<string,mixed>  $criteria  critères actuels de la règle (vide à la création)
      */
-    private function mapAttributes(array $validated): array
+    private function mapAttributes(array $validated, array $criteria = []): array
     {
         // Le formulaire donne les statuts exclus en texte « Commission, Frais » :
         // explode découpe sur les virgules, trim retire les espaces, array_filter retire les vides.
@@ -313,11 +319,12 @@ class MatchingRuleController extends Controller
             'cardinality' => $validated['cardinality'],
             'priority' => $validated['priority'],
             'is_active' => $validated['is_active'] ?? false,
-            'criteria' => [
+            // array_replace : les valeurs du formulaire remplacent les anciennes, les autres clés restent.
+            'criteria' => array_replace($criteria, [
                 'tolerance_amount_millimes' => (int) $validated['tolerance_amount_millimes'],
                 'tolerance_days' => (int) $validated['tolerance_days'],
                 'excluded_status_raw' => ['a' => $excludedA, 'b' => $excludedB],
-            ],
+            ]),
         ];
     }
 }
