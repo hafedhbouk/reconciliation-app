@@ -21,6 +21,7 @@ use App\Exceptions\UnmatchedExportUnavailableException;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
 use App\Models\UnmatchedSnapshot;
+use App\Services\Matching\DifferenceColumns;
 use App\Services\Matching\SnapshotRows;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -197,7 +198,7 @@ class GenerateMatchingExportJob implements ShouldQueue
     /** Export des écarts d'une comparaison de fichiers (lignes présentes d'un seul côté). */
     private function handleUnmatched(string $format, int $snapshotId): void
     {
-        $snapshot = UnmatchedSnapshot::query()->with(['importA', 'importB'])->findOrFail($snapshotId);
+        $snapshot = UnmatchedSnapshot::query()->with(['importA.source', 'importB.source'])->findOrFail($snapshotId);
         if ($snapshot->status !== 'completed' || ! $snapshot->importA || ! $snapshot->importB) {
             throw new UnmatchedExportUnavailableException('La comparaison des différences n’est plus disponible.');
         }
@@ -205,14 +206,20 @@ class GenerateMatchingExportJob implements ShouldQueue
         app(SnapshotRows::class)->ensureStored($snapshot);
         $query = DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)
             ->orderBy('side')->orderBy('normalized_transaction_id');
-        $header = ['Côté exclusif', 'Fichier A', 'Fichier B', 'Calculé le', 'Source', 'Référence', 'Montant (millimes)', 'Date'];
-        $map = function ($record) use ($snapshot): array {
+        $header = ['Côté exclusif', 'Fichier A', 'Fichier B', 'Calculé le', 'Source', 'Référence', 'Montant (millimes)', 'Date',
+            'Même clé dans l’autre fichier'];
+        // Même mention que sur la page « Écarts par source » (voir DifferenceColumns::sameKeyNote).
+        $sources = ['a' => $snapshot->importA->source, 'b' => $snapshot->importB->source];
+        $table = new DifferenceColumns((string) $sources['a']?->code, (string) $sources['b']?->code);
+        $map = function ($record) use ($snapshot, $sources, $table): array {
             $row = json_decode($record->data, true, 512, JSON_THROW_ON_ERROR);
+            [$here, $there] = $record->side === 'a' ? [$sources['a'], $sources['b']] : [$sources['b'], $sources['a']];
 
             return [strtoupper($record->side), $snapshot->importA->original_filename,
                 $snapshot->importB->original_filename, $snapshot->completed_at?->format('d/m/Y H:i:s'),
                 $row['source'] ?? '', $row['reference'] ?? $row['primary_key_value'] ?? '',
-                (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? ''];
+                (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? '',
+                $table->sameKeyNote($row['same_key'] ?? null, (string) $here?->name, (string) $there?->name, (string) $there?->code) ?? ''];
         };
         // Sécurité (« injection de formule ») : une cellule qui commence par =, +, - ou @
         // serait exécutée comme une formule par Excel. On la préfixe d'une apostrophe

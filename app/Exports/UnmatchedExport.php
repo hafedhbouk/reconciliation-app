@@ -45,7 +45,7 @@ class UnmatchedExport extends StringValueBinder implements FromArray, WithCustom
     {
         $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setPaperSize(PageSetup::PAPERSIZE_A4);
         $sheet->getStyle($sheet->calculateWorksheetDimension())->getAlignment()->setWrapText(true);
-        foreach (['A' => 8, 'B' => 24, 'C' => 24, 'D' => 20, 'E' => 12, 'F' => 22, 'G' => 18, 'H' => 14] as $column => $width) {
+        foreach (['A' => 8, 'B' => 24, 'C' => 24, 'D' => 20, 'E' => 12, 'F' => 22, 'G' => 18, 'H' => 14, 'I' => 60] as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
 
