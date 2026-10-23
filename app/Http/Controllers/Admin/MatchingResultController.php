@@ -11,6 +11,7 @@ use App\Models\MatchingResult;
 use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
 use App\Services\Matching\TransactionStatus;
+use App\Services\OperationTracker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -229,7 +230,9 @@ class MatchingResultController extends Controller
             'download_token' => Str::random(64),
         ]);
 
-        GenerateMatchingExportJob::dispatch($matchingExport);
+        $operation = app(OperationTracker::class)->create('export',
+            'Export '.strtoupper($matchingExport->format).' des résultats de rapprochement', auth()->id(), $matchingExport);
+        GenerateMatchingExportJob::dispatch($matchingExport, $operation->id);
 
         return redirect()->route('admin.matching-results.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
     }

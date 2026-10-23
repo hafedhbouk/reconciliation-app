@@ -17,6 +17,7 @@ use App\Models\MatchingRule;
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\RuleMatcher;
+use App\Services\OperationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,7 +41,14 @@ class RunMatchingRuleJob implements ShouldQueue
      * verification measured some rules taking 15-20 minutes, long enough that
      * the flash message on dispatch ("launched") is stale by completion time.
      */
-    public function __construct(public int $matchingRuleId, public string $batchReference, public ?int $notifyUserId = null, public ?int $importIdA = null, public ?int $importIdB = null) {}
+    public function __construct(
+        public int $matchingRuleId,
+        public string $batchReference,
+        public ?int $notifyUserId = null,
+        public ?int $importIdA = null,
+        public ?int $importIdB = null,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
+    ) {}
 
     public function handle(RuleMatcher $matcher): void
     {
@@ -49,12 +57,27 @@ class RunMatchingRuleJob implements ShouldQueue
         // Deux fichiers précis demandés : on délègue à la comparaison de fichiers,
         // exécutée immédiatement ici (handle() appelé directement, sans repasser par la file).
         if ($this->importIdA !== null && $this->importIdB !== null) {
-            (new RunAdHocMatchingJob($this->importIdA, $this->importIdB, $this->batchReference, $this->notifyUserId))->handle($matcher);
+            (new RunAdHocMatchingJob($this->importIdA, $this->importIdB, $this->batchReference, $this->notifyUserId, $this->operationId))->handle($matcher);
 
             return;
         }
 
-        $summary = $matcher->match($rule, $this->batchReference, $this->importIdA, $this->importIdB);
+        // Suivi de l'avancement (« Mes opérations ») : une opération par règle, y compris dans « Lancer tout ».
+        $tracker = app(OperationTracker::class);
+        $operation = $tracker->resolve($this->operationId, 'matching', 'Règle « '.$rule->name.' »', $this->notifyUserId, $rule);
+        $tracker->start($operation, null, 'Chargement des transactions non rapprochées');
+        try {
+            $summary = $matcher->trackWith($operation)->match($rule, $this->batchReference, $this->importIdA, $this->importIdB);
+        } catch (Throwable $e) {
+            $tracker->fail($operation, 'Règle interrompue : '.$e->getMessage());
+
+            throw $e;
+        }
+        $tracker->finish($operation, [
+            'references' => $summary->referencesConsidered,
+            'rapprochements' => $summary->matched,
+            'conflits' => $summary->conflicts,
+        ], route('admin.matching-results.index', [], false));
 
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
@@ -75,5 +98,6 @@ class RunMatchingRuleJob implements ShouldQueue
             'batch_reference' => $this->batchReference,
             'error' => $e->getMessage(),
         ]);
+        app(OperationTracker::class)->failById($this->operationId, 'Règle interrompue : '.$e->getMessage());
     }
 }

@@ -20,9 +20,11 @@ use App\Exports\GenericTableExport;
 use App\Exports\UnmatchedExport;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
+use App\Models\Operation;
 use App\Models\UnmatchedSnapshot;
 use App\Services\Matching\DifferenceColumns;
 use App\Services\Matching\SnapshotRows;
+use App\Services\OperationTracker;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -64,6 +66,7 @@ class GenerateMatchingExportJob implements ShouldQueue
 
     public function __construct(
         public MatchingExport $matchingExport,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
     ) {}
 
     public function handle(): void
@@ -74,12 +77,28 @@ class GenerateMatchingExportJob implements ShouldQueue
 
         $format = $this->matchingExport->format;
         $filters = $this->matchingExport->filters ?? [];
-        if (($filters['type'] ?? null) === 'unmatched') {
-            $this->handleUnmatched($format, (int) ($filters['snapshot_id'] ?? 0));
+        $unmatched = ($filters['type'] ?? null) === 'unmatched';
 
-            return;
+        // Suivi de l'avancement (« Mes opérations ») : lignes réellement écrites dans le fichier.
+        $tracker = app(OperationTracker::class);
+        $operation = $tracker->resolve($this->operationId, 'export',
+            'Export '.strtoupper($format).($unmatched ? ' des écarts entre fichiers' : ' des résultats de rapprochement'),
+            $this->matchingExport->user_id, $this->matchingExport);
+        try {
+            $unmatched
+                ? $this->handleUnmatched($format, (int) ($filters['snapshot_id'] ?? 0), $tracker, $operation)
+                : $this->handleResults($format, $filters, $tracker, $operation);
+        } catch (Throwable $e) {
+            $tracker->fail($operation, 'Export interrompu : '.$e->getMessage());
+
+            throw $e;
         }
+        $tracker->finish($operation, ['lignes' => $operation->processed], route('admin.matching-results.exports', [], false));
+    }
 
+    /** Export des résultats de rapprochement (avec les filtres choisis à l'écran). */
+    private function handleResults(string $format, array $filters, OperationTracker $tracker, Operation $operation): void
+    {
         $extension = match ($format) {
             'csv' => 'csv',
             'xlsx' => 'xlsx',
@@ -122,6 +141,8 @@ class GenerateMatchingExportJob implements ShouldQueue
             $query->where('status', $filters['status']);
         }
 
+        $tracker->start($operation, (clone $query)->count(), 'Écriture des lignes');
+
         // Fonction utilitaire : les transactions d'un côté ('a' ou 'b') d'un résultat.
         $sideColumns = fn (MatchingResult $result, string $side) => $result->matchingDetails
             ->where('side', $side)
@@ -138,7 +159,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                 __('Source A'), __('Référence A'), __('Montant A'), __('Date A'),
                 __('Source B'), __('Référence B'), __('Montant B'), __('Date B'),
             ],
-            function (MatchingResult $result) use ($sideColumns) {
+            $tracker->counting($operation, function (MatchingResult $result) use ($sideColumns) {
                 $sideA = $sideColumns($result, 'a');
                 $sideB = $sideColumns($result, 'b');
 
@@ -157,7 +178,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                     $sideB->map(fn ($nt) => $nt->normalized_amount_millimes)->implode('; '),
                     $sideB->map(fn ($nt) => $nt->normalized_date?->format('d/m/Y'))->implode('; '),
                 ];
-            },
+            }),
         );
 
         try {
@@ -193,10 +214,11 @@ class GenerateMatchingExportJob implements ShouldQueue
             'status' => 'failed',
             'error_message' => $e->getMessage(),
         ]);
+        app(OperationTracker::class)->failById($this->operationId, 'Export interrompu : '.$e->getMessage());
     }
 
     /** Export des écarts d'une comparaison de fichiers (lignes présentes d'un seul côté). */
-    private function handleUnmatched(string $format, int $snapshotId): void
+    private function handleUnmatched(string $format, int $snapshotId, OperationTracker $tracker, Operation $operation): void
     {
         $snapshot = UnmatchedSnapshot::query()->with(['importA.source', 'importB.source'])->findOrFail($snapshotId);
         if ($snapshot->status !== 'completed' || ! $snapshot->importA || ! $snapshot->importB) {
@@ -206,12 +228,13 @@ class GenerateMatchingExportJob implements ShouldQueue
         app(SnapshotRows::class)->ensureStored($snapshot);
         $query = DB::table('unmatched_snapshot_rows')->where('snapshot_id', $snapshot->id)
             ->orderBy('side')->orderBy('normalized_transaction_id');
+        $tracker->start($operation, (clone $query)->count(), 'Préparation des lignes');
         $header = ['Côté exclusif', 'Fichier A', 'Fichier B', 'Calculé le', 'Source', 'Référence', 'Montant (millimes)', 'Date',
             'Même clé dans l’autre fichier'];
         // Même mention que sur la page « Écarts par source » (voir DifferenceColumns::sameKeyNote).
         $sources = ['a' => $snapshot->importA->source, 'b' => $snapshot->importB->source];
         $table = new DifferenceColumns((string) $sources['a']?->code, (string) $sources['b']?->code);
-        $map = function ($record) use ($snapshot, $sources, $table): array {
+        $map = $tracker->counting($operation, function ($record) use ($snapshot, $sources, $table): array {
             $row = json_decode($record->data, true, 512, JSON_THROW_ON_ERROR);
             [$here, $there] = $record->side === 'a' ? [$sources['a'], $sources['b']] : [$sources['b'], $sources['a']];
 
@@ -220,7 +243,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                 $row['source'] ?? '', $row['reference'] ?? $row['primary_key_value'] ?? '',
                 (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? '',
                 $table->sameKeyNote($row['same_key'] ?? null, (string) $here?->name, (string) $there?->name, (string) $there?->code) ?? ''];
-        };
+        });
         // Sécurité (« injection de formule ») : une cellule qui commence par =, +, - ou @
         // serait exécutée comme une formule par Excel. On la préfixe d'une apostrophe
         // pour qu'elle reste du texte. Exception : la colonne 6, les montants
@@ -237,6 +260,9 @@ class GenerateMatchingExportJob implements ShouldQueue
             }, $values, array_keys($values));
         })->all();
         $fileName = 'differences-'.$snapshot->id.'-'.$this->matchingExport->id.'.'.$format;
+        // La bibliothèque d'export n'indique pas son avancement : étape sans pourcentage.
+        $tracker->advance($operation, count($rows), force: true);
+        $tracker->stage($operation, 'Écriture du fichier', indeterminate: true);
 
         try {
             $writerType = match ($format) {

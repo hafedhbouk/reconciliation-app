@@ -41,11 +41,13 @@ use App\Jobs\ProcessImportJob;
 use App\Models\ComparisonRun;
 use App\Models\Import;
 use App\Models\ImportRow;
+use App\Models\Operation;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
 use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
+use App\Services\OperationTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -188,7 +190,9 @@ class ImportController extends Controller
         app(ImportMappingVersion::class)->freeze($import);
         $import->update(['job_dispatched_at' => now()]);
         // Mise en file d'attente : le worker fera le traitement (voir ProcessImportJob).
-        ProcessImportJob::dispatch($import->id);
+        // Suivi « Mes opérations » : visible tout de suite « En attente », puis mis à jour par le job.
+        $operation = app(OperationTracker::class)->create('import', 'Import '.$import->original_filename, auth()->id(), $import);
+        ProcessImportJob::dispatch($import->id, $operation->id);
 
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import lancé avec succès.'));
     }
@@ -225,7 +229,10 @@ class ImportController extends Controller
             && ($import->status->value === 'failed' || ($import->heartbeat_at ?? $import->updated_at)->lt(now()->subMinutes(5)));
 
         // compact('import', 'rows') crée le tableau ['import' => $import, 'rows' => $rows, ...].
-        return view('admin.imports.show', compact('import', 'rows', 'mappingState', 'ledger', 'runs', 'canResume'));
+        // Import en attente ou en cours : barre de progression réelle (voir OperationTracker).
+        $operation = Operation::activeFor($import);
+
+        return view('admin.imports.show', compact('import', 'rows', 'mappingState', 'ledger', 'runs', 'canResume', 'operation'));
     }
 
     /**
@@ -289,7 +296,9 @@ class ImportController extends Controller
             return redirect()->route('admin.imports.show', $import)->with('status', __('Cet import a déjà été lancé — veuillez patienter pendant son traitement.'));
         }
 
-        ProcessImportJob::dispatch($import->id);
+        // Suivi « Mes opérations » : visible tout de suite « En attente », puis mis à jour par le job.
+        $operation = app(OperationTracker::class)->create('import', 'Import '.$import->original_filename, auth()->id(), $import);
+        ProcessImportJob::dispatch($import->id, $operation->id);
 
         return redirect()->route('admin.imports.show', $import)->with('status', __('Import relancé avec succès.'));
     }

@@ -6,6 +6,11 @@
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Mes exports de recherche') }}</h2>
     </x-slot>
 
+    {{-- Exports en attente ou en cours : progression réelle, puis rechargement pour le lien de téléchargement. --}}
+    @foreach (\App\Models\Operation::activeForCurrentUser(['search_export']) as $operation)
+        <x-operation-progress :operation="$operation" :reload="true" />
+    @endforeach
+
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <span>{{ __('Historique des exports') }}</span>

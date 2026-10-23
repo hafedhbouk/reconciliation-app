@@ -83,6 +83,30 @@ class CsvRowReader implements ImportRowReader
     }
 
     /**
+     * Compte les enregistrements comme read() les lit (fgetcsv gère les champs
+     * entre guillemets sur plusieurs lignes), sans garder les lignes en mémoire.
+     */
+    public function countRows(string $absolutePath, array $sourceConfig): ?int
+    {
+        [$delimiter, $enclosure] = $this->delimiterAndEnclosure($sourceConfig);
+        $handle = $this->openFile($absolutePath);
+
+        try {
+            if (fgetcsv($handle, 0, $delimiter, $enclosure) === false) {
+                return 0; // fichier vide
+            }
+            $count = 0;
+            while (fgetcsv($handle, 0, $delimiter, $enclosure) !== false) {
+                $count++;
+            }
+
+            return $count;
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
      * Séparateur de colonnes (« , » par défaut) et caractère de guillemet (« " » par défaut).
      *
      * @return array{0:string,1:string}

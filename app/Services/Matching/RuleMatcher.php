@@ -53,7 +53,9 @@ use App\Models\MatchingDetail;
 use App\Models\MatchingResult;
 use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
+use App\Models\Operation;
 use App\Models\UnmatchedSnapshot;
+use App\Services\OperationTracker;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -99,6 +101,33 @@ class RuleMatcher
 {
     public function __construct(private ConfidenceScorer $scorer) {}
 
+    /** Opération dont on enregistre l'avancement (« Mes opérations »), ou null. */
+    private ?Operation $operation = null;
+
+    /** À appeler par le job avant match() ou refreshFileDifferences() pour suivre l'avancement. */
+    public function trackWith(?Operation $operation): static
+    {
+        $this->operation = $operation;
+
+        return $this;
+    }
+
+    /** Fixe le vrai total et l'étape (lignes des deux fichiers, ou nombre de clés). */
+    private function progressStage(string $stage, int $total): void
+    {
+        if ($this->operation !== null) {
+            app(OperationTracker::class)->stage($this->operation, $stage, false, $total);
+        }
+    }
+
+    /** Avancement réel : écrit au plus une fois par seconde (voir OperationTracker). */
+    private function progress(int $processed, bool $force = false): void
+    {
+        if ($this->operation !== null) {
+            app(OperationTracker::class)->advance($this->operation, $processed, force: $force);
+        }
+    }
+
     /**
      * Exécute une règle de rapprochement et renvoie un résumé chiffré.
      *
@@ -138,9 +167,12 @@ class RuleMatcher
 
         // Étape 2 : seules les clés présentes des deux côtés peuvent être rapprochées.
         $keys = $candidatesA->keys()->intersect($candidatesB->keys());
+        $this->progressStage('Rapprochement des clés communes', $keys->count());
+        $done = 0;
 
         // Traiter uniquement les clés présentes dans les deux sources.
         foreach ($keys as $key) {
+            $this->progress(++$done);
             $outcome = $this->evaluateGroup(
                 $candidatesA->get($key),
                 $candidatesB->get($key),
@@ -159,6 +191,8 @@ class RuleMatcher
                 default => $noSignal++,
             };
         }
+
+        $this->progress($done, force: true);
 
         $summary = new MatchingRunSummary(
             referencesConsidered: $keys->count(),
@@ -251,6 +285,9 @@ class RuleMatcher
                 $totals[$side][$category]['rows'] += $rows->count();
                 $totals[$side][$category]['amount_millimes'] += (int) $rows->sum('normalized_amount_millimes');
             };
+            // Avancement réel : lignes des deux fichiers déjà classées, sur le total compté ci-dessus.
+            $this->progressStage('Comparaison des lignes', $expected['a']['rows'] + $expected['b']['rows']);
+            $done = 0;
             // Boucle de fusion : tant qu'il reste un groupe d'un côté ou de l'autre.
             while ($a->valid() || $b->valid()) {
                 // strcmp compare les deux clés : < 0 si la clé A est plus petite, 0 si égales, > 0 sinon.
@@ -268,6 +305,8 @@ class RuleMatcher
                 $considered++;
                 $tally('a', 'total', $groupA);
                 $tally('b', 'total', $groupB);
+                $done += $groupA->count() + $groupB->count();
+                $this->progress($done);
                 $identities = collect();
                 foreach (['a' => $groupA, 'b' => $groupB] as $side => $rows) {
                     foreach ($rows as $row) {
@@ -345,6 +384,8 @@ class RuleMatcher
                     }
                 }
             }
+
+            $this->progress($done, force: true);
 
             // Contrôle final (« bilan ») pour chaque côté :
             //   total lu == total attendu en SQL

@@ -11,6 +11,7 @@ use App\Policies\RolePolicy;
 use App\Repositories\EloquentSettingsRepository;
 use App\Repositories\SettingsRepositoryInterface;
 use App\Services\Import\TransformRegistry;
+use App\Services\OperationTracker;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -45,6 +46,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(SettingsRepositoryInterface::class, EloquentSettingsRepository::class);
         // « singleton » : un seul TransformRegistry partagé par toute l'application.
         $this->app->singleton(TransformRegistry::class);
+        // Un seul suivi des opérations par processus : il mémorise l'heure de sa
+        // dernière écriture pour n'écrire l'avancement qu'une fois par seconde.
+        $this->app->singleton(OperationTracker::class);
     }
 
     /**

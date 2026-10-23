@@ -13,7 +13,17 @@
             @php
                 $unreadNotifications = auth()->user()->unreadNotifications()->latest()->take(8)->get();
                 $unreadCount = auth()->user()->unreadNotifications()->count();
+                $activeOperations = \App\Models\Operation::query()->where('user_id', auth()->id())
+                    ->whereIn('status', ['pending', 'running'])->count();
             @endphp
+            {{-- Opérations en cours : pastille mise à jour par resources/js/operations.js. --}}
+            <a href="{{ route('admin.operations.index') }}" class="btn btn-outline-secondary btn-sm position-relative"
+               title="{{ __('Mes opérations') }}" aria-label="{{ __('Mes opérations') }}"
+               data-operations-indicator data-url="{{ route('admin.operations.data') }}" data-active-count="{{ $activeOperations }}">
+                <i class="bi bi-activity"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary {{ $activeOperations === 0 ? 'd-none' : '' }}"
+                      data-operations-count>{{ $activeOperations }}</span>
+            </a>
             <div class="dropdown">
                 <button class="btn btn-outline-secondary btn-sm position-relative dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="{{ __('Notifications') }}">
                     <i class="bi bi-bell"></i>

@@ -20,6 +20,7 @@ use App\Jobs\GenerateSearchExportJob;
 use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
+use App\Services\OperationTracker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -133,7 +134,9 @@ class SearchController extends Controller
             'download_token' => Str::random(64),
         ]);
 
-        GenerateSearchExportJob::dispatch($matchingExport);
+        $operation = app(OperationTracker::class)->create('search_export',
+            'Export '.strtoupper($matchingExport->format).' de recherche', auth()->id(), $matchingExport);
+        GenerateSearchExportJob::dispatch($matchingExport, $operation->id);
 
         return redirect()->route('admin.search.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
     }

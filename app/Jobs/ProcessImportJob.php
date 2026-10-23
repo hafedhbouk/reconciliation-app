@@ -33,6 +33,7 @@ use App\Enums\ImportStatus;
 use App\Exceptions\Import\MissingRequiredFieldException;
 use App\Exceptions\Import\RowTransformException;
 use App\Models\Import;
+use App\Models\Operation;
 use App\Models\Source;
 use App\Models\SourceColumnMapping;
 use App\Notifications\ImportProcessedNotification;
@@ -40,6 +41,7 @@ use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use App\Services\Import\TransactionNormalizer;
+use App\Services\OperationTracker;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -79,7 +81,10 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
      * On ne passe que l'id de l'import (pas l'objet entier) : le job est
      * enregistré en base, puis l'import est relu au moment de l'exécution.
      */
-    public function __construct(public int $importId) {}
+    public function __construct(
+        public int $importId,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
+    ) {}
 
     /**
      * Point d'entrée appelé par le worker. Les paramètres sont fournis
@@ -94,6 +99,21 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
             return;
         }
 
+        // Suivi de l'avancement (« Mes opérations ») : toute erreur imprévue y est notée avant d'être relancée.
+        $tracker = app(OperationTracker::class);
+        $operation = $tracker->resolve($this->operationId, 'import', 'Import '.$import->original_filename, $import->imported_by, $import);
+        try {
+            $this->run($import, $operation, $tracker, $readerFactory, $engine, $normalizer);
+        } catch (Throwable $e) {
+            $tracker->fail($operation, 'Import interrompu : '.$e->getMessage());
+
+            throw $e;
+        }
+    }
+
+    /** Étapes 2 à 7 de l'import (voir handle()). */
+    private function run(Import $import, Operation $operation, OperationTracker $tracker, ImportRowReaderFactory $readerFactory, MappingEngine $engine, TransactionNormalizer $normalizer): void
+    {
         // --- Étape 2 : utiliser la configuration FIGÉE au lancement de l'import ---
         // (voir ImportMappingVersion). On travaille sur une copie de la source,
         // avec les réglages de la copie figée, sans toucher à la source en base.
@@ -130,6 +150,7 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
                 'error_summary' => 'Colonnes requises manquantes : '.implode(', ', $missing),
                 'finished_at' => now(),
             ]);
+            $tracker->fail($operation, $import->error_summary);
 
             // `?->` (« nullsafe ») : n'appelle notify() que si l'utilisateur existe.
             $import->importedByUser?->notify(new ImportProcessedNotification($import));
@@ -145,9 +166,13 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
 
         // LazyCollection : collection « paresseuse » qui ne lit les lignes qu'au moment où on en a besoin.
         // chunk(500) les regroupe par paquets de 500 : on n'a jamais plus de 500 lignes en mémoire.
+        // Total réel lu dans le fichier (voir ImportRowReader::countRows), puis avancement après chaque paquet enregistré.
+        $tracker->start($operation, $reader->countRows($path, $sourceConfig), 'Lecture et enregistrement des lignes');
         $rows = LazyCollection::make(fn () => yield from $reader->read($path, $sourceConfig));
         foreach ($rows->chunk($chunkSize) as $chunk) {
             $this->processChunk($chunk, $import, $source, $mappings, $engine, $normalizer, $userId);
+            $counters = Import::query()->whereKey($import->id)->first(['processed_rows', 'success_rows', 'error_rows']);
+            $tracker->advance($operation, $counters->processed_rows, $counters->success_rows, $counters->error_rows);
         }
 
         // --- Étape 6 : calculer le statut final ---
@@ -165,6 +190,14 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
             ]);
         });
         $import->refresh(); // relit l'import depuis la base pour avoir les valeurs à jour
+
+        $tracker->advance($operation, $import->processed_rows, $import->success_rows, $import->error_rows, force: true);
+        if ($import->status === ImportStatus::Failed) {
+            $tracker->fail($operation, "Aucune ligne valide : {$import->error_rows} ligne(s) rejetée(s).");
+        } else {
+            $tracker->finish($operation, ['acceptees' => $import->success_rows, 'rejetees' => $import->error_rows],
+                route('admin.imports.show', $import, false));
+        }
 
         // --- Étape 7 : prévenir l'utilisateur (cloche de notifications) ---
         $import->importedByUser?->notify(new ImportProcessedNotification($import));
@@ -330,5 +363,6 @@ class ProcessImportJob implements ShouldQueue // ShouldQueue = « exécute-moi d
             'job_dispatched_at' => null,
             'finished_at' => now(),
         ]);
+        app(OperationTracker::class)->failById($this->operationId, 'Import interrompu : '.$e->getMessage());
     }
 }

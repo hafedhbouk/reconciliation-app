@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\DataTransferObjects\MatchingRunSummary;
 use App\Enums\MatchingCardinality;
 use App\Models\Import;
 use App\Models\MatchingRule;
@@ -9,6 +10,7 @@ use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\FileComparisonRules;
 use App\Services\Matching\RuleMatcher;
+use App\Services\OperationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -41,13 +43,42 @@ class RunAdHocMatchingJob implements ShouldQueue
         public int $importAId,
         public int $importBId,
         public string $batchReference,
-        public ?int $notifyUserId = null
+        public ?int $notifyUserId = null,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
     ) {}
 
     public function handle(RuleMatcher $matcher): void
     {
+        // Suivi de l'avancement (« Mes opérations ») : le moteur y écrit le total puis les lignes traitées.
+        $tracker = app(OperationTracker::class);
+        $names = Import::query()->whereIn('id', [$this->importAId, $this->importBId])->pluck('original_filename', 'id');
+        $operation = $tracker->resolve($this->operationId, 'matching',
+            'Rapprochement '.($names[$this->importAId] ?? '?').' ↔ '.($names[$this->importBId] ?? '?'), $this->notifyUserId);
+        $tracker->start($operation, null, 'Préparation des deux fichiers');
+
+        try {
+            [$rule, $summary] = $this->matchFiles($matcher->trackWith($operation));
+        } catch (Throwable $e) {
+            $tracker->fail($operation, 'Rapprochement interrompu : '.$e->getMessage());
+
+            throw $e;
+        }
+
+        $tracker->finish($operation, [
+            'rapprochements' => $summary->matched,
+            'conflits' => $summary->conflicts,
+            'exclusives_a' => $summary->unmatchedA,
+            'exclusives_b' => $summary->unmatchedB,
+        ], route('admin.reconciliation.unmatched', ['import_a_id' => $this->importAId, 'import_b_id' => $this->importBId], false));
+
+        $this->notify($rule, $summary);
+    }
+
+    /** Comparaison des deux fichiers, dans une transaction : renvoie [règle, résumé]. */
+    private function matchFiles(RuleMatcher $matcher): array
+    {
         // La transaction renvoie un tableau [règle, résumé], qu'on « déstructure » en deux variables.
-        [$rule, $summary] = DB::transaction(function () use ($matcher) {
+        return DB::transaction(function () use ($matcher) {
             $imports = Import::query()->whereIn('id', [$this->importAId, $this->importBId])
                 ->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             if ($imports->count() !== 2) {
@@ -78,7 +109,11 @@ class RunAdHocMatchingJob implements ShouldQueue
 
             return [$rule, $summary];
         });
+    }
 
+    /** Notification de fin dans la cloche, avec le résumé chiffré. */
+    private function notify(MatchingRule $rule, MatchingRunSummary $summary): void
+    {
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
                 __('Rapprochement « :name » terminé', ['name' => $rule->name]),
@@ -100,5 +135,6 @@ class RunAdHocMatchingJob implements ShouldQueue
             'import_b_id' => $this->importBId,
             'error' => $e->getMessage(),
         ]);
+        app(OperationTracker::class)->failById($this->operationId, 'Rapprochement interrompu : '.$e->getMessage());
     }
 }

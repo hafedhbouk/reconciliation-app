@@ -13,6 +13,10 @@
             {{ $mappingState === 'unknown' ? __('Version du mapping non enregistrée : vérifier les anciens imports avant rapprochement.') : __('Le mapping a changé depuis cet import. Une renormalisation est nécessaire pour appliquer les nouvelles règles.') }}
         </div>
     @endif
+    @if ($operation)
+        <x-operation-progress :operation="$operation" :reload="true" />
+    @endif
+
     <p class="small text-secondary">{{ __('Version du mapping utilisée') }} : {{ $import->mapping_hash ? substr($import->mapping_hash, 0, 12) : __('Non enregistrée') }}</p>
 
     <div class="card mb-3">

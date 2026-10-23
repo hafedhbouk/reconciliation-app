@@ -20,6 +20,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreManualMatchRequest;
 use App\Jobs\ComputeUnmatchedJob;
 use App\Jobs\GenerateMatchingExportJob;
+use App\Models\Import;
 use App\Models\MatchingDetail;
 use App\Models\MatchingExport;
 use App\Models\MatchingResult;
@@ -28,6 +29,7 @@ use App\Models\Source;
 use App\Models\UnmatchedSnapshot;
 use App\Services\Matching\SnapshotRows;
 use App\Services\Matching\TransactionStatus;
+use App\Services\OperationTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -87,7 +89,7 @@ class ReconciliationController extends Controller
                     'status' => 'pending',
                 ]);
 
-                ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+                $this->queueComparison($snapshot);
             }
 
             if ($snapshot->status === 'completed') {
@@ -133,7 +135,7 @@ class ReconciliationController extends Controller
                 'completed_at' => null,
             ]);
 
-            ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id());
+            $this->queueComparison($snapshot);
         }
 
         return redirect()->route('admin.reconciliation.unmatched', [
@@ -169,9 +171,20 @@ class ReconciliationController extends Controller
             'download_token' => Str::random(64),
         ]);
 
-        GenerateMatchingExportJob::dispatch($export);
+        $operation = app(OperationTracker::class)->create('export',
+            'Export '.strtoupper($export->format).' des écarts entre fichiers', auth()->id(), $export);
+        GenerateMatchingExportJob::dispatch($export, $operation->id);
 
         return redirect()->route('admin.matching-results.exports')->with('status', __('Export lancé en arrière-plan. Vous serez notifié une fois prêt.'));
+    }
+
+    /** Met le calcul des écarts en file d'attente, avec son suivi « Mes opérations » (« En attente »). */
+    private function queueComparison(UnmatchedSnapshot $snapshot): void
+    {
+        $names = Import::query()->whereIn('id', [$snapshot->import_a_id, $snapshot->import_b_id])->pluck('original_filename', 'id');
+        $operation = app(OperationTracker::class)->create('comparison',
+            'Écarts '.($names[$snapshot->import_a_id] ?? '?').' ↔ '.($names[$snapshot->import_b_id] ?? '?'), auth()->id(), $snapshot);
+        ComputeUnmatchedJob::dispatch($snapshot->id, auth()->id(), $operation->id);
     }
 
     /** Hard cap on how many rows a single "select all" can pull in at once. */

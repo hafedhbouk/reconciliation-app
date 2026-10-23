@@ -112,6 +112,12 @@ class XlsxRowReader implements ImportRowReader
         }
     }
 
+    /** read() produit une ligne par index de 2 à totalRows : toutes les lignes sauf l'en-tête. */
+    public function countRows(string $absolutePath, array $sourceConfig): ?int
+    {
+        return max(0, $this->totalRows($absolutePath) - 1);
+    }
+
     /**
      * Reads the workbook's true row count from its dimension metadata alone
      * (no cell data loaded) — bounding the read() loop by this instead of by

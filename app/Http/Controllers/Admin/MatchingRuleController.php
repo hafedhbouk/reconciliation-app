@@ -29,6 +29,7 @@ use App\Models\MatchingRule;
 use App\Models\Source;
 use App\Services\Matching\DuplicateDetector;
 use App\Services\Matching\UnmatchedSweeper;
+use App\Services\OperationTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -165,7 +166,11 @@ class MatchingRuleController extends Controller
         $importIdA = $request->input('import_a_id') ? (int) $request->input('import_a_id') : null;
         $importIdB = $request->input('import_b_id') ? (int) $request->input('import_b_id') : null;
 
-        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id(), $importIdA, $importIdB);
+        $names = Import::query()->whereIn('id', array_filter([$importIdA, $importIdB]))->pluck('original_filename', 'id');
+        $operation = app(OperationTracker::class)->create('matching', $importIdA !== null
+            ? 'Rapprochement '.($names[$importIdA] ?? '?').' ↔ '.($names[$importIdB] ?? '?')
+            : 'Règle « '.$matchingRule->name.' »', auth()->id(), $importIdA !== null ? null : $matchingRule);
+        RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id(), $importIdA, $importIdB, $operation->id);
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
     }
@@ -187,11 +192,14 @@ class MatchingRuleController extends Controller
             return redirect()->route('admin.matching-rules.index')->with('error', __('Veuillez sélectionner deux fichiers provenant de sources différentes.'));
         }
 
+        $operation = app(OperationTracker::class)->create('matching',
+            'Rapprochement '.$importA->original_filename.' ↔ '.$importB->original_filename, auth()->id());
         RunAdHocMatchingJob::dispatch(
             $importA->id,
             $importB->id,
             (string) Str::uuid(),
             auth()->id(),
+            $operation->id,
         );
 
         return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $importA->original_filename, 'b' => $importB->original_filename]));
@@ -211,7 +219,9 @@ class MatchingRuleController extends Controller
             ->where('is_active', true)
             ->orderBy('priority')
             ->get()
-            ->map(fn (MatchingRule $rule) => new RunMatchingRuleJob($rule->id, $batchReference))
+            // Une opération « En attente » par règle, visible dès le clic dans « Mes opérations ».
+            ->map(fn (MatchingRule $rule) => new RunMatchingRuleJob($rule->id, $batchReference, null, null, null,
+                app(OperationTracker::class)->create('matching', 'Règle « '.$rule->name.' »', auth()->id(), $rule)->id))
             ->all();
 
         $jobs = [

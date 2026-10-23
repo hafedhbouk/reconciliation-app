@@ -118,6 +118,30 @@ motif de rejet.
 Vous recevez une **notification** (cloche en haut de l'écran) dès que le
 traitement de votre import est terminé.
 
+### 4.3 Suivre l'avancement en temps réel (« Mes opérations »)
+
+Les imports, rapprochements, comparaisons de fichiers et exports affichent
+leur avancement réel, mis à jour toutes les deux secondes sans recharger la
+page, par exemple : « 1 250 / 5 000 lignes traitées — 25 % ».
+
+- La **pastille** à côté de la cloche indique le nombre de vos opérations en
+  attente ou en cours ; elle mène à la page **Mes opérations**, qui liste vos
+  50 dernières opérations avec leur statut, leur durée et un lien vers les résultats.
+- La fiche d'un import, la page des écarts et les pages d'exports montrent
+  la barre de progression de l'opération en cours, puis se rechargent d'elles-mêmes
+  une fois le traitement terminé.
+- **En attente** : l'opération attend qu'un worker de file d'attente se
+  libère. Les opérations s'exécutent l'une après l'autre avec un seul worker.
+- Quand le total n'est pas connu (par exemple pendant l'écriture d'un fichier
+  d'export), seul le nombre traité est affiché, sans pourcentage.
+- En cas d'**échec**, le message d'erreur s'affiche, ainsi que ce qui avait
+  déjà été traité.
+- Si un traitement ne donne plus de nouvelles depuis 5 minutes, la page le
+  signale : le worker est peut-être arrêté.
+
+Chacun ne voit que ses propres opérations ; un administrateur peut afficher
+celles de tous les utilisateurs (bouton **Toutes**).
+
 ## 5. Rapprochement automatique
 
 Menu **Rapprochement → Règles de rapprochement** (accès admin).

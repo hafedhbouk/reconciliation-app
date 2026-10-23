@@ -99,7 +99,14 @@
             $columnsB = $table->columns($sourceBCode);
         @endphp
 
-        @if ($snapshot && $snapshot->status === 'processing')
+        @php
+            // Comparaison en attente ou en cours : barre de progression réelle, rechargement de la page à la fin.
+            $comparisonOperation = $snapshot && in_array($snapshot->status, ['pending', 'processing'], true)
+                ? \App\Models\Operation::activeFor($snapshot) : null;
+        @endphp
+        @if ($comparisonOperation)
+            <x-operation-progress :operation="$comparisonOperation" :reload="true" />
+        @elseif ($snapshot && $snapshot->status === 'processing')
             <div class="alert alert-warning">
                 <i class="bi bi-hourglass-split me-1"></i>
                 {{ __('Comparaison en cours de traitement, veuillez patienter...') }}

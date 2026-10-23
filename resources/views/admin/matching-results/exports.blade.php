@@ -6,6 +6,11 @@
         <h2 class="fs-4 fw-semibold mb-0">{{ __('Exports de rapprochement') }}</h2>
     </x-slot>
 
+    {{-- Exports en attente ou en cours : progression réelle, puis rechargement pour le lien de téléchargement. --}}
+    @foreach (\App\Models\Operation::activeForCurrentUser(['export']) as $operation)
+        <x-operation-progress :operation="$operation" :reload="true" />
+    @endforeach
+
     <div class="card">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">

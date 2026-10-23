@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\MatchingResultController;
 use App\Http\Controllers\Admin\MatchingRuleController;
+use App\Http\Controllers\Admin\OperationController;
 use App\Http\Controllers\Admin\ReconciliationController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SearchController;
@@ -115,6 +116,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('reconciliation', [ReconciliationController::class, 'index'])->name('reconciliation.index');
     Route::get('reconciliation/search', [ReconciliationController::class, 'search'])->name('reconciliation.search');
     Route::post('reconciliation', [ReconciliationController::class, 'store'])->name('reconciliation.store');
+    // --- Suivi des opérations longues (import, rapprochement, comparaison, exports) ---
+    Route::get('operations', [OperationController::class, 'index'])->name('operations.index');
+    Route::get('operations/data', [OperationController::class, 'data'])->name('operations.data');
+    Route::get('operations/{operation}', [OperationController::class, 'show'])->name('operations.show');
     Route::get('reconciliation/unmatched', [ReconciliationController::class, 'unmatched'])->name('reconciliation.unmatched');
     Route::post('reconciliation/unmatched/{snapshot}/export-async', [ReconciliationController::class, 'exportAsync'])->middleware('throttle:expensive-actions')->name('reconciliation.unmatched.export-async');
     Route::post('reconciliation/unmatched/refresh', [ReconciliationController::class, 'refreshUnmatched'])->name('reconciliation.unmatched.refresh');

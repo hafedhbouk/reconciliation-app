@@ -38,4 +38,10 @@ interface ImportRowReader
      * @return \Generator<int,array<string,mixed>> numéro_ligne => ligne brute
      */
     public function read(string $absolutePath, array $sourceConfig): \Generator;
+
+    /**
+     * Nombre de lignes de données (sans l'en-tête) que read() va produire,
+     * pour afficher une progression réelle. null = inconnu (pas de pourcentage).
+     */
+    public function countRows(string $absolutePath, array $sourceConfig): ?int;
 }

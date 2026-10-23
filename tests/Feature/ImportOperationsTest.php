@@ -53,6 +53,11 @@ test('interrupted imports resume with their frozen mapping without reinserting s
             yield 2 => ['ref' => '', 'amount' => '2000', 'date' => '2026-05-01'];
             throw new RuntimeException('interruption');
         }
+
+        public function countRows(string $absolutePath, array $sourceConfig): ?int
+        {
+            return null;
+        }
     };
     $factory = Mockery::mock(ImportRowReaderFactory::class);
     $factory->shouldReceive('make')->andReturn($reader);

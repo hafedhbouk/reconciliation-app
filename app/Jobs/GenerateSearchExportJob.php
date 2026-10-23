@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Exports\GenericTableExport;
 use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
+use App\Services\OperationTracker;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -45,6 +46,7 @@ class GenerateSearchExportJob implements ShouldQueue
 
     public function __construct(
         public MatchingExport $matchingExport,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
     ) {}
 
     public function handle(): void
@@ -69,10 +71,16 @@ class GenerateSearchExportJob implements ShouldQueue
 
         $query = $this->buildQuery($filters);
 
+        // Suivi de l'avancement (« Mes opérations ») : lignes réellement écrites dans le fichier.
+        $tracker = app(OperationTracker::class);
+        $operation = $tracker->resolve($this->operationId, 'search_export', 'Export '.strtoupper($format).' de recherche',
+            $this->matchingExport->user_id, $this->matchingExport);
+        $tracker->start($operation, (clone $query)->count(), 'Écriture des lignes');
+
         $export = new GenericTableExport(
             $query,
             [__('Source'), __('Référence'), __('Référence secondaire'), __('Montant'), __('Date'), __('Canal'), __('Statut')],
-            fn (NormalizedTransaction $nt) => [
+            $tracker->counting($operation, fn (NormalizedTransaction $nt) => [
                 $nt->transaction?->source?->code,
                 $nt->normalized_reference,
                 $nt->transaction?->raw_payload['secondary_reference'] ?? null,
@@ -80,7 +88,7 @@ class GenerateSearchExportJob implements ShouldQueue
                 $nt->normalized_date?->format('d/m/Y'),
                 $nt->transaction?->canal,
                 $nt->matching_status->label(),
-            ],
+            ]),
         );
 
         try {
@@ -102,9 +110,11 @@ class GenerateSearchExportJob implements ShouldQueue
                 'status' => 'failed',
                 'error_message' => $e->getMessage(),
             ]);
+            $tracker->fail($operation, 'Export interrompu : '.$e->getMessage());
 
             throw $e;
         }
+        $tracker->finish($operation, ['lignes' => $operation->processed], route('admin.search.exports', [], false));
     }
 
     public function failed(Throwable $e): void
@@ -113,6 +123,7 @@ class GenerateSearchExportJob implements ShouldQueue
             'status' => 'failed',
             'error_message' => $e->getMessage(),
         ]);
+        app(OperationTracker::class)->failById($this->operationId, 'Export interrompu : '.$e->getMessage());
     }
 
     /**

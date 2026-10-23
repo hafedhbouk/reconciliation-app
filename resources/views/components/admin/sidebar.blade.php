@@ -14,6 +14,12 @@
             </a>
         </li>
 
+        <li class="nav-item">
+            <a href="{{ route('admin.operations.index') }}" class="nav-link {{ request()->routeIs('admin.operations.*') ? 'active' : '' }}">
+                <i class="bi bi-activity me-2"></i>{{ __('Mes opérations') }}
+            </a>
+        </li>
+
         @can('search.viewAny')
             <li class="nav-item">
                 <a href="{{ route('admin.search.index') }}" class="nav-link {{ request()->routeIs('admin.search.*') ? 'active' : '' }}">

@@ -15,6 +15,9 @@ import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 window.Chart = Chart;
 
+// Suivi en temps réel des opérations longues (barres de progression, « Mes opérations »).
+import './operations';
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
         new bootstrap.Tooltip(el);

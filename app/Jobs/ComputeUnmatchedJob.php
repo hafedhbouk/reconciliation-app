@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\UnmatchedSnapshot;
 use App\Services\Matching\RuleMatcher;
+use App\Services\OperationTracker;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,7 +31,8 @@ class ComputeUnmatchedJob implements ShouldQueue
 
     public function __construct(
         public int $snapshotId,
-        public ?int $notifyUserId = null
+        public ?int $notifyUserId = null,
+        public ?int $operationId = null, // suivi « Mes opérations » créé au clic (voir OperationTracker)
     ) {}
 
     public function handle(): void
@@ -38,10 +40,24 @@ class ComputeUnmatchedJob implements ShouldQueue
         $snapshot = UnmatchedSnapshot::query()->findOrFail($this->snapshotId);
         $snapshot->update(['status' => 'processing', 'started_at' => now()]);
 
+        // Suivi de l'avancement (« Mes opérations ») : le moteur y écrit le total puis les lignes traitées.
+        $tracker = app(OperationTracker::class);
+        $operation = $tracker->resolve($this->operationId, 'comparison',
+            'Écarts '.$snapshot->importA?->original_filename.' ↔ '.$snapshot->importB?->original_filename, $this->notifyUserId, $snapshot);
+        $tracker->start($operation, null, 'Préparation des deux fichiers');
+
         try {
             // RuleMatcher remplit le cache et passe le statut à « completed » quand il a fini.
-            app(RuleMatcher::class)->refreshFileDifferences($snapshot->importA, $snapshot->importB);
+            app(RuleMatcher::class)->trackWith($operation)->refreshFileDifferences($snapshot->importA, $snapshot->importB);
+            $totals = $snapshot->fresh()->file_totals;
+            $tracker->finish($operation, [
+                'rapprochees' => $totals['a']['matched']['rows'] ?? null,
+                'conflits' => $totals['a']['conflict']['rows'] ?? null,
+                'exclusives_a' => $totals['a']['exclusive']['rows'] ?? null,
+                'exclusives_b' => $totals['b']['exclusive']['rows'] ?? null,
+            ], route('admin.reconciliation.unmatched', ['import_a_id' => $snapshot->import_a_id, 'import_b_id' => $snapshot->import_b_id], false));
         } catch (Throwable $e) {
+            $tracker->fail($operation, 'Comparaison interrompue : '.$e->getMessage());
             // En cas d'erreur : on l'écrit dans le journal, et on l'affiche sur le cache pour l'utilisateur.
             $this->failed($e);
             $snapshot->update([
