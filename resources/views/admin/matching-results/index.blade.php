@@ -32,7 +32,7 @@
                         <option value="">{{ __('Tous les lots') }}</option>
                         @foreach ($batches as $batch)
                             <option value="{{ $batch->batch_reference }}" {{ request('batch_reference') === $batch->batch_reference ? 'selected' : '' }}>
-                                {{ $batch->matched_at?->format('d/m/Y H:i') }} — {{ $batch->batch_reference }}
+                                @datetime($batch->matched_at) — {{ $batch->batch_reference }}
                             </option>
                         @endforeach
                     </select>
@@ -149,7 +149,7 @@
                             <select name="batch_reference" id="export_batch" class="form-select">
                                 <option value="">{{ __('Tous les lots') }}</option>
                                 @foreach ($batches as $batch)
-                                    <option value="{{ $batch->batch_reference }}">{{ $batch->matched_at?->format('d/m/Y H:i') }} — {{ $batch->batch_reference }}</option>
+                                    <option value="{{ $batch->batch_reference }}">@datetime($batch->matched_at) — {{ $batch->batch_reference }}</option>
                                 @endforeach
                             </select>
                         </div>

@@ -81,8 +81,8 @@ php artisan queue:work --memory=1024
   suivantes restent « En attente »). Pour en traiter plusieurs en parallèle,
   lancer plusieurs `queue:work`. Deux comparaisons sur un même fichier restent
   sérialisées par un verrou, pour la cohérence des résultats.
-- Les heures sont affichées dans le fuseau de l'application (`UTC` à ce
-  jour). Le passage à l'heure de Tunis relève de la Phase 2.
+- Les heures sont affichées à l'heure de Tunis, alors que la base reste en UTC
+  (voir [22-langue-et-dates.md](22-langue-et-dates.md)).
 
 ## Tests
 

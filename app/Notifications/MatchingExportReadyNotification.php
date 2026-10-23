@@ -15,6 +15,7 @@ namespace App\Notifications;
  * (Le fonctionnement des notifications est expliqué dans ImportProcessedNotification.)
  */
 use App\Models\MatchingExport;
+use App\Support\DateDisplay;
 use Illuminate\Notifications\Notification;
 
 class MatchingExportReadyNotification extends Notification
@@ -43,7 +44,7 @@ class MatchingExportReadyNotification extends Notification
             'download_url' => $this->downloadUrl,
             'error_message' => $this->errorMessage,
             'filters' => $this->export->filters,
-            'completed_at' => $this->export->completed_at?->format('d/m/Y H:i'),
+            'completed_at' => DateDisplay::dateTime($this->export->completed_at),
         ];
     }
 }

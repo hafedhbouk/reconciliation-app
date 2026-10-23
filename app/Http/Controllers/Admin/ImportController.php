@@ -48,6 +48,7 @@ use App\Services\Import\ImportMappingVersion;
 use App\Services\Import\MappingEngine;
 use App\Services\Import\Readers\ImportRowReaderFactory;
 use App\Services\OperationTracker;
+use App\Support\DateDisplay;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -90,6 +91,8 @@ class ImportController extends Controller
         // addColumn ajoute des colonnes calculées ; rawColumns indique celles qui
         // contiennent du HTML (sinon il serait affiché comme du texte).
         return DataTables::of($imports)
+            // Instant en UTC dans la base → « 22/10/2026 à 19:50:08 » dans le fuseau d'affichage (le tri reste sur la colonne).
+            ->editColumn('created_at', fn (Import $import) => DateDisplay::dateTime($import->created_at))
             ->addColumn('source', fn (Import $import) => $import->source?->code)
             ->addColumn('status', function (Import $import) use (&$mappingHashes) {
                 $badge = sprintf('<span class="badge %s">%s</span>', $import->status->badgeClass(), $import->status->label());
@@ -144,7 +147,7 @@ class ImportController extends Controller
             return back()->withInput()->with(
                 'duplicate_warning',
                 __('Ce fichier semble déjà avoir été importé le :date. Soumettez à nouveau pour continuer quand même.', [
-                    'date' => $duplicate->created_at->format('d/m/Y H:i'),
+                    'date' => DateDisplay::dateTime($duplicate->created_at),
                 ])
             );
         }

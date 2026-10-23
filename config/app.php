@@ -68,6 +68,15 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Fuseau horaire d'AFFICHAGE. Les dates restent enregistrées en UTC
+    | (ci-dessus) ; elles sont converties dans ce fuseau uniquement au moment
+    | de les afficher (voir App\Support\DateDisplay). La Tunisie est en
+    | UTC+1 toute l'année (pas d'heure d'été).
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'Africa/Tunis'),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
@@ -78,7 +87,7 @@ return [
     |
     */
 
-    'locale' => env('APP_LOCALE', 'en'),
+    'locale' => env('APP_LOCALE', 'fr'),
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 

@@ -21,6 +21,7 @@ use App\Models\MatchingExport;
 use App\Models\NormalizedTransaction;
 use App\Models\Source;
 use App\Services\OperationTracker;
+use App\Support\DateDisplay;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,6 +51,8 @@ class SearchController extends Controller
         $this->authorize('search.viewAny');
 
         return DataTables::of($this->buildQuery($request))
+            // Date d'opération (calendaire) : jamais décalée de fuseau.
+            ->editColumn('normalized_date', fn (NormalizedTransaction $nt) => DateDisplay::date($nt->normalized_date))
             ->addColumn('source', fn (NormalizedTransaction $nt) => $nt->transaction?->source?->code)
             ->addColumn('canal', fn (NormalizedTransaction $nt) => $nt->transaction?->canal)
             ->addColumn('matching_status', fn (NormalizedTransaction $nt) => sprintf(

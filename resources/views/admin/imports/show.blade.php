@@ -92,7 +92,7 @@
         @php $side = $run->import_a_id === $import->id ? 'a' : 'b'; $other = $side === 'a' ? $run->importB : $run->importA; @endphp
         @if ($run->file_totals)
             <div class="card mb-3">
-                <div class="card-header">{{ __('Comparaison avec') }} {{ $other?->original_filename }} · {{ $run->created_at->format('d/m/Y H:i:s') }} · {{ __('Lot') }} {{ $run->batch_reference }}</div>
+                <div class="card-header">{{ __('Comparaison avec') }} {{ $other?->original_filename }} · @datetime($run->created_at) · {{ __('Lot') }} {{ $run->batch_reference }}</div>
                 @if ($run->invalidated_at)<p class="text-warning m-2">{{ __('Bilan historique antérieur à une renormalisation. Relancer le rapprochement pour un bilan actuel.') }}</p>@endif
                 @include('admin.reconciliation._file-totals', ['totals' => $run->file_totals[$side]])
             </div>

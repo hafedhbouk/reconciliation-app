@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_LOCALE" value="fr" force="true"/>
+        <env name="APP_DISPLAY_TIMEZONE" value="Africa/Tunis" force="true"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
         <env name="BCRYPT_ROUNDS" value="4" force="true"/>
         <env name="BROADCAST_CONNECTION" value="null" force="true"/>
@@ -34,6 +36,8 @@
         <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
         <!-- Laravel reads $_SERVER first: a shell exporting .env must not leak into tests. -->
         <server name="APP_ENV" value="testing" force="true"/>
+        <server name="APP_LOCALE" value="fr" force="true"/>
+        <server name="APP_DISPLAY_TIMEZONE" value="Africa/Tunis" force="true"/>
         <server name="CACHE_STORE" value="array" force="true"/>
         <server name="DB_CONNECTION" value="sqlite" force="true"/>
         <server name="DB_DATABASE" value=":memory:" force="true"/>
@@ -41,5 +45,7 @@
         <server name="MAIL_MAILER" value="array" force="true"/>
         <server name="QUEUE_CONNECTION" value="sync" force="true"/>
         <server name="SESSION_DRIVER" value="array" force="true"/>
+        <!-- Git Bash convertit « / » en « C:/Program Files/Git/ » : chemin de cookie refusé. -->
+        <server name="SESSION_PATH" value="/" force="true"/>
     </php>
 </phpunit>

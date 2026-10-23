@@ -25,6 +25,7 @@ use App\Models\UnmatchedSnapshot;
 use App\Services\Matching\DifferenceColumns;
 use App\Services\Matching\SnapshotRows;
 use App\Services\OperationTracker;
+use App\Support\DateDisplay;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -168,7 +169,7 @@ class GenerateMatchingExportJob implements ShouldQueue
                     $result->status->label(),
                     $result->confidence_score,
                     $result->matchedByUser?->name ?? __('Automatique'),
-                    $result->matched_at?->format('d/m/Y H:i'),
+                    DateDisplay::dateTime($result->matched_at),
                     $sideA->map(fn ($nt) => $nt->transaction?->source?->code)->unique()->implode('; '),
                     $sideA->map(fn ($nt) => $nt->normalized_reference)->implode('; '),
                     $sideA->map(fn ($nt) => $nt->normalized_amount_millimes)->implode('; '),
@@ -239,7 +240,7 @@ class GenerateMatchingExportJob implements ShouldQueue
             [$here, $there] = $record->side === 'a' ? [$sources['a'], $sources['b']] : [$sources['b'], $sources['a']];
 
             return [strtoupper($record->side), $snapshot->importA->original_filename,
-                $snapshot->importB->original_filename, $snapshot->completed_at?->format('d/m/Y H:i:s'),
+                $snapshot->importB->original_filename, DateDisplay::dateTime($snapshot->completed_at),
                 $row['source'] ?? '', $row['reference'] ?? $row['primary_key_value'] ?? '',
                 (string) ($row['amount_millimes'] ?? ''), $row['date'] ?? '',
                 $table->sameKeyNote($row['same_key'] ?? null, (string) $here?->name, (string) $there?->name, (string) $there?->code) ?? ''];

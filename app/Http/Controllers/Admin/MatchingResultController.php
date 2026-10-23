@@ -12,6 +12,7 @@ use App\Models\MatchingRule;
 use App\Models\NormalizedTransaction;
 use App\Services\Matching\TransactionStatus;
 use App\Services\OperationTracker;
+use App\Support\DateDisplay;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -90,6 +91,7 @@ class MatchingResultController extends Controller
         }
 
         return DataTables::of($results)
+            ->editColumn('matched_at', fn (MatchingResult $result) => DateDisplay::dateTime($result->matched_at))
             ->addColumn('rule_name', fn (MatchingResult $result) => $result->matchingRule?->name ?? __('Rapprochement manuel'))
             ->addColumn('status', fn (MatchingResult $result) => sprintf(
                 '<span class="badge %s">%s</span>',
@@ -305,7 +307,7 @@ class MatchingResultController extends Controller
                     $result->status->label(),
                     $result->confidence_score,
                     $result->matchedByUser?->name ?? __('Automatique'),
-                    $result->matched_at?->format('d/m/Y H:i'),
+                    DateDisplay::dateTime($result->matched_at),
                     $sideA->map(fn ($nt) => $nt->transaction?->source?->code)->unique()->implode('; '),
                     $sideA->map(fn ($nt) => $nt->normalized_reference)->implode('; '),
                     $sideA->map(fn ($nt) => $nt->normalized_amount_millimes)->implode('; '),

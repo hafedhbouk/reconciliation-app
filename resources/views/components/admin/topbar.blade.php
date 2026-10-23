@@ -40,7 +40,7 @@
                                 @elseif ($notification->type === \App\Notifications\MatchingActionCompletedNotification::class)
                                     <div class="fw-semibold">{{ $notification->data['title'] ?? '' }}</div>
                                 @endif
-                                <div class="text-secondary">{{ $notification->created_at->diffForHumans() }}</div>
+                                <div class="text-secondary">{{ \App\Support\DateDisplay::relative($notification->created_at) }}</div>
                             </div>
                         @empty
                             <div class="list-group-item small text-secondary">{{ __('Aucune nouvelle notification.') }}</div>

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DateDisplay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -155,11 +156,11 @@ class Operation extends Model
             'summary' => $this->summary,
             'result_url' => $this->result_url,
             'user' => $this->user?->name,
-            'created_at' => $this->created_at?->format('d/m/Y H:i:s'),
-            'started_at' => $this->started_at?->format('d/m/Y H:i:s'),
-            'finished_at' => $this->finished_at?->format('d/m/Y H:i:s'),
+            'created_at' => DateDisplay::dateTime($this->created_at),
+            'started_at' => DateDisplay::dateTime($this->started_at),
+            'finished_at' => DateDisplay::dateTime($this->finished_at),
             'duration_seconds' => $this->started_at && $end ? (int) $this->started_at->diffInSeconds($end, true) : null,
-            'heartbeat_at' => $this->heartbeat_at?->format('d/m/Y H:i:s'),
+            'heartbeat_at' => DateDisplay::dateTime($this->heartbeat_at),
         ];
     }
 }

@@ -24,7 +24,7 @@
                                 <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                     @foreach ($imports as $import)
                                         <option value="{{ $import->id }}" {{ (string) $importAId === (string) $import->id ? 'selected' : '' }}>
-                                            {{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}
+                                            {{ $import->original_filename }} — @datetime($import->created_at)
                                         </option>
                                     @endforeach
                                 </optgroup>
@@ -42,7 +42,7 @@
                                         <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                             @foreach ($imports as $import)
                                                 <option value="{{ $import->id }}" {{ (string) $importBId === (string) $import->id ? 'selected' : '' }}>
-                                                    {{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}
+                                                    {{ $import->original_filename }} — @datetime($import->created_at)
                                                 </option>
                                             @endforeach
                                         </optgroup>
@@ -68,7 +68,7 @@
                     <span class="badge bg-info"><i class="bi bi-clock me-1"></i>{{ __('En attente') }}</span>
                 @elseif ($snapshot->status === 'completed')
                     <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>{{ __('Terminé') }}</span>
-                    <span class="text-secondary ms-2">{{ __('Calculé le') }} {{ $snapshot->completed_at?->format('d/m/Y H:i:s') }}</span>
+                    <span class="text-secondary ms-2">{{ __('Calculé le') }} @datetime($snapshot->completed_at)</span>
                 @elseif ($snapshot->status === 'failed')
                     <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>{{ __('Échoué') }}</span>
                 @endif

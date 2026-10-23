@@ -33,7 +33,7 @@
                         @else
                             <div class="fw-semibold">{{ __('Notification') }}</div>
                         @endif
-                        <div class="small text-secondary">{{ $notification->created_at->diffForHumans() }}</div>
+                        <div class="small text-secondary">{{ \App\Support\DateDisplay::relative($notification->created_at) }}</div>
                     </div>
                     @unless ($notification->read_at)
                         <form method="POST" action="{{ route('notifications.read', $notification) }}">

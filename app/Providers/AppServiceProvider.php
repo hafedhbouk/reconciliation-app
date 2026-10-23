@@ -18,6 +18,8 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -63,6 +65,11 @@ class AppServiceProvider extends ServiceProvider
             $this->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $this->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
         });
+
+        // Dates en français : « il y a 5 minutes », noms des mois… (Carbon), et
+        // @datetime($valeur) dans les vues → « 22/10/2026 à 19:50:08 » dans le fuseau d'affichage.
+        Carbon::setLocale(config('app.locale'));
+        Blade::directive('datetime', fn (string $expression) => "<?php echo e(\\App\\Support\\DateDisplay::dateTime({$expression}) ?? '—'); ?>");
 
         // Vérification faite AVANT toutes les Policies : le rôle super-admin a tous les droits.
         // Renvoyer null signifie « pas de décision ici, continuer avec la Policy normale ».

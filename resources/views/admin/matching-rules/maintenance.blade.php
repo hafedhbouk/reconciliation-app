@@ -29,7 +29,7 @@
                     <select id="import_id" name="import_id" class="form-select">
                         <option value="">{{ __('Tous les fichiers du périmètre') }}</option>
                         @foreach ($imports as $import)
-                            <option value="{{ $import->id }}" @selected(($filters['import_id'] ?? null) == $import->id)>{{ $import->source?->code }} — {{ $import->original_filename }} — {{ $import->created_at?->format('d/m/Y') }}</option>
+                            <option value="{{ $import->id }}" @selected(($filters['import_id'] ?? null) == $import->id)>{{ $import->source?->code }} — {{ $import->original_filename }} — {{ \App\Support\DateDisplay::dateOf($import->created_at) }}</option>
                         @endforeach
                     </select>
                     <div class="form-text">{{ __('Les 250 imports terminés les plus récents sont proposés.') }}</div>

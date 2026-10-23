@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Support\DateDisplay;
 use Illuminate\Http\JsonResponse;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
@@ -38,7 +39,7 @@ class AuditLogController extends Controller
 
         return DataTables::of($logs)
             ->addColumn('user', fn (AuditLog $log) => $log->user?->name ?? __('Système'))
-            ->addColumn('date', fn (AuditLog $log) => $log->created_at->format('d/m/Y H:i:s'))
+            ->addColumn('date', fn (AuditLog $log) => DateDisplay::dateTime($log->created_at))
             // class_basename('App\Models\Import') = 'Import' -> affiché « Import #9 ».
             ->addColumn('subject', fn (AuditLog $log) => $log->auditable_type
                 ? class_basename($log->auditable_type).' #'.$log->auditable_id

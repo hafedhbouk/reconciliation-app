@@ -73,8 +73,8 @@
                                         @endif
                                     </small>
                                 </td>
-                                <td>{{ $export->created_at->format('d/m/Y H:i') }}</td>
-                                <td>{{ $export->completed_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                                <td>@datetime($export->created_at)</td>
+                                <td>@datetime($export->completed_at)</td>
                                 <td>
                                     @if ($export->isCompleted())
                                         <a href="{{ route('admin.search.exports.download', $export->download_token) }}" class="btn btn-sm btn-primary">

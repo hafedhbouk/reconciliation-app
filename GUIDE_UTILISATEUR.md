@@ -361,6 +361,12 @@ Depuis le menu utilisateur (haut de page), accédez à **Profil** pour :
 
 ## 14. Questions fréquentes
 
+**À quelle heure correspondent les dates affichées ?**
+Toutes les dates et heures sont affichées à l'heure de Tunis, au format
+« 22/10/2026 à 19:50:08 ». Les dates d'opération des transactions (date
+de paiement, date d'encaissement) sont affichées telles qu'elles figurent
+dans les fichiers importés, sans décalage horaire.
+
 **Comment vérifier le mapping utilisé par un import ?**
 La fiche de l'import affiche sa version de mapping. La copie enregistrée comprend
 les colonnes, les transformations et les paramètres de lecture du fichier.

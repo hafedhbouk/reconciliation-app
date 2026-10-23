@@ -42,7 +42,7 @@
                                 @if ($imports->isNotEmpty())
                                     <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                         @foreach ($imports as $import)
-                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}</option>
+                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — @datetime($import->created_at)</option>
                                         @endforeach
                                     </optgroup>
                                 @endif
@@ -58,7 +58,7 @@
                                 @if ($imports->isNotEmpty())
                                     <optgroup label="{{ $source->name }} ({{ $source->code }})">
                                         @foreach ($imports as $import)
-                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — {{ $import->created_at->format('d/m/Y H:i') }}</option>
+                                            <option value="{{ $import->id }}">{{ $import->original_filename }} — @datetime($import->created_at)</option>
                                         @endforeach
                                     </optgroup>
                                 @endif

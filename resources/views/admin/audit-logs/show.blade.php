@@ -10,7 +10,7 @@
         <div class="card-body">
             <dl class="row mb-0">
                 <dt class="col-sm-3">{{ __('Date') }}</dt>
-                <dd class="col-sm-9">{{ $log->created_at->format('d/m/Y H:i:s') }}</dd>
+                <dd class="col-sm-9">@datetime($log->created_at)</dd>
 
                 <dt class="col-sm-3">{{ __('Utilisateur') }}</dt>
                 <dd class="col-sm-9">{{ $log->user?->name ?? __('Système') }}</dd>

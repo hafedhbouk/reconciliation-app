@@ -68,8 +68,8 @@
                                     <span class="text-muted">{{ __('Tous') }}</span>
                                 @endif
                             </td>
-                            <td>{{ $export->created_at->format('d/m/Y H:i') }}</td>
-                            <td>{{ $export->completed_at?->format('d/m/Y H:i') ?? '—' }}</td>
+                            <td>@datetime($export->created_at)</td>
+                            <td>@datetime($export->completed_at)</td>
                             <td>
                                 @if ($export->isCompleted())
                                     <a href="{{ route('admin.matching-results.exports.download', $export->download_token) }}" class="btn btn-sm btn-outline-success">

@@ -19,6 +19,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateExceptionRequest;
 use App\Models\ExceptionRecord;
 use App\Models\User;
+use App\Support\DateDisplay;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -48,6 +49,7 @@ class ExceptionController extends Controller
             ->select('exceptions.*');
 
         return DataTables::of($exceptions)
+            ->editColumn('created_at', fn (ExceptionRecord $exception) => DateDisplay::dateTime($exception->created_at))
             ->addColumn('type_label', fn (ExceptionRecord $exception) => $this->typeLabel($exception))
             // « Qualification » : seulement pour les non-trouvés, qui peuvent être marqués « attendus ».
             ->addColumn('qualification', fn (ExceptionRecord $exception) => $exception->type === ExceptionType::Unmatched
@@ -127,7 +129,7 @@ class ExceptionController extends Controller
                 $this->sourceReferenceSnapshot($exception),
                 $this->batchReferenceSnapshot($exception),
                 $exception->assignedTo?->name ?? '—',
-                $exception->created_at?->format('d/m/Y H:i'),
+                DateDisplay::dateTime($exception->created_at),
             ],
         );
 

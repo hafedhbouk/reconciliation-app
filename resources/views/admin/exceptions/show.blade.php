@@ -58,7 +58,7 @@
 
                         @if ($exception->resolved_at)
                             <dt class="col-sm-4">{{ __('Résolu par') }}</dt>
-                            <dd class="col-sm-8">{{ $exception->resolvedBy?->name ?? __('Automatique') }} — {{ $exception->resolved_at->format('d/m/Y H:i') }}</dd>
+                            <dd class="col-sm-8">{{ $exception->resolvedBy?->name ?? __('Automatique') }} — @datetime($exception->resolved_at)</dd>
                         @endif
 
                         @if ($exception->resolution_comment)
