@@ -51,6 +51,8 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
+// Données du tableau de bord analytique (filtres dynamiques), relues en JSON par resources/js/dashboard.js.
+Route::get('/dashboard/analytics', [DashboardController::class, 'analytics'])->middleware(['auth', 'verified'])->name('dashboard.analytics');
 
 // Pages réservées aux utilisateurs connectés : profil et notifications.
 Route::middleware('auth')->group(function () {

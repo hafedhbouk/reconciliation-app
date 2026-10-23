@@ -37,6 +37,9 @@ window.Chart = Chart;
 // Suivi en temps réel des opérations longues (barres de progression, « Mes opérations »).
 import './operations';
 
+// Tableau de bord analytique (filtres dynamiques, graphiques, tableau croisé).
+import './dashboard';
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
         new bootstrap.Tooltip(el);

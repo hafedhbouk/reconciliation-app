@@ -134,22 +134,23 @@ flowchart TD
 | **Vue** | `resources/views/dashboard.blade.php` |
 | **Layout** | `<x-app-layout>` |
 | **Permissions** | Authentifié + email vérifié |
-| **Objectif** | Vue d'ensemble KPIs + graphiques |
-| **Données** | `DashboardMetricsService` (KPIs, stats, tendances) |
-| **Composants** | 4 cards KPI, 4 graphiques Chart.js |
-| **Actions** | Aucune (lecture seule) |
+| **Objectif** | Vue d'ensemble KPIs + graphiques + analyse filtrable |
+| **Données** | `DashboardMetricsService` (cartes, graphiques fixes) ; `GET /dashboard/analytics` (`ReconciliationAnalytics`, `OperationAnalytics`) |
+| **Composants** | 3 cards KPI, graphiques Chart.js, filtres, tableau croisé dynamique, statistiques d'opérations |
+| **Actions** | Filtrer, changer les regroupements du tableau croisé, actualiser |
 
 **KPIs affichés :**
 - Total transactions
 - Exceptions ouvertes
 - Imports ce mois
-- Taux de matching
 
 **Graphiques :**
 - Résultats de matching (doughnut)
 - Exceptions par type (doughnut)
-- Volume par source (bar)
-- Tendance 30 jours (line)
+- Volume par source et Tendance 30 jours : seulement sans la permission d'analyse
+
+**Analyse du rapprochement** (permission `matching-results.viewAny`) et
+**Opérations** : voir [23-tableau-de-bord-analytique.md](23-tableau-de-bord-analytique.md).
 
 ---
 
