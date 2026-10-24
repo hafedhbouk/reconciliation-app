@@ -32,7 +32,7 @@ L'application automatise :
 | **Tableau de bord** | KPIs, graphiques (Chart.js), tendances sur 30 jours |
 | **Recherche multicritère** | Filtrage par source, référence, montant, date, statut, canal |
 | **Exports** | CSV, XLSX (Maatwebsite), PDF (dompdf) pour les résultats et exceptions |
-| **Administration** | CRUD banques, sources, devises, jours fériés, paramètres, utilisateurs, rôles |
+| **Administration** | CRUD banques, sources, devises, paramètres, utilisateurs, rôles |
 | **Journal d'audit** | Traçabilité complète des créations/modifications/suppressions |
 | **Notifications** | Notifications en base de données pour les traitements asynchrones |
 

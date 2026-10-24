@@ -125,7 +125,7 @@ Ces endpoints alimentent les tableaux DataTables côté client avec traitement s
 
 ## Endpoints CRUD génériques
 
-Pour chaque ressource (`banks`, `currencies`, `holidays`, `users`, `roles`, `sources`, `settings`) :
+Pour chaque ressource (`banks`, `currencies`, `users`, `roles`, `sources`, `settings`) :
 
 | Méthode | URL | Action | Description |
 |---------|-----|--------|-------------|

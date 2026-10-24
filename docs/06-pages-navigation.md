@@ -28,7 +28,6 @@ La sidebar est une navigation verticale fixe (260px) avec des sections permissio
 │  🏦 Banques                             │
 │  📊 Sources                             │
 │  💰 Devises                             │
-│  📅 Jours fériés                        │
 │  ⚙️  Paramètres                         │
 ├─────────────────────────────────────────┤
 │  ADMINISTRATION                         │
@@ -81,7 +80,6 @@ flowchart TD
         SourceList[Sources]
         SourceMapping[Mapping colonnes]
         CurrencyList[Devises]
-        HolidayList[Jours fériés]
         Settings[Paramètres]
     end
     
@@ -112,7 +110,6 @@ flowchart TD
     Dashboard --> SourceList
     SourceList --> SourceMapping
     Dashboard --> CurrencyList
-    Dashboard --> HolidayList
     Dashboard --> Settings
     
     Dashboard --> UserList

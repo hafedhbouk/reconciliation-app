@@ -265,7 +265,7 @@ Notification (table notifications)
 │                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
 │  │                  MODULE ADMIN (CRUD)                             │   │
-│  │  Banques, Sources, Devises, Jours fériés, Paramètres, Users     │   │
+│  │  Banques, Sources, Devises, Paramètres, Users                   │   │
 │  │  Contrôleurs: BankController, SourceController, etc.            │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                         │

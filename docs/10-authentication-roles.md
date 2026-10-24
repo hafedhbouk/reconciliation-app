@@ -151,7 +151,6 @@ Les permissions sont organisées par module métier. D'après les contrôleurs e
 | **Banks** | `banks.viewAny`, `banks.view`, `banks.create`, `banks.update`, `banks.delete` |
 | **Sources** | `sources.viewAny`, `sources.view`, `sources.create`, `sources.update`, `sources.delete` |
 | **Currencies** | `currencies.viewAny`, `currencies.view`, `currencies.create`, `currencies.update`, `currencies.delete` |
-| **Holidays** | `holidays.viewAny`, `holidays.view`, `holidays.create`, `holidays.update`, `holidays.delete` |
 | **Settings** | `settings.viewAny`, `settings.view`, `settings.update` |
 | **Users** | `users.viewAny`, `users.view`, `users.create`, `users.update`, `users.delete` |
 | **Roles** | `roles.viewAny`, `roles.view`, `roles.create`, `roles.update`, `roles.delete` |
@@ -181,7 +180,6 @@ $auditor->givePermissionTo([...lecture seule...]);
 | `app/Policies/BankPolicy.php` | `Bank` | viewAny, view, create, update, delete, restore, forceDelete |
 | `app/Policies/SourcePolicy.php` | `Source` | idem |
 | `app/Policies/CurrencyPolicy.php` | `Currency` | idem |
-| `app/Policies/HolidayPolicy.php` | `Holiday` | idem |
 | `app/Policies/SettingPolicy.php` | `Setting` | viewAny, view, update |
 | `app/Policies/UserPolicy.php` | `User` | viewAny, view, create, update, delete |
 | `app/Policies/RolePolicy.php` | `Role` | viewAny, view, create, update, delete |
@@ -232,7 +230,6 @@ public function delete(User $user, User $model): bool
 | **Banques - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **Sources - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **Devises - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
-| **Jours fériés - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **Paramètres** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **Utilisateurs - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |
 | **Rôles - CRUD** | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ |

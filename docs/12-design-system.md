@@ -94,7 +94,6 @@ L'application utilise les **composants Blade** de Laravel comme bibliothèque de
 │ │  Banques  │                                                    │
 │ │  Sources  │                                                    │
 │ │  Devises  │                                                    │
-│ │  Jours fériés│                                                 │
 │ │  Paramètres│                                                    │
 │ ├──────┤ │                                                      │
 │ │Admin    │                                                      │
@@ -196,7 +195,6 @@ Les icônes proviennent de **Bootstrap Icons** (`bi-*`).
 | `bi-bank` | Banques |
 | `bi-diagram-3` | Sources |
 | `bi-cash-coin` | Devises |
-| `bi-calendar-event` | Jours fériés |
 | `bi-sliders` | Paramètres |
 | `bi-people` | Utilisateurs |
 | `bi-shield-lock` | Rôles & Permissions |

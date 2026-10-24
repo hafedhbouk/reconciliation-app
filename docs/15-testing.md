@@ -56,7 +56,6 @@ tests/
 │   │   ├── ExceptionCrudTest.php
 │   │   ├── ExpensiveActionRateLimitTest.php
 │   │   ├── ExportTest.php
-│   │   ├── HolidayCrudTest.php
 │   │   ├── ImportCrudTest.php
 │   │   ├── ImportUploadTest.php
 │   │   ├── MatchingResultCrudTest.php
@@ -130,7 +129,6 @@ tests/
 | `ExceptionCrudTest` | Liste, détail, résolution, pièces jointes |
 | `ExpensiveActionRateLimitTest` | Rate limit run rule, export |
 | `ExportTest` | Export CSV/XLSX/PDF, limites, permissions |
-| `HolidayCrudTest` | CRUD jours fériés, doublon date/pays |
 | `ImportCrudTest` | Liste, détail, filtres, permissions |
 | `ImportUploadTest` | Upload, validation headers, doublon, process |
 | `MatchingResultCrudTest` | Liste, détail, DataTables, permissions |

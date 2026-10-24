@@ -190,7 +190,6 @@ return [
         'file_type' => 'type de fichier',
         'filters' => 'filtres',
         'format' => 'format',
-        'holiday_date' => 'date du jour férié',
         'import_a_id' => 'fichier A',
         'import_b_id' => 'fichier B',
         'import_id' => 'fichier',

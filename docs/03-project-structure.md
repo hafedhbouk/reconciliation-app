@@ -130,7 +130,7 @@ Models/
 ├── Bank.php                      # Banque
 ├── Source.php                    # Source de données
 ├── Currency.php                  # Devise
-├── Holiday.php                   # Jour férié
+├── Holiday.php                   # Jour férié (module retiré, table conservée — doc 25)
 ├── Setting.php                   # Paramètre application
 ├── Import.php                    # Import de fichier
 ├── ImportRow.php                 # Ligne d'import
@@ -263,7 +263,6 @@ views/
 │   ├── banks/                    # CRUD banques
 │   ├── sources/                  # CRUD sources (+ mappings/)
 │   ├── currencies/               # CRUD devises
-│   ├── holidays/                 # CRUD jours fériés
 │   ├── settings/                 # Paramètres
 │   ├── users/                    # CRUD utilisateurs
 │   ├── roles/                    # CRUD rôles

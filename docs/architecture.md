@@ -70,7 +70,6 @@ L’application de rapprochement est structurée en couches :
 ### Module 10 — Administration
 - Gestion des banques, devises, sources
 - Paramétrage des mappings
-- Gestion des jours fériés
 - Utilisateurs et rôles
 
 ## 3. Diagramme PlantUML

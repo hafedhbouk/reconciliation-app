@@ -28,7 +28,6 @@ use App\Http\Controllers\Admin\BankController;
 use App\Http\Controllers\Admin\CurrencyController;
 use App\Http\Controllers\Admin\ExceptionAttachmentController;
 use App\Http\Controllers\Admin\ExceptionController;
-use App\Http\Controllers\Admin\HolidayController;
 use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\MatchingResultController;
 use App\Http\Controllers\Admin\MatchingRuleController;
@@ -76,7 +75,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('sources/{source}/mappings', [SourceMappingController::class, 'edit'])->name('sources.mappings.edit');
     Route::put('sources/{source}/mappings', [SourceMappingController::class, 'update'])->name('sources.mappings.update');
     Route::resource('currencies', CurrencyController::class)->except('show');
-    Route::resource('holidays', HolidayController::class)->except('show');
     Route::resource('settings', SettingController::class)->only(['index', 'edit', 'update']);
 
     // --- Utilisateurs, rôles, audit ---

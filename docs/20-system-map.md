@@ -81,7 +81,7 @@ flowchart TB
 | **Reconciliation** | Rapprochement manuel | 2 | `matching_results`, `normalized_transactions` |
 | **Exceptions** | Liste, Détail | 6 | `exceptions`, `exception_attachments` |
 | **Search** | Recherche | 3 | `transactions`, `normalized_transactions` |
-| **Admin** | Banques, Sources, Devises, etc. | 20+ | `banks`, `sources`, `currencies`, `holidays`, `settings` |
+| **Admin** | Banques, Sources, Devises, etc. | 20+ | `banks`, `sources`, `currencies`, `settings` |
 | **Users** | Utilisateurs, Rôles | 10+ | `users`, `roles`, `permissions` |
 | **Audit** | Journal d'audit | 2 | `audit_logs` |
 

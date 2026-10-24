@@ -476,7 +476,6 @@ Les tests d'intégration vérifient les flux complets de l'application.
 | `CurrencyCrudTest` | CRUD devises | `admin.currencies.*` |
 | `SourceCrudTest` | CRUD sources | `admin.sources.*` |
 | `SourceColumnMappingCrudTest` | Mapping colonnes, permissions | `admin.sources.mappings.*` |
-| `HolidayCrudTest` | CRUD jours fériés, doublon date/pays | `admin.holidays.*` |
 | `SettingCrudTest` | Paramètres groupés, update, cast | `admin.settings.*` |
 | `UserCrudTest` | CRUD utilisateurs, auto-suppression | `admin.users.*` |
 | `RoleCrudTest` | CRUD rôles, protection rôles système | `admin.roles.*` |

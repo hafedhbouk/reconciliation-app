@@ -30,7 +30,6 @@
 | `BankPolicy` | `Bank` | CRUD + restore + forceDelete |
 | `SourcePolicy` | `Source` | idem |
 | `CurrencyPolicy` | `Currency` | idem |
-| `HolidayPolicy` | `Holiday` | idem |
 | `SettingPolicy` | `Setting` | viewAny, view, update |
 | `UserPolicy` | `User` | CRUD + protection auto-suppression |
 | `RolePolicy` | `Role` | CRUD |

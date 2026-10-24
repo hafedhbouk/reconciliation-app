@@ -74,7 +74,6 @@ Http/Controllers/
     ├── SourceController.php          # CRUD sources
     ├── SourceMappingController.php   # Mapping colonnes
     ├── CurrencyController.php        # CRUD devises
-    ├── HolidayController.php         # CRUD jours fériés
     ├── SettingController.php         # CRUD paramètres
     ├── UserController.php            # CRUD utilisateurs
     ├── RoleController.php            # CRUD rôles
@@ -295,7 +294,6 @@ erDiagram
 | `Bank` | `banks` | id | ✅ | ✅ |
 | `Source` | `sources` | id | ✅ | ✅ |
 | `Currency` | `currencies` | id | ✅ | ✅ |
-| `Holiday` | `holidays` | id | ✅ | ✅ |
 | `Setting` | `settings` | id | ✅ | ✅ |
 | `Import` | `imports` | id | ✅ | ✅ |
 | `ImportRow` | `import_rows` | id | ✅ | ✅ |

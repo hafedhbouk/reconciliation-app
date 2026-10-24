@@ -13,7 +13,7 @@ use Illuminate\View\View;
  * Gestion des banques (Administration > Banques).
  *
  * C'est l'exemple type d'un « CRUD » (Create, Read, Update, Delete) Laravel.
- * Les contrôleurs CurrencyController, HolidayController et SourceController
+ * Les contrôleurs CurrencyController et SourceController
  * suivent exactement le même modèle.
  * (Les notions de contrôleur sont expliquées dans ImportController.php.)
  */
