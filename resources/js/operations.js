@@ -25,6 +25,7 @@ const SUMMARY_LABELS = {
     exclusives_a: 'écarts fichier A',
     exclusives_b: 'écarts fichier B',
     references: 'références',
+    non_rapprochees: 'lignes encore non rapprochées',
     lignes: 'lignes exportées',
 };
 
@@ -197,7 +198,8 @@ function initList(element) {
                 <td style="min-width: 16rem;">${progressHtml(op)}</td>
                 <td class="small">${escapeHtml(op.started_at ?? op.created_at)}<div class="text-secondary">${duration(op.duration_seconds)}</div></td>
                 ${showUser ? `<td class="small">${escapeHtml(op.user ?? '—')}</td>` : ''}
-                <td>${op.result_url && op.status === 'completed' ? `<a class="btn btn-sm btn-outline-primary" href="${escapeHtml(op.result_url)}">Résultats</a>` : ''}</td>
+                <td class="text-nowrap">${op.result_url && op.status === 'completed' ? `<a class="btn btn-sm btn-outline-primary" href="${escapeHtml(op.result_url)}">Résultats</a>` : ''}
+                    ${op.email_url ? `<a class="btn btn-sm btn-outline-secondary" href="${escapeHtml(op.email_url)}" title="Envoyer les résultats par e-mail"><i class="bi bi-envelope"></i> E-mail</a>` : ''}</td>
             </tr>`).join('');
     };
     const initial = JSON.parse(element.dataset.operations);

@@ -33,6 +33,7 @@ use App\Http\Controllers\Admin\ImportController;
 use App\Http\Controllers\Admin\MatchingResultController;
 use App\Http\Controllers\Admin\MatchingRuleController;
 use App\Http\Controllers\Admin\OperationController;
+use App\Http\Controllers\Admin\OperationEmailController;
 use App\Http\Controllers\Admin\ReconciliationController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SearchController;
@@ -122,6 +123,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::get('operations', [OperationController::class, 'index'])->name('operations.index');
     Route::get('operations/data', [OperationController::class, 'data'])->name('operations.data');
     Route::get('operations/{operation}', [OperationController::class, 'show'])->name('operations.show');
+    // --- Envoi des résultats d'un rapprochement par e-mail ---
+    Route::get('operations/{operation}/email', [OperationEmailController::class, 'create'])->name('operations.email');
+    Route::post('operations/{operation}/email', [OperationEmailController::class, 'store'])->middleware('throttle:expensive-actions')->name('operations.email.store');
+    Route::post('result-emails/{resultEmail}/retry', [OperationEmailController::class, 'retry'])->middleware('throttle:expensive-actions')->name('result-emails.retry');
     Route::get('reconciliation/unmatched', [ReconciliationController::class, 'unmatched'])->name('reconciliation.unmatched');
     Route::post('reconciliation/unmatched/{snapshot}/export-async', [ReconciliationController::class, 'exportAsync'])->middleware('throttle:expensive-actions')->name('reconciliation.unmatched.export-async');
     Route::post('reconciliation/unmatched/refresh', [ReconciliationController::class, 'refreshUnmatched'])->name('reconciliation.unmatched.refresh');

@@ -13,11 +13,14 @@ namespace App\Jobs;
  *
  * (Le fonctionnement général des jobs est expliqué dans ProcessImportJob.php.)
  */
+use App\Enums\MatchingStatus;
 use App\Models\MatchingRule;
+use App\Models\NormalizedTransaction;
 use App\Models\User;
 use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\RuleMatcher;
 use App\Services\OperationTracker;
+use App\Services\ResultEmails;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -70,6 +73,7 @@ class RunMatchingRuleJob implements ShouldQueue
             $summary = $matcher->trackWith($operation)->match($rule, $this->batchReference, $this->importIdA, $this->importIdB);
         } catch (Throwable $e) {
             $tracker->fail($operation, 'Règle interrompue : '.$e->getMessage());
+            app(ResultEmails::class)->operationFailed($operation->id);
 
             throw $e;
         }
@@ -77,7 +81,16 @@ class RunMatchingRuleJob implements ShouldQueue
             'references' => $summary->referencesConsidered,
             'rapprochements' => $summary->matched,
             'conflits' => $summary->conflicts,
-        ], route('admin.matching-results.index', [], false));
+            // Lignes des deux sources encore sans correspondance après la règle (« correspondances manquantes » de l'e-mail).
+            'non_rapprochees' => NormalizedTransaction::query()->fromActiveImports()
+                ->where('matching_status', MatchingStatus::Unmatched->value)
+                ->whereHas('transaction', fn ($query) => $query->whereIn('source_id', [$rule->source_a_id, $rule->source_b_id]))
+                ->count(),
+        ], route('admin.matching-results.index', [], false), [
+            'kind' => 'rule', 'matching_rule_id' => $rule->id, 'batch_reference' => $this->batchReference,
+        ]);
+        // Envoi des résultats par e-mail s'il a été demandé (job séparé : un échec d'envoi ne touche pas la règle).
+        app(ResultEmails::class)->operationCompleted($operation->id);
 
         if ($this->notifyUserId !== null) {
             User::query()->find($this->notifyUserId)?->notify(new MatchingActionCompletedNotification(
@@ -99,5 +112,6 @@ class RunMatchingRuleJob implements ShouldQueue
             'error' => $e->getMessage(),
         ]);
         app(OperationTracker::class)->failById($this->operationId, 'Règle interrompue : '.$e->getMessage());
+        app(ResultEmails::class)->operationFailed($this->operationId);
     }
 }

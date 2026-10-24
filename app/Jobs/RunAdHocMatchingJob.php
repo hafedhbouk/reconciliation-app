@@ -11,6 +11,7 @@ use App\Notifications\MatchingActionCompletedNotification;
 use App\Services\Matching\FileComparisonRules;
 use App\Services\Matching\RuleMatcher;
 use App\Services\OperationTracker;
+use App\Services\ResultEmails;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -60,6 +61,7 @@ class RunAdHocMatchingJob implements ShouldQueue
             [$rule, $summary] = $this->matchFiles($matcher->trackWith($operation));
         } catch (Throwable $e) {
             $tracker->fail($operation, 'Rapprochement interrompu : '.$e->getMessage());
+            app(ResultEmails::class)->operationFailed($operation->id);
 
             throw $e;
         }
@@ -69,9 +71,13 @@ class RunAdHocMatchingJob implements ShouldQueue
             'conflits' => $summary->conflicts,
             'exclusives_a' => $summary->unmatchedA,
             'exclusives_b' => $summary->unmatchedB,
-        ], route('admin.reconciliation.unmatched', ['import_a_id' => $this->importAId, 'import_b_id' => $this->importBId], false));
+        ], route('admin.reconciliation.unmatched', ['import_a_id' => $this->importAId, 'import_b_id' => $this->importBId], false), [
+            'kind' => 'comparison', 'import_a_id' => $this->importAId, 'import_b_id' => $this->importBId, 'batch_reference' => $this->batchReference,
+        ]);
 
         $this->notify($rule, $summary);
+        // Envoi des résultats par e-mail s'il a été demandé (job séparé : un échec d'envoi ne touche pas le rapprochement).
+        app(ResultEmails::class)->operationCompleted($operation->id);
     }
 
     /** Comparaison des deux fichiers, dans une transaction : renvoie [règle, résumé]. */
@@ -136,5 +142,6 @@ class RunAdHocMatchingJob implements ShouldQueue
             'error' => $e->getMessage(),
         ]);
         app(OperationTracker::class)->failById($this->operationId, 'Rapprochement interrompu : '.$e->getMessage());
+        app(ResultEmails::class)->operationFailed($this->operationId);
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\ResultEmails;
 use App\Support\DateDisplay;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Collection;
 
@@ -44,7 +46,7 @@ class Operation extends Model
     protected $fillable = [
         'uuid', 'type', 'label', 'user_id', 'subject_type', 'subject_id', 'status', 'stage',
         'indeterminate', 'processed', 'total', 'succeeded', 'failed', 'error_message',
-        'summary', 'result_url', 'started_at', 'finished_at', 'heartbeat_at',
+        'summary', 'result_url', 'context', 'started_at', 'finished_at', 'heartbeat_at',
     ];
 
     protected function casts(): array
@@ -56,6 +58,7 @@ class Operation extends Model
             'succeeded' => 'integer',
             'failed' => 'integer',
             'summary' => 'array',
+            'context' => 'array',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
             'heartbeat_at' => 'datetime',
@@ -71,6 +74,12 @@ class Operation extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Envois des résultats par e-mail (rapprochements seulement). */
+    public function resultEmails(): HasMany
+    {
+        return $this->hasMany(ResultEmail::class);
     }
 
     /** L'objet suivi (Import, MatchingExport, UnmatchedSnapshot…), s'il existe. */
@@ -155,6 +164,9 @@ class Operation extends Model
             'error_message' => $this->error_message,
             'summary' => $this->summary,
             'result_url' => $this->result_url,
+            // Bouton « E-mail » : rapprochement terminé que l'utilisateur connecté peut envoyer.
+            'email_url' => app(ResultEmails::class)->canRequest(auth()->user(), $this)
+                ? route('admin.operations.email', $this, false) : null,
             'user' => $this->user?->name,
             'created_at' => DateDisplay::dateTime($this->created_at),
             'started_at' => DateDisplay::dateTime($this->started_at),

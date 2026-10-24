@@ -26,10 +26,12 @@ use App\Jobs\RunMatchingRuleJob;
 use App\Jobs\SweepUnmatchedJob;
 use App\Models\Import;
 use App\Models\MatchingRule;
+use App\Models\Operation;
 use App\Models\Source;
 use App\Services\Matching\DuplicateDetector;
 use App\Services\Matching\UnmatchedSweeper;
 use App\Services\OperationTracker;
+use App\Services\ResultEmails;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,8 +51,13 @@ class MatchingRuleController extends Controller
 
     public function index(): View
     {
+        $emails = app(ResultEmails::class);
+
         return view('admin.matching-rules.index', [
             'sources' => Source::query()->where('is_active', true)->orderBy('name')->get(),
+            // Options « Envoyer les résultats par e-mail » du formulaire de comparaison.
+            'emailRecipients' => auth()->user()->can(ResultEmails::PERMISSION) ? $emails->authorizedRecipients() : collect(),
+            'canAttachResults' => $emails->canAttach(auth()->user()),
         ]);
     }
 
@@ -161,7 +168,8 @@ class MatchingRuleController extends Controller
                 Rule::exists('imports', 'id')->where('source_id', $matchingRule->source_a_id)->where('status', 'completed')],
             'import_b_id' => ['nullable', 'required_with:import_a_id', 'integer', 'different:import_a_id',
                 Rule::exists('imports', 'id')->where('source_id', $matchingRule->source_b_id)->where('status', 'completed')],
-        ]);
+            ...$this->emailRules(),
+        ], $this->emailMessages());
 
         $importIdA = $request->input('import_a_id') ? (int) $request->input('import_a_id') : null;
         $importIdB = $request->input('import_b_id') ? (int) $request->input('import_b_id') : null;
@@ -170,9 +178,10 @@ class MatchingRuleController extends Controller
         $operation = app(OperationTracker::class)->create('matching', $importIdA !== null
             ? 'Rapprochement '.($names[$importIdA] ?? '?').' ↔ '.($names[$importIdB] ?? '?')
             : 'Règle « '.$matchingRule->name.' »', auth()->id(), $importIdA !== null ? null : $matchingRule);
+        $emailNote = $this->requestEmails($request, $operation);
         RunMatchingRuleJob::dispatch($matchingRule->id, (string) Str::uuid(), auth()->id(), $importIdA, $importIdB, $operation->id);
 
-        return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]));
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Règle « :name » lancée.', ['name' => $matchingRule->name]).$emailNote);
     }
 
     /** « Comparer deux fichiers » : deux imports terminés, de sources différentes. */
@@ -183,7 +192,8 @@ class MatchingRuleController extends Controller
         $request->validate([
             'import_a_id' => ['required', 'integer', 'different:import_b_id', Rule::exists('imports', 'id')->where('status', 'completed')],
             'import_b_id' => ['required', 'integer', 'different:import_a_id', Rule::exists('imports', 'id')->where('status', 'completed')],
-        ]);
+            ...$this->emailRules(),
+        ], $this->emailMessages());
 
         $importA = Import::query()->findOrFail($request->input('import_a_id'));
         $importB = Import::query()->findOrFail($request->input('import_b_id'));
@@ -194,6 +204,7 @@ class MatchingRuleController extends Controller
 
         $operation = app(OperationTracker::class)->create('matching',
             'Rapprochement '.$importA->original_filename.' ↔ '.$importB->original_filename, auth()->id());
+        $emailNote = $this->requestEmails($request, $operation);
         RunAdHocMatchingJob::dispatch(
             $importA->id,
             $importB->id,
@@ -202,7 +213,7 @@ class MatchingRuleController extends Controller
             $operation->id,
         );
 
-        return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $importA->original_filename, 'b' => $importB->original_filename]));
+        return redirect()->route('admin.matching-rules.index')->with('status', __('Rapprochement entre « :a » et « :b » lancé.', ['a' => $importA->original_filename, 'b' => $importB->original_filename]).$emailNote);
     }
 
     /** Bouton « Lancer tout » : toutes les règles actives, l'une après l'autre. */
@@ -282,6 +293,41 @@ class MatchingRuleController extends Controller
      * Valide les filtres de maintenance. Si une source ET un fichier sont choisis,
      * le fichier doit appartenir à cette source, sinon on renvoie une erreur de formulaire.
      */
+    /** Options « Envoyer les résultats par e-mail à la fin » : destinataires autorisés seulement. */
+    private function emailRules(): array
+    {
+        $allowed = auth()->user()->can(ResultEmails::PERMISSION);
+
+        return [
+            'email_envoyer' => $allowed ? ['nullable', 'boolean'] : ['nullable', 'declined'],
+            'email_destinataires' => ['nullable', 'array', 'required_if_accepted:email_envoyer'],
+            'email_destinataires.*' => ['integer', Rule::in(app(ResultEmails::class)->authorizedRecipients()->pluck('id')->all())],
+            'email_piece_jointe' => ['nullable', 'boolean'],
+        ];
+    }
+
+    private function emailMessages(): array
+    {
+        return [
+            'email_envoyer.declined' => __('Vous n’avez pas le droit d’envoyer les résultats de rapprochement.'),
+            'email_destinataires.required_if_accepted' => __('Choisissez au moins un destinataire pour l’envoi par e-mail.'),
+            'email_destinataires.*.in' => __('Ce destinataire n’est pas autorisé à recevoir les résultats de rapprochement.'),
+        ];
+    }
+
+    /** Enregistre l'envoi demandé au lancement : il partira à la fin du rapprochement. Renvoie la phrase à ajouter au message. */
+    private function requestEmails(Request $request, Operation $operation): string
+    {
+        if (! $request->boolean('email_envoyer')) {
+            return '';
+        }
+        $result = app(ResultEmails::class)->request($operation, $request->user(),
+            (array) $request->input('email_destinataires', []), $request->boolean('email_piece_jointe'));
+
+        return ' '.trans_choice('{1} Les résultats seront envoyés par e-mail à :count destinataire à la fin.|[2,*] Les résultats seront envoyés par e-mail à :count destinataires à la fin.',
+            count($result['added']), ['count' => count($result['added'])]);
+    }
+
     private function validateMaintenanceFilters(Request $request): array
     {
         $validated = $request->validate([

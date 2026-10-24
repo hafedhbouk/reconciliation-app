@@ -250,6 +250,15 @@ class RuleMatcher
                         throw new \RuntimeException('Les données ont été renormalisées : lancer une nouvelle comparaison avec un nouveau lot.');
                     }
 
+                    // Résultat déjà calculé pour ce lot : rien n'est refait, mais l'avancement
+                    // indique quand même les lignes des deux fichiers (sinon « 0 ligne traitée »).
+                    if ($this->operation !== null) {
+                        $rows = NormalizedTransaction::query()->fromActiveImports()
+                            ->whereHas('transaction', fn ($q) => $q->whereIn('import_id', [$importIdA, $importIdB]))->count();
+                        $this->progressStage('Résultat déjà calculé pour ce lot', $rows);
+                        $this->progress($rows, force: true);
+                    }
+
                     return new MatchingRunSummary(...$run->summary);
                 }
                 $ids = NormalizedTransaction::query()->fromActiveImports()

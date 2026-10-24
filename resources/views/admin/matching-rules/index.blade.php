@@ -70,6 +70,24 @@
                             <i class="bi bi-play-circle me-1"></i>{{ __('Démarrer le rapprochement') }}
                         </button>
                     </div>
+                    @if ($emailRecipients->isNotEmpty())
+                        {{-- Envoi des résultats par e-mail à la fin du rapprochement (App\Services\ResultEmails). --}}
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="hidden" name="email_envoyer" value="0">
+                                <input class="form-check-input" type="checkbox" name="email_envoyer" value="1" id="email_envoyer"
+                                       data-bs-toggle="collapse" data-bs-target="#email-options" aria-controls="email-options"
+                                       aria-expanded="{{ old('email_envoyer') ? 'true' : 'false' }}" @checked(old('email_envoyer'))>
+                                <label class="form-check-label small fw-semibold" for="email_envoyer">{{ __('Envoyer les résultats par e-mail à la fin du rapprochement') }}</label>
+                            </div>
+                            <div class="collapse {{ old('email_envoyer') ? 'show' : '' }} mt-2" id="email-options">
+                                @include('admin.operations._email-recipients', ['recipients' => $emailRecipients, 'canAttach' => $canAttachResults])
+                            </div>
+                        </div>
+                    @endif
+                    @if ($errors->hasAny(['email_envoyer', 'email_destinataires', 'email_destinataires.*']))
+                        <div class="col-12 small text-danger">{{ $errors->first('email_envoyer') ?: ($errors->first('email_destinataires') ?: $errors->first('email_destinataires.*')) }}</div>
+                    @endif
                 </form>
             </div>
         </div>

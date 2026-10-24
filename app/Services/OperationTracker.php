@@ -121,8 +121,9 @@ class OperationTracker
     /**
      * Fin normale : « Terminé », avec les résultats chiffrés et le lien vers la page des résultats.
      * Une opération déjà en échec n'est jamais repassée en « Terminé ».
+     * $context : de quoi retrouver ces résultats plus tard (lot, fichiers comparés…), voir ResultEmails.
      */
-    public function finish(Operation $operation, array $summary = [], ?string $resultUrl = null): void
+    public function finish(Operation $operation, array $summary = [], ?string $resultUrl = null, array $context = []): void
     {
         if ($this->currentStatus($operation) === 'failed') {
             return;
@@ -137,6 +138,7 @@ class OperationTracker
             'failed' => $operation->failed,
             'summary' => $summary === [] ? null : $summary,
             'result_url' => $resultUrl,
+            'context' => $context === [] ? $operation->context : $context,
             'finished_at' => now(),
         ]);
     }
