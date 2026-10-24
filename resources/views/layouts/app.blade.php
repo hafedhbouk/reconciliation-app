@@ -94,6 +94,9 @@
 
         <div class="admin-sidebar-overlay" id="sidebarOverlay"></div>
 
+        {{-- Chatbot métier : bouton flottant et fenêtre « Assistant » (resources/js/chatbot.js). --}}
+        <x-chatbot />
+
         {{-- Sur mobile : ouverture et fermeture du menu latéral. --}}
         <script>
             document.addEventListener('DOMContentLoaded', function () {

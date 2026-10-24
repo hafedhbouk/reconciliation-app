@@ -40,6 +40,7 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\SourceController;
 use App\Http\Controllers\Admin\SourceMappingController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -53,6 +54,8 @@ Route::get('/', function () {
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth', 'verified'])->name('dashboard');
 // Données du tableau de bord analytique (filtres dynamiques), relues en JSON par resources/js/dashboard.js.
 Route::get('/dashboard/analytics', [DashboardController::class, 'analytics'])->middleware(['auth', 'verified'])->name('dashboard.analytics');
+// Chatbot métier (fenêtre « Assistant ») : 30 questions par minute au plus.
+Route::post('/assistant', [ChatbotController::class, 'ask'])->middleware(['auth', 'verified', 'throttle:30,1'])->name('chatbot.ask');
 
 // Pages réservées aux utilisateurs connectés : profil et notifications.
 Route::middleware('auth')->group(function () {

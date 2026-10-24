@@ -40,6 +40,9 @@ import './operations';
 // Tableau de bord analytique (filtres dynamiques, graphiques, tableau croisé).
 import './dashboard';
 
+// Chatbot métier (fenêtre « Assistant »).
+import './chatbot';
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((el) => {
         new bootstrap.Tooltip(el);
