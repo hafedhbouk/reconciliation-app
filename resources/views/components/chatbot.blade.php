@@ -6,8 +6,8 @@
 --}}
 @auth
     <button type="button" class="btn btn-primary rounded-pill shadow chatbot-launcher position-fixed bottom-0 end-0 m-3 px-3"
-            data-bs-toggle="offcanvas" data-bs-target="#chatbot-panel" aria-controls="chatbot-panel" style="z-index: 1040;">
-        <i class="bi bi-chat-dots me-1"></i>{{ __('Assistant') }}
+            data-bs-toggle="offcanvas" data-bs-target="#chatbot-panel" aria-controls="chatbot-panel" aria-label="{{ __('Assistant') }}" style="z-index: 1040;">
+        <i class="bi bi-chat-dots"></i><span class="d-none d-sm-inline ms-1">{{ __('Assistant') }}</span>
     </button>
 
     <div class="offcanvas offcanvas-end" tabindex="-1" id="chatbot-panel" aria-labelledby="chatbot-title"

@@ -1,5 +1,6 @@
 {{--
     Mise en page des pages publiques (connexion, mot de passe oublié), via <x-guest-layout>.
+    Grand écran : panneau de présentation à gauche, formulaire à droite. Mobile : logo puis formulaire.
     La syntaxe Blade est expliquée dans layouts/app.blade.php.
 --}}
 <!DOCTYPE html>
@@ -8,6 +9,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+
+        <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
@@ -21,24 +24,35 @@
             })();
         </script>
     </head>
-    <body class="antialiased">
-        <div class="d-flex flex-column justify-content-center align-items-center vh-100 bg-body-secondary">
-<div class="mb-3">
-                <a href="/" class="text-decoration-none">
-                    <x-application-logo style="height: 15rem; width: auto;" />
+    <body>
+        <div class="auth-shell">
+            <section class="auth-hero" aria-hidden="true">
+                <x-application-logo class="auth-hero-logo" />
+                <h1 class="mb-0">{{ __('Rapprochement des transactions') }}</h1>
+                <p class="auth-hero-text mb-0">{{ config('app.name') }}</p>
+                <ul class="auth-features">
+                    <li><i class="bi bi-cloud-arrow-up"></i>{{ __('Import des fichiers ALPHA, BNA, SMT et WEB') }}</li>
+                    <li><i class="bi bi-signpost-split"></i>{{ __('Rapprochement automatique et manuel') }}</li>
+                    <li><i class="bi bi-graph-up-arrow"></i>{{ __('Tableau de bord et suivi des écarts') }}</li>
+                </ul>
+            </section>
+
+            <main class="auth-panel">
+                <a href="/" class="d-lg-none">
+                    <x-application-logo class="auth-logo" />
                 </a>
-            </div>
 
-            <div class="card shadow-sm" style="width: 100%; max-width: 28rem;">
-                <div class="card-body p-4">
-                    {{ $slot }}
+                <div class="card auth-card">
+                    <div class="card-body">
+                        {{ $slot }}
+                    </div>
                 </div>
-            </div>
 
-            <footer class="mt-4 small text-secondary text-center">
-                <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
-                <span class="d-block fw-semibold mt-1">Version 1.0</span>
-            </footer>
+                <footer class="auth-footer">
+                    <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
+                    <span class="d-block fw-semibold mt-1">Version 1.0</span>
+                </footer>
+            </main>
         </div>
     </body>
 </html>

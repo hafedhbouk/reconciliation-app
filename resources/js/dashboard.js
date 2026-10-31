@@ -8,7 +8,7 @@
  * - Le bouton « Valeurs / % du total / % de la ligne » ne relit rien : les
  *   pourcentages, calculés par le serveur, sont déjà dans la réponse.
  * - Une valeur absente (total nul : division impossible) s'affiche « — ».
- * - Les couleurs viennent des variables CSS --dash-* (resources/css/_dashboard.scss) :
+ * - Les couleurs viennent des variables CSS --dash-* (resources/css/_palette.scss) :
  *   graphiques, indicateurs et tableaux utilisent la même teinte pour la même notion.
  */
 

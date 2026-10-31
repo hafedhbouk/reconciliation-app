@@ -1,0 +1,80 @@
+// =====================================================================
+// Palette commune de l'application.
+//
+// Les couleurs sont des variables CSS (--dash-*) : resources/js/dashboard.js
+// les relit pour colorer les graphiques. Une même notion a donc la même
+// couleur partout (ex. « Rapproché » = vert, « Conflit » = rose).
+// Chaque teinte a deux valeurs : la couleur et la fin de son dégradé (-2).
+// =====================================================================
+
+:root {
+    --dash-violet: #6c4cf1;
+    --dash-violet-2: #a78bfa;
+    --dash-blue: #2563eb;
+    --dash-blue-2: #22d3ee;
+    --dash-cyan: #06b6d4;
+    --dash-cyan-2: #3b82f6;
+    --dash-emerald: #10b981;
+    --dash-emerald-2: #14b8a6;
+    --dash-amber: #f59e0b;
+    --dash-amber-2: #f97316;
+    --dash-orange: #f97316;
+    --dash-orange-2: #ef4444;
+    --dash-rose: #f43f5e;
+    --dash-rose-2: #ec4899;
+    --dash-fuchsia: #a855f7;
+    --dash-fuchsia-2: #d946ef;
+    --dash-slate: #64748b;
+    --dash-slate-2: #94a3b8;
+
+    // Fond de page (derrière les cartes), ombres et teinte claire des en-têtes.
+    --app-bg: #f5f4fa;
+    --app-radius: 1rem;
+    --app-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 6px 20px rgba(108, 76, 241, .07);
+    --app-shadow-lg: 0 12px 32px rgba(46, 31, 120, .14);
+    --app-tint: color-mix(in srgb, var(--dash-violet) 6%, var(--bs-body-bg));
+    --app-tint-strong: color-mix(in srgb, var(--dash-violet) 11%, var(--bs-body-bg));
+    --app-accent-gradient: linear-gradient(135deg, var(--dash-violet), #8b5cf6);
+}
+
+[data-bs-theme="dark"] {
+    --app-bg: #121119;
+    --app-shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 6px 20px rgba(0, 0, 0, .25);
+    --app-shadow-lg: 0 12px 32px rgba(0, 0, 0, .45);
+    --app-tint: color-mix(in srgb, var(--dash-violet) 12%, var(--bs-body-bg));
+    --app-tint-strong: color-mix(in srgb, var(--dash-violet) 22%, var(--bs-body-bg));
+    --bs-secondary-color: rgba(222, 226, 240, .7);
+}
+
+// Classe « tone-xxx » : choisit la teinte d'un élément (pastille, carte, bandeau).
+@each $tone in violet, blue, cyan, emerald, amber, orange, rose, fuchsia, slate {
+    .tone-#{$tone} {
+        --tone: var(--dash-#{$tone});
+        --tone-2: var(--dash-#{$tone}-2);
+    }
+}
+
+// Pastille d'icône carrée, en dégradé de la teinte choisie (en-têtes de cartes, indicateurs).
+.icon-chip,
+.dash-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.9rem;
+    height: 1.9rem;
+    border-radius: .55rem;
+    color: #fff;
+    font-size: .95rem;
+    // Teinte posée sur la pastille ou sur un parent (ex. .dash-kpi.tone-rose) ; violet par défaut.
+    background: linear-gradient(135deg, var(--tone, var(--dash-violet)), var(--tone-2, var(--dash-violet-2)));
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--tone, var(--dash-violet)) 30%, transparent);
+
+    &.dash-chip-lg,
+    &.icon-chip-lg {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: .75rem;
+        font-size: 1.2rem;
+    }
+}

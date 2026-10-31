@@ -1,0 +1,635 @@
+// =====================================================================
+// Composants communs à toutes les pages : cartes, tableaux (et DataTables),
+// formulaires, boutons, badges, alertes, menus, fenêtres, pages de connexion.
+// Les couleurs viennent de _palette.scss et des variables Bootstrap (app.scss).
+// =====================================================================
+
+.min-w-0 {
+    min-width: 0;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--dash-violet) 22%, transparent);
+}
+
+// ----- Cartes -----
+.card {
+    border-color: var(--bs-border-color);
+    box-shadow: var(--app-shadow);
+
+    > .card-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem .6rem;
+        padding: .85rem 1.1rem;
+        font-weight: 600;
+        background: linear-gradient(90deg, var(--app-tint), color-mix(in srgb, var(--dash-rose) 3%, var(--bs-body-bg)));
+        border-bottom-color: var(--bs-border-color);
+
+        // Un en-tête qui place lui-même titre et boutons (d-flex justify-content-between…) garde sa mise en page.
+        > :only-child {
+            flex: 1;
+        }
+    }
+
+    > .card-footer {
+        background: var(--app-tint);
+        border-top-color: var(--bs-border-color);
+    }
+
+    // Tableau posé directement dans la carte : coins arrondis comme la carte.
+    > .table-responsive:first-child,
+    > .card-header + .table-responsive {
+        border-top-left-radius: inherit;
+        border-top-right-radius: inherit;
+    }
+
+    > .table-responsive:last-child {
+        border-bottom-left-radius: inherit;
+        border-bottom-right-radius: inherit;
+    }
+
+    > .card-header + .table-responsive {
+        border-radius: 0;
+    }
+}
+
+// ----- Tableaux -----
+.table {
+    --bs-table-bg: transparent;
+    --bs-table-hover-bg: var(--app-tint);
+    --bs-table-striped-bg: color-mix(in srgb, var(--dash-violet) 3%, transparent);
+    font-size: .875rem;
+    font-variant-numeric: tabular-nums;
+
+    // Bootstrap peint chaque cellule avec --bs-table-bg : on change la variable, pas le fond.
+    > thead,
+    > tfoot {
+        --bs-table-bg: var(--app-tint);
+    }
+
+    > thead th {
+        font-size: .72rem;
+        font-weight: 600;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        color: var(--bs-secondary-color);
+        white-space: nowrap;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+
+    > tbody > tr:last-child > * {
+        border-bottom-width: 0;
+    }
+
+    > tfoot > tr > * {
+        font-weight: 600;
+    }
+
+    // Boutons d'action d'une ligne : compacts, côte à côte, jamais l'un sous l'autre.
+    td .btn-sm {
+        --bs-btn-padding-x: .45rem;
+        --bs-btn-padding-y: .2rem;
+    }
+
+    td:has(> .btn, > form, > a.btn) {
+        white-space: nowrap;
+    }
+}
+
+// Listes DataTables : une ligne par enregistrement ; le tableau défile horizontalement si besoin.
+table.dataTable {
+    > tbody > tr > td {
+        white-space: nowrap;
+    }
+}
+
+.table-bordered > :not(caption) > * > * {
+    border-color: var(--bs-border-color);
+}
+
+// Défilement horizontal doux sur mobile, avec ombre de fin de tableau.
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+// ----- DataTables (recherche, nombre de lignes, pagination) -----
+.dt-container {
+    > .dt-layout-row {
+        margin: 0;
+        --bs-gutter-x: 0;
+    }
+
+    > .dt-layout-row:not(.dt-layout-table) {
+        padding: .75rem 1rem;
+        gap: .5rem;
+        font-size: .85rem;
+        color: var(--bs-secondary-color);
+    }
+
+    > .dt-layout-table {
+        margin-top: 0 !important;
+
+        > .dt-layout-cell {
+            padding: 0 !important;
+        }
+    }
+
+    .dt-search input {
+        min-width: 14rem;
+        padding-left: 2rem;
+        background: var(--bs-body-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/%3E%3C/svg%3E") no-repeat .7rem center;
+        border-radius: 50rem;
+    }
+
+    div.dt-processing {
+        z-index: 5;
+        padding: .6rem 1rem;
+        border: 0;
+        border-radius: .75rem;
+        background: var(--bs-body-bg);
+        box-shadow: var(--app-shadow-lg);
+
+        > div:last-child > div {
+            background: var(--dash-violet);
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .dt-layout-start,
+        .dt-layout-end {
+            width: 100%;
+            margin: 0 !important;
+        }
+
+        .dt-search {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+
+            input {
+                flex: 1;
+                min-width: 0;
+                margin-left: 0 !important;
+            }
+        }
+
+        .dt-paging .pagination {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    }
+}
+
+// ----- Pagination (DataTables et pages Laravel) -----
+.pagination {
+    --bs-pagination-border-width: 0;
+    --bs-pagination-color: var(--bs-body-color);
+    --bs-pagination-hover-bg: var(--app-tint);
+    --bs-pagination-hover-color: var(--dash-violet);
+    --bs-pagination-active-bg: var(--dash-violet);
+    --bs-pagination-disabled-bg: transparent;
+    --bs-pagination-bg: transparent;
+    --bs-pagination-focus-box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--dash-violet) 25%, transparent);
+    gap: .2rem;
+
+    .page-link {
+        min-width: 2rem;
+        text-align: center;
+        border-radius: .5rem !important;
+    }
+
+    .active .page-link {
+        box-shadow: 0 4px 10px color-mix(in srgb, var(--dash-violet) 30%, transparent);
+    }
+}
+
+// ----- Formulaires -----
+.form-label {
+    font-size: .875rem;
+    font-weight: 500;
+    margin-bottom: .35rem;
+}
+
+.form-control,
+.form-select {
+    border-color: var(--bs-border-color);
+
+    &:hover:not(:disabled):not(:focus) {
+        border-color: color-mix(in srgb, var(--dash-violet) 35%, var(--bs-border-color));
+    }
+
+    &:focus {
+        border-color: color-mix(in srgb, var(--dash-violet) 60%, transparent);
+        box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--dash-violet) 18%, transparent);
+    }
+}
+
+.form-check-input {
+    border-color: color-mix(in srgb, var(--bs-secondary-color) 60%, transparent);
+
+    &:focus {
+        box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--dash-violet) 20%, transparent);
+    }
+}
+
+.form-text {
+    font-size: .8rem;
+}
+
+.input-group-text {
+    background: var(--app-tint);
+    border-color: var(--bs-border-color);
+}
+
+// Filtres de liste (col-auto) : un champ par ligne, pleine largeur, sur téléphone.
+@media (max-width: 575.98px) {
+    form.row > .col-auto {
+        flex: 1 1 100%;
+    }
+}
+
+// ----- Boutons -----
+.btn {
+    --bs-btn-focus-box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--dash-violet) 25%, transparent);
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+
+.btn-primary {
+    border: 0;
+    background-image: var(--app-accent-gradient);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--dash-violet) 28%, transparent);
+
+    &:hover,
+    &:focus-visible {
+        filter: brightness(1.07);
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--dash-violet) 38%, transparent);
+    }
+
+    &:disabled,
+    &.disabled {
+        box-shadow: none;
+    }
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--bs-body-color);
+    --bs-btn-border-color: var(--bs-border-color);
+    --bs-btn-bg: var(--bs-body-bg);
+    --bs-btn-hover-color: var(--dash-violet);
+    --bs-btn-hover-bg: var(--app-tint);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--dash-violet) 35%, var(--bs-border-color));
+    --bs-btn-active-color: var(--dash-violet);
+    --bs-btn-active-bg: var(--app-tint-strong);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--dash-violet) 45%, var(--bs-border-color));
+}
+
+.btn-outline-primary {
+    --bs-btn-bg: var(--bs-body-bg);
+    --bs-btn-border-color: color-mix(in srgb, var(--dash-violet) 45%, transparent);
+}
+
+.btn-outline-danger {
+    --bs-btn-bg: var(--bs-body-bg);
+    --bs-btn-border-color: color-mix(in srgb, var(--bs-danger) 40%, transparent);
+}
+
+.btn-outline-success {
+    --bs-btn-bg: var(--bs-body-bg);
+    --bs-btn-border-color: color-mix(in srgb, var(--bs-success) 40%, transparent);
+}
+
+// ----- Badges : teinte douce (fond clair, texte foncé) ; les compteurs restent pleins (.badge-solid). -----
+.badge {
+    font-weight: 600;
+    letter-spacing: .01em;
+    padding: .4em .7em;
+    border-radius: 50rem;
+}
+
+@each $name in primary, secondary, success, info, warning, danger {
+    .badge:not(.badge-solid).bg-#{$name},
+    .badge:not(.badge-solid).text-bg-#{$name} {
+        color: var(--bs-#{$name}-text-emphasis) !important;
+        background-color: var(--bs-#{$name}-bg-subtle) !important;
+        box-shadow: inset 0 0 0 1px var(--bs-#{$name}-border-subtle);
+    }
+}
+
+.badge:not(.badge-solid).bg-light,
+.badge:not(.badge-solid).bg-dark {
+    color: var(--bs-secondary-color) !important;
+    background-color: var(--bs-tertiary-bg) !important;
+    box-shadow: inset 0 0 0 1px var(--bs-border-color);
+}
+
+// ----- Alertes -----
+.alert {
+    border-width: 0 0 0 4px;
+    border-radius: .75rem;
+    box-shadow: var(--app-shadow);
+
+    > .bi:first-child {
+        font-size: 1.1rem;
+    }
+
+    .btn-close {
+        margin-left: auto;
+    }
+}
+
+.alert-dismissible {
+    padding-right: 1rem;
+
+    .btn-close {
+        position: static;
+        padding: .5rem;
+    }
+}
+
+// ----- Menus déroulants, fenêtres, listes, onglets -----
+.dropdown-menu {
+    padding: .35rem;
+    border-color: var(--bs-border-color);
+    box-shadow: var(--app-shadow-lg);
+
+    .dropdown-item {
+        padding: .45rem .75rem;
+        font-size: .9rem;
+        border-radius: .5rem;
+
+        &:hover,
+        &:focus {
+            color: var(--dash-violet);
+            background: var(--app-tint);
+        }
+
+        &.text-danger:hover {
+            color: var(--bs-danger) !important;
+            background: var(--bs-danger-bg-subtle);
+        }
+    }
+
+    &.p-0 .dropdown-item {
+        border-radius: 0;
+    }
+}
+
+.modal-content {
+    border: 0;
+    box-shadow: var(--app-shadow-lg);
+}
+
+.modal-header {
+    background: var(--app-tint);
+    border-bottom-color: var(--bs-border-color);
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.modal-footer {
+    border-top-color: var(--bs-border-color);
+}
+
+.modal-backdrop.show {
+    opacity: .4;
+}
+
+.offcanvas {
+    border-color: var(--bs-border-color) !important;
+}
+
+.list-group {
+    --bs-list-group-border-color: var(--bs-border-color);
+    --bs-list-group-action-hover-bg: var(--app-tint);
+}
+
+.nav-tabs {
+    --bs-nav-tabs-border-color: var(--bs-border-color);
+    gap: .25rem;
+
+    .nav-link {
+        color: var(--bs-secondary-color);
+        border: 0;
+        border-bottom: 2px solid transparent;
+
+        &:hover {
+            color: var(--dash-violet);
+        }
+
+        &.active {
+            color: var(--dash-violet);
+            background: transparent;
+            border-bottom-color: var(--dash-violet);
+        }
+    }
+}
+
+.progress {
+    --bs-progress-bar-bg: var(--dash-violet);
+    border-radius: 50rem;
+}
+
+// Fil d'Ariane discret au-dessus du titre.
+.app-breadcrumb {
+    font-size: .82rem;
+
+    .breadcrumb-item {
+        color: var(--bs-secondary-color);
+
+        a {
+            color: var(--bs-secondary-color);
+
+            &:hover {
+                color: var(--dash-violet);
+                text-decoration: none;
+            }
+        }
+
+        &.active {
+            color: var(--bs-body-color);
+            font-weight: 500;
+        }
+    }
+}
+
+// Liste de définitions (pages « détail ») : libellé discret, valeur lisible.
+dl.row {
+    > dt {
+        font-weight: 500;
+        color: var(--bs-secondary-color);
+    }
+}
+
+// ----- Pages de connexion (layouts/guest.blade.php) -----
+.auth-shell {
+    display: grid;
+    min-height: 100vh;
+
+    @media (min-width: 992px) {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    }
+}
+
+// Panneau de présentation (grand écran) : dégradé violet, logo, avantages.
+.auth-hero {
+    position: relative;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 3rem clamp(2rem, 5vw, 5rem);
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(140deg, #4c32d9 0%, var(--dash-violet) 45%, var(--dash-fuchsia-2) 100%);
+
+    @media (min-width: 992px) {
+        display: flex;
+    }
+
+    &::before,
+    &::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .08);
+        pointer-events: none;
+    }
+
+    &::before {
+        width: 26rem;
+        height: 26rem;
+        top: -8rem;
+        right: -8rem;
+    }
+
+    &::after {
+        width: 18rem;
+        height: 18rem;
+        bottom: -6rem;
+        left: -5rem;
+    }
+
+    .auth-hero-logo {
+        width: 11rem;
+        padding: .6rem .9rem;
+        border-radius: 1rem;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(20, 10, 70, .25);
+    }
+
+    h1 {
+        max-width: 30rem;
+        font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .auth-hero-text {
+        max-width: 32rem;
+        opacity: .9;
+    }
+
+    .auth-features {
+        display: grid;
+        gap: .85rem;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .bi {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.2rem;
+            height: 2.2rem;
+            border-radius: .65rem;
+            background: rgba(255, 255, 255, .16);
+        }
+    }
+}
+
+.auth-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem 1rem;
+    background:
+        radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--dash-violet) 10%, transparent), transparent 40%),
+        radial-gradient(circle at 90% 90%, color-mix(in srgb, var(--dash-rose) 8%, transparent), transparent 40%),
+        var(--app-bg);
+
+    .auth-logo {
+        width: 9rem;
+        height: auto;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 27rem;
+        border: 0;
+        box-shadow: var(--app-shadow-lg);
+
+        .card-body {
+            padding: 2rem;
+
+            @media (max-width: 575.98px) {
+                padding: 1.5rem;
+            }
+        }
+    }
+
+    .auth-footer {
+        font-size: .8rem;
+        color: var(--bs-secondary-color);
+        text-align: center;
+    }
+}
+
+// ----- Assistant (chatbot) -----
+.chatbot-launcher {
+    border: 0;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--dash-violet), var(--dash-fuchsia));
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--dash-violet) 35%, transparent) !important;
+
+    &:hover {
+        filter: brightness(1.07);
+    }
+
+    // Téléphone : bouton rond, icône seule.
+    @media (max-width: 575.98px) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3.2rem;
+        height: 3.2rem;
+        padding: 0 !important;
+        font-size: 1.25rem;
+    }
+}
+
+#chatbot-panel {
+    .offcanvas-header {
+        background: linear-gradient(90deg, var(--app-tint), color-mix(in srgb, var(--dash-rose) 4%, var(--bs-body-bg)));
+    }
+
+    [data-chatbot-messages] {
+        background: var(--app-bg);
+    }
+
+    [data-chatbot-messages] > .mb-3 > div {
+        border: 1px solid var(--bs-border-color);
+        box-shadow: var(--app-shadow);
+    }
+}

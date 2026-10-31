@@ -54,7 +54,7 @@
                     </select>
                 </div>
                 <div class="col-auto">
-                    <button type="submit" class="btn btn-sm btn-dark">{{ __('Filtrer') }}</button>
+                    <button type="submit" class="btn btn-sm btn-primary">{{ __('Filtrer') }}</button>
                     @if (request()->hasAny(['matching_rule_id', 'batch_reference', 'matched_at_from', 'matched_at_to', 'status']))
                         <a href="{{ route('admin.matching-results.index') }}" class="btn btn-sm btn-outline-secondary">{{ __('Réinitialiser') }}</a>
                     @endif
@@ -104,7 +104,7 @@
                         { data: 'confidence_score', name: 'confidence_score' },
                         { data: 'matched_by', name: 'matchedByUser.name', orderable: false },
                         { data: 'matched_at', name: 'matched_at' },
-                        { data: 'batch_reference', name: 'batch_reference' },
+                        { data: 'batch_reference', name: 'batch_reference', className: 'text-wrap' }, // identifiant long : seule colonne qui passe à la ligne
                         { data: 'actions', name: 'actions', orderable: false, searchable: false },
                     ],
                 });

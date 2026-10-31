@@ -1,0 +1,436 @@
+// =====================================================================
+// Structure des pages connectées (layouts/app.blade.php) :
+// menu latéral fixe à gauche (tiroir sur mobile), barre du haut collante,
+// contenu, pied de page.
+// =====================================================================
+
+$sidebar-width: 268px;
+$mobile: 991.98px;
+
+body {
+    background-color: var(--app-bg);
+    -webkit-font-smoothing: antialiased;
+}
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-content {
+    flex: 1;
+    width: 100%;
+    max-width: 1680px;
+    margin: 0 auto;
+    padding: 1.5rem;
+
+    @media (max-width: 575.98px) {
+        padding: 1rem;
+    }
+}
+
+// ----- Menu latéral -----
+.admin-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: $sidebar-width;
+    height: 100vh;
+    padding: 1rem .85rem;
+    overflow-y: auto;
+    background: var(--bs-body-bg);
+    border-right: 1px solid var(--bs-border-color);
+    scrollbar-width: thin;
+
+    @media (max-width: $mobile) {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 1045;
+        max-width: 85vw;
+        box-shadow: var(--app-shadow-lg);
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+
+        &.open {
+            transform: translateX(0);
+        }
+    }
+}
+
+.sidebar-brand {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .5rem;
+    padding: .25rem .5rem 1rem;
+    margin-bottom: .75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    text-align: center;
+    text-decoration: none !important;
+    color: var(--bs-body-color);
+
+    .sidebar-logo {
+        width: 100%;
+        max-width: 9.5rem;
+        height: auto;
+    }
+
+    .sidebar-app-name {
+        font-size: .74rem;
+        line-height: 1.35;
+        color: var(--bs-secondary-color);
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+}
+
+// Le logo est sur fond blanc : en thème sombre, on le pose sur une plaque claire.
+[data-bs-theme="dark"] .sidebar-logo,
+[data-bs-theme="dark"] .topbar-logo,
+[data-bs-theme="dark"] .auth-logo {
+    padding: .35rem .5rem;
+    border-radius: .6rem;
+    background: #fff;
+}
+
+.sidebar-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.sidebar-label {
+    padding: .9rem .75rem .35rem;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--bs-secondary-color);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    width: 100%;
+    padding: .55rem .75rem;
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+    text-align: left;
+    text-decoration: none !important;
+    background: none;
+    border: 0;
+    border-radius: .65rem;
+    transition: background-color .15s ease, color .15s ease;
+
+    > .bi:first-child {
+        font-size: 1.05rem;
+        color: var(--bs-secondary-color);
+        transition: color .15s ease;
+    }
+
+    &:hover {
+        color: var(--dash-violet);
+        background: var(--app-tint);
+
+        > .bi:first-child {
+            color: var(--dash-violet);
+        }
+    }
+
+    &.active {
+        color: #fff;
+        background: var(--app-accent-gradient);
+        box-shadow: 0 6px 16px color-mix(in srgb, var(--dash-violet) 30%, transparent);
+
+        > .bi:first-child {
+            color: #fff;
+        }
+    }
+
+    // Section dépliante : flèche à droite, qui tourne à l'ouverture.
+    .sidebar-caret {
+        margin-left: auto;
+        font-size: .7rem;
+        transition: transform .2s ease;
+    }
+
+    &[aria-expanded="true"] {
+        color: var(--dash-violet);
+
+        > .bi:first-child {
+            color: var(--dash-violet);
+        }
+
+        .sidebar-caret {
+            transform: rotate(180deg);
+        }
+    }
+}
+
+// Liens d'une section : trait vertical à gauche, point devant chaque lien.
+.sidebar-subnav {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: .2rem 0 .4rem 1.55rem;
+    margin: 0;
+    list-style: none;
+
+    &::before {
+        content: "";
+        position: absolute;
+        top: .25rem;
+        bottom: .5rem;
+        left: 1.3rem;
+        width: 1px;
+        background: var(--bs-border-color);
+    }
+
+    .sidebar-link {
+        gap: .6rem;
+        padding: .4rem .7rem;
+        font-size: .85rem;
+        font-weight: 400;
+        color: var(--bs-secondary-color);
+
+        &::before {
+            content: "";
+            flex-shrink: 0;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--bs-border-color);
+            transition: background-color .15s ease;
+        }
+
+        &:hover::before {
+            background: var(--dash-violet);
+        }
+
+        &.active {
+            font-weight: 600;
+            color: var(--dash-violet);
+            background: var(--app-tint-strong);
+            box-shadow: none;
+
+            &::before {
+                background: var(--dash-violet);
+                box-shadow: 0 0 0 3px color-mix(in srgb, var(--dash-violet) 25%, transparent);
+            }
+        }
+    }
+}
+
+.admin-sidebar .collapse,
+.admin-sidebar .collapsing {
+    transition: height .25s ease;
+}
+
+// Voile derrière le menu ouvert sur mobile.
+.admin-sidebar-overlay {
+    display: none;
+
+    @media (max-width: $mobile) {
+        &.open {
+            display: block;
+            position: fixed;
+            inset: 0;
+            z-index: 1044;
+            background: rgba(15, 12, 30, .45);
+            backdrop-filter: blur(2px);
+        }
+    }
+}
+
+body.sidebar-open {
+    @media (max-width: $mobile) {
+        overflow: hidden;
+    }
+}
+
+// ----- Barre du haut -----
+.app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    min-height: 3.75rem;
+    padding: .5rem 1.5rem;
+    background: color-mix(in srgb, var(--bs-body-bg) 82%, transparent);
+    border-bottom: 1px solid var(--bs-border-color);
+    backdrop-filter: saturate(160%) blur(10px);
+
+    @media (max-width: 575.98px) {
+        padding: .5rem 1rem;
+    }
+
+    .topbar-logo {
+        display: block;
+        height: 2.4rem;
+        width: auto;
+    }
+}
+
+.mobile-menu-toggle {
+    display: none !important;
+
+    @media (max-width: $mobile) {
+        display: inline-flex !important;
+    }
+}
+
+// Bouton rond ne contenant qu'une icône (barre du haut).
+.btn-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    font-size: 1.1rem;
+    color: var(--bs-secondary-color);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 50%;
+
+    &:hover,
+    &:focus-visible,
+    &.show {
+        color: var(--dash-violet);
+        background: var(--app-tint);
+    }
+
+    &::after {
+        display: none; // pas de petite flèche de menu déroulant
+    }
+
+    .badge {
+        position: absolute;
+        top: .15rem;
+        right: .05rem;
+        min-width: 1.15rem;
+        padding: .2em .4em;
+        font-size: .62rem;
+        border: 2px solid var(--bs-body-bg);
+    }
+}
+
+// Menu utilisateur : avatar à initiales + nom.
+.user-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .25rem .6rem .25rem .25rem;
+    color: var(--bs-body-color);
+    background: transparent;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 50rem;
+
+    &:hover,
+    &.show {
+        background: var(--app-tint);
+        border-color: color-mix(in srgb, var(--dash-violet) 30%, var(--bs-border-color));
+    }
+
+    .user-name {
+        max-width: 12rem;
+        font-size: .875rem;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+}
+
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    font-size: .75rem;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--dash-violet), var(--dash-fuchsia-2));
+}
+
+.notification-menu {
+    width: min(22rem, calc(100vw - 2rem));
+
+    .notification-list {
+        max-height: 22rem;
+        overflow-y: auto;
+    }
+}
+
+// ----- En-tête de page (titre + boutons) -----
+.page-header {
+    margin-bottom: 1.25rem;
+
+    h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: -.01em;
+    }
+
+    // Titre et boutons passent l'un sous l'autre quand la place manque.
+    > .d-flex {
+        flex-wrap: wrap;
+        gap: .75rem;
+    }
+
+    @media (max-width: 575.98px) {
+        h2 {
+            font-size: 1.25rem;
+        }
+    }
+}
+
+// ----- Pied de page -----
+.app-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: .25rem 1rem;
+    padding: 1rem 1.5rem;
+    font-size: .8rem;
+    color: var(--bs-secondary-color);
+    border-top: 1px solid var(--bs-border-color);
+
+    // Laisse la place au bouton de l'assistant, en bas à droite.
+    padding-right: 10rem;
+
+    @media (max-width: 575.98px) {
+        padding-right: 5rem;
+    }
+}

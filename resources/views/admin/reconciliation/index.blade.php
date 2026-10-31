@@ -81,7 +81,7 @@
         </div>
 
         <div class="d-flex justify-content-end">
-            <button type="submit" class="btn btn-dark" id="create-match-btn" disabled>
+            <button type="submit" class="btn btn-primary" id="create-match-btn" disabled>
                 {{ __('Créer un rapprochement') }} (<span id="selected-count">0</span> {{ __('sélectionnés') }})
             </button>
         </div>

@@ -6,7 +6,7 @@
         <div class="d-flex justify-content-between align-items-center">
             <h2 class="fs-4 fw-semibold mb-0">{{ __('Sources') }}</h2>
             @can('sources.create')
-                <a href="{{ route('admin.sources.create') }}" class="btn btn-dark btn-sm">
+                <a href="{{ route('admin.sources.create') }}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-lg me-1"></i>{{ __('Ajouter') }}
                 </a>
             @endcan

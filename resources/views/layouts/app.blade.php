@@ -51,44 +51,41 @@
             })();
         </script>
     </head>
-    <body class="antialiased">
-        <div class="d-flex flex-column min-vh-100">
-            <div class="d-flex flex-grow-1">
-                <x-admin.sidebar />
+    <body>
+        <div class="app-shell">
+            <x-admin.sidebar />
 
-                <div class="flex-grow-1 admin-content d-flex flex-column w-100">
-                    <x-admin.topbar />
+            <div class="app-main">
+                <x-admin.topbar />
 
-                    <main class="flex-grow-1 p-3 p-md-4 overflow-auto">
-                        @isset($breadcrumbs)
-                            <x-admin.breadcrumb :items="$breadcrumbs" />
-                        @endisset
+                <main class="app-content">
+                    @isset($breadcrumbs)
+                        <x-admin.breadcrumb :items="$breadcrumbs" />
+                    @endisset
 
-                        @isset($header)
-                            <div class="mb-3">
-                                {{ $header }}
-                            </div>
-                        @endisset
-
-                        {{-- Message « flash » envoyé par un contrôleur avec ->with('status', '...'). --}}
-                        @if (session('status'))
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                {{ session('status') }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        @endif
-
-                        {{-- Contenu propre à chaque page. --}}
-                        {{ $slot }}
-                    </main>
-
-                    <footer class="bg-body-tertiary border-top py-3 px-3 px-md-4 mt-auto">
-                        <div class="d-flex flex-wrap justify-content-between align-items-center small text-secondary">
-                            <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
-                            <span class="fw-semibold">Version 1.0</span>
+                    @isset($header)
+                        <div class="page-header">
+                            {{ $header }}
                         </div>
-                    </footer>
-                </div>
+                    @endisset
+
+                    {{-- Message « flash » envoyé par un contrôleur avec ->with('status', '...'). --}}
+                    @if (session('status'))
+                        <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+                            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+                            <div>{{ session('status') }}</div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ __('Fermer') }}"></button>
+                        </div>
+                    @endif
+
+                    {{-- Contenu propre à chaque page. --}}
+                    {{ $slot }}
+                </main>
+
+                <footer class="app-footer">
+                    <span>© 2026 HANDOURA Houcine — Tous droits réservés</span>
+                    <span class="fw-semibold">Version 1.0</span>
+                </footer>
             </div>
         </div>
 
@@ -97,24 +94,32 @@
         {{-- Chatbot métier : bouton flottant et fenêtre « Assistant » (resources/js/chatbot.js). --}}
         <x-chatbot />
 
-        {{-- Sur mobile : ouverture et fermeture du menu latéral. --}}
+        {{-- Sur mobile : ouverture et fermeture du menu latéral (bouton, voile, croix, touche Échap, lien choisi). --}}
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 const sidebar = document.querySelector('.admin-sidebar');
                 const overlay = document.getElementById('sidebarOverlay');
                 const toggleBtn = document.getElementById('mobileMenuToggle');
-
-                if (toggleBtn && sidebar) {
-                    toggleBtn.addEventListener('click', function () {
-                        sidebar.classList.toggle('open');
-                        overlay.classList.toggle('open');
-                    });
-
-                    overlay.addEventListener('click', function () {
-                        sidebar.classList.remove('open');
-                        overlay.classList.remove('open');
-                    });
+                if (!toggleBtn || !sidebar) {
+                    return;
                 }
+
+                function setOpen(open) {
+                    sidebar.classList.toggle('open', open);
+                    overlay.classList.toggle('open', open);
+                    document.body.classList.toggle('sidebar-open', open);
+                    toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                }
+
+                toggleBtn.addEventListener('click', () => setOpen(!sidebar.classList.contains('open')));
+                overlay.addEventListener('click', () => setOpen(false));
+                sidebar.querySelector('[data-sidebar-close]')?.addEventListener('click', () => setOpen(false));
+                sidebar.querySelectorAll('a.sidebar-link').forEach((link) => link.addEventListener('click', () => setOpen(false)));
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        setOpen(false);
+                    }
+                });
             });
         </script>
 

@@ -19,7 +19,7 @@
                     </a>
                 @endcan
                 @can('matching-rules.create')
-                    <a href="{{ route('admin.matching-rules.create') }}" class="btn btn-dark btn-sm">
+                    <a href="{{ route('admin.matching-rules.create') }}" class="btn btn-primary btn-sm">
                         <i class="bi bi-plus-lg me-1"></i>{{ __('Nouvelle règle') }}
                     </a>
                 @endcan

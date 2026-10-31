@@ -2,7 +2,7 @@
     Tableau de bord : chiffres clés (DashboardMetricsService) et tableau de bord analytique filtrable.
     Les données analytiques sont relues en JSON (DashboardController::analytics) par resources/js/dashboard.js
     à chaque changement de filtre : indicateurs, graphiques, tableau croisé et opérations.
-    Couleurs et styles : resources/css/_dashboard.scss (une même notion a la même teinte partout).
+    Couleurs : resources/css/_palette.scss ; styles : resources/css/_dashboard.scss (une même notion a la même teinte partout).
 --}}
 @php
     use App\Enums\ExceptionType;
@@ -21,7 +21,7 @@
     $trendLabels = array_map(fn ($row) => \Illuminate\Support\Carbon::parse($row['date'])->format('d/m'), $dailyTrend);
     $trendValues = array_map(fn ($row) => $row['count'], $dailyTrend);
 
-    // Indicateurs : libellé, teinte (voir _dashboard.scss) et icône.
+    // Indicateurs : libellé, teinte (voir _palette.scss) et icône.
     $analysisKpis = [
         'lignes' => [__('Lignes importées'), 'violet', 'bi-database'],
         'montant_millimes' => [__('Montant (TND)'), 'blue', 'bi-cash-coin'],
