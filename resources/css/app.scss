@@ -1,7 +1,13 @@
 // Bootstrap 5 variable overrides go here, before the import.
+// Teinte principale (violet) et police Inter, servie en local (pas d'appel à Internet).
+$primary: #6c4cf1;
+$font-family-sans-serif: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+@import "@fontsource-variable/inter";
 @import "bootstrap/scss/bootstrap";
 @import "bootstrap-icons/font/bootstrap-icons.css";
 @import "datatables.net-bs5";
+@import "dashboard";
 
 // Admin shell custom styles
 .admin-sidebar {

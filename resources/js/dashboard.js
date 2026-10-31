@@ -8,11 +8,95 @@
  * - Le bouton « Valeurs / % du total / % de la ligne » ne relit rien : les
  *   pourcentages, calculés par le serveur, sont déjà dans la réponse.
  * - Une valeur absente (total nul : division impossible) s'affiche « — ».
+ * - Les couleurs viennent des variables CSS --dash-* (resources/css/_dashboard.scss) :
+ *   graphiques, indicateurs et tableaux utilisent la même teinte pour la même notion.
  */
 
-const STATUS_COLORS = { matched: '#198754', partial: '#20c997', conflict: '#dc3545', unmatched: '#6c757d', ignored: '#ffc107' };
-const SOURCE_PALETTE = ['#0d6efd', '#6f42c1', '#fd7e14', '#0dcaf0', '#d63384', '#198754'];
+// Teinte de chaque statut (rapprochement et résultats de rapprochement).
+const STATUS_TONES = { matched: 'emerald', partial: 'cyan', conflict: 'rose', unmatched: 'amber', ignored: 'slate', rejected: 'slate' };
+// Teintes des séries sans couleur métier (sources, types d'exception…), dans cet ordre.
+const SERIES_TONES = ['violet', 'blue', 'amber', 'cyan', 'rose', 'fuchsia', 'emerald', 'orange', 'slate'];
 const DEBOUNCE_MS = 300;
+
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const tone = (name) => [cssVar(`--dash-${name}`), cssVar(`--dash-${name}-2`)];
+const rgba = (hex, alpha) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+/**
+ * Couleurs partagées avec les graphiques écrits dans la vue (window.dashboardTheme).
+ * gradient() : dégradé de la teinte, calculé sur la zone du graphique (vertical, ou horizontal).
+ * area() : remplissage translucide sous une courbe.
+ */
+const theme = {
+    color: (name) => tone(name)[0],
+    statusColor: (status) => tone(STATUS_TONES[status] ?? 'slate')[0],
+    seriesColor: (index) => tone(SERIES_TONES[index % SERIES_TONES.length])[0],
+    gradient: (name, horizontal = false) => (context) => {
+        const [from, to] = tone(name);
+        const { ctx, chartArea } = context.chart;
+        if (!chartArea) {
+            return from;
+        }
+        const fill = horizontal
+            ? ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0)
+            : ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        fill.addColorStop(0, from);
+        fill.addColorStop(1, to);
+
+        return fill;
+    },
+    area: (name) => (context) => {
+        const { ctx, chartArea } = context.chart;
+        if (!chartArea) {
+            return 'transparent';
+        }
+        const fill = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        fill.addColorStop(0, rgba(tone(name)[0], 0.25));
+        fill.addColorStop(1, rgba(tone(name)[0], 0));
+
+        return fill;
+    },
+};
+window.dashboardTheme = theme;
+
+/**
+ * Style commun à tous les graphiques : police, légende en pastilles, barres arrondies, anneau fin.
+ * Appelé par app.js dès l'enregistrement de Chart.js, avant la création de tout graphique.
+ */
+export function applyChartDefaults(Chart) {
+    const text = cssVar('--bs-secondary-color');
+    const grid = cssVar('--bs-border-color-translucent');
+    const background = cssVar('--bs-body-bg');
+
+    Chart.defaults.font.family = cssVar('--bs-body-font-family') || '"Inter Variable", system-ui, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = text;
+    Chart.defaults.borderColor = grid;
+    Chart.defaults.scale.grid.color = grid;
+    Chart.defaults.scale.border.display = false;
+    Chart.defaults.plugins.legend.position = 'bottom';
+    Object.assign(Chart.defaults.plugins.legend.labels, { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 16 });
+    Object.assign(Chart.defaults.plugins.tooltip, {
+        backgroundColor: 'rgba(30, 27, 58, .92)', padding: 10, cornerRadius: 8, boxPadding: 4, usePointStyle: true,
+    });
+    Object.assign(Chart.defaults.elements.bar, { borderRadius: 6, borderSkipped: false, maxBarThickness: 44 });
+    Object.assign(Chart.defaults.elements.arc, { borderWidth: 4, borderColor: background, borderRadius: 4 });
+    Object.assign(Chart.defaults.elements.line, { borderWidth: 2.5 });
+    Object.assign(Chart.defaults.elements.point, { radius: 0, hoverRadius: 5 });
+    Chart.overrides.doughnut.cutout = '72%';
+}
+
+// Thème clair/sombre changé dans la barre du haut : les graphiques reprennent les nouvelles couleurs.
+new MutationObserver(() => {
+    if (window.Chart) {
+        applyChartDefaults(window.Chart);
+        Object.values(window.Chart.instances).forEach((chart) => chart.update());
+    }
+}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
 
 const number = (value) => (value === null || value === undefined ? '—' : Number(value).toLocaleString('fr-FR'));
 const tnd = (millimes) => (millimes === null || millimes === undefined ? '—'
@@ -88,7 +172,7 @@ function renderCharts(charts, data) {
         type: 'bar',
         data: {
             labels: timeline.periodes,
-            datasets: timeline.series.map((serie) => ({ label: serie.libelle, data: serie.valeurs, backgroundColor: STATUS_COLORS[serie.statut] })),
+            datasets: timeline.series.map((serie) => ({ label: serie.libelle, data: serie.valeurs, backgroundColor: theme.gradient(STATUS_TONES[serie.statut] ?? 'slate') })),
         },
         options: { scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } },
     });
@@ -98,7 +182,7 @@ function renderCharts(charts, data) {
         type: 'doughnut',
         data: {
             labels: statuses.map((row) => `${row.libelle} (${percent(row.pourcentage)})`),
-            datasets: [{ data: statuses.map((row) => row.lignes), backgroundColor: statuses.map((row) => STATUS_COLORS[row.statut]) }],
+            datasets: [{ data: statuses.map((row) => row.lignes), backgroundColor: statuses.map((row) => theme.statusColor(row.statut)) }],
         },
     });
 
@@ -110,7 +194,7 @@ function renderCharts(charts, data) {
             datasets: bySource.colonnes.map((column, c) => ({
                 label: column.libelle,
                 data: bySource.cellules.map((cells) => cells[c].valeur),
-                backgroundColor: STATUS_COLORS[column.cle] ?? SOURCE_PALETTE[c % SOURCE_PALETTE.length],
+                backgroundColor: theme.gradient(STATUS_TONES[column.cle] ?? SERIES_TONES[c % SERIES_TONES.length], true),
             })),
         },
         options: { indexAxis: 'y', scales: { x: { stacked: true, beginAtZero: true }, y: { stacked: true } } },
@@ -128,13 +212,13 @@ function renderPivot(root, pivot, mode) {
         return pivot.mesure === 'montant' ? tnd(cell.valeur) : number(cell.valeur);
     };
     const totalCell = { valeur: pivot.total, pct_total: pivot.total > 0 ? 100 : null, pct_ligne: pivot.total > 0 ? 100 : null };
-    const head = `<thead class="table-light"><tr><th></th>${pivot.colonnes.map((c) => `<th class="text-end">${escapeHtml(c.libelle)}</th>`).join('')}<th class="text-end">Total</th></tr></thead>`;
+    const head = `<thead><tr><th></th>${pivot.colonnes.map((c) => `<th class="text-end">${escapeHtml(c.libelle)}</th>`).join('')}<th class="text-end">Total</th></tr></thead>`;
     const body = pivot.lignes.length === 0
         ? `<tbody><tr><td colspan="${pivot.colonnes.length + 2}" class="text-center text-secondary py-3">Aucune donnée pour ces filtres.</td></tr></tbody>`
         : `<tbody>${pivot.lignes.map((row, r) => `<tr><th scope="row">${escapeHtml(row.libelle)}</th>${pivot.cellules[r].map((cell) => `<td class="text-end">${format(cell)}</td>`).join('')}<td class="text-end fw-semibold">${format(pivot.totaux_lignes[r])}</td></tr>`).join('')}</tbody>`;
     // En « % de la ligne », la ligne Total donne la répartition de l'ensemble (identique au % du total).
     const columnTotal = (cell) => format(mode === 'pct_ligne' ? { ...cell, pct_ligne: cell.pct_total } : cell);
-    const foot = pivot.lignes.length === 0 ? '' : `<tfoot class="table-light fw-semibold"><tr><th scope="row">Total</th>${pivot.totaux_colonnes.map((cell) => `<td class="text-end">${columnTotal(cell)}</td>`).join('')}<td class="text-end">${format(totalCell)}</td></tr></tfoot>`;
+    const foot = pivot.lignes.length === 0 ? '' : `<tfoot><tr><th scope="row">Total</th>${pivot.totaux_colonnes.map((cell) => `<td class="text-end">${columnTotal(cell)}</td>`).join('')}<td class="text-end">${format(totalCell)}</td></tr></tfoot>`;
     table.innerHTML = head + body + foot;
     root.querySelector('[data-pivot-note]').textContent = pivot.tronque
         ? 'Tableau limité aux 200 premières valeurs : affinez les filtres.'
@@ -154,7 +238,7 @@ function renderOperations(root, operations) {
         ? '<li class="list-group-item text-secondary">Aucun échec.</li>'
         : operations.derniers_echecs.map((failure) => `<li class="list-group-item"><div class="fw-semibold">${escapeHtml(failure.libelle)}</div>
             <div class="text-secondary">${escapeHtml(failure.date)}${failure.utilisateur ? ` · ${escapeHtml(failure.utilisateur)}` : ''}</div>
-            <div class="text-danger">${escapeHtml(failure.erreur)}</div></li>`).join('');
+            <div class="dash-failure-error">${escapeHtml(failure.erreur)}</div></li>`).join('');
 }
 
 function initDashboard(root) {

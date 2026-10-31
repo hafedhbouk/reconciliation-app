@@ -30,15 +30,15 @@ $.extend(true, $.fn.dataTable.defaults, {
 });
 
 import { Chart, registerables } from 'chart.js';
+// Tableau de bord analytique (filtres dynamiques, graphiques, tableau croisé) et style commun des graphiques.
+import { applyChartDefaults } from './dashboard';
 
 Chart.register(...registerables);
+applyChartDefaults(Chart);
 window.Chart = Chart;
 
 // Suivi en temps réel des opérations longues (barres de progression, « Mes opérations »).
 import './operations';
-
-// Tableau de bord analytique (filtres dynamiques, graphiques, tableau croisé).
-import './dashboard';
 
 // Chatbot métier (fenêtre « Assistant »).
 import './chatbot';
